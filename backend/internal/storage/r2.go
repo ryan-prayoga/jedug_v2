@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type R2Config struct {
 type R2Driver struct {
 	bucket        string
 	publicBaseURL string
+	client        *s3.Client
 	presign       *s3.PresignClient
 }
 
@@ -64,6 +66,7 @@ func NewR2Driver(ctx context.Context, cfg R2Config) (*R2Driver, error) {
 	return &R2Driver{
 		bucket:        cfg.Bucket,
 		publicBaseURL: strings.TrimRight(cfg.PublicBaseURL, "/"),
+		client:        client,
 		presign: s3.NewPresignClient(client, func(opts *s3.PresignOptions) {
 			opts.Expires = defaultPresignExpiry
 		}),
@@ -112,4 +115,15 @@ func (d *R2Driver) BuildPublicURL(objectKey string) string {
 		return ""
 	}
 	return d.publicBaseURL + "/" + key
+}
+
+func (d *R2Driver) Upload(ctx context.Context, objectKey, contentType string, body []byte) error {
+	_, err := d.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(d.bucket),
+		Key:           aws.String(NormalizeObjectKey(objectKey)),
+		Body:          bytes.NewReader(body),
+		ContentLength: aws.Int64(int64(len(body))),
+		ContentType:   aws.String(NormalizeContentType(contentType)),
+	})
+	return err
 }

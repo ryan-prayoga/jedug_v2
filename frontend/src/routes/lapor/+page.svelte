@@ -28,6 +28,8 @@
 	let geo = $state<GeoResult | null>(null);
 	let geoError = $state<string | null>(null);
 	let locationLoading = $state(false);
+	let manualLatitude = $state('');
+	let manualLongitude = $state('');
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
@@ -75,9 +77,28 @@
 		error = null;
 	}
 
+	function getResolvedLocation(): GeoResult | null {
+		if (geo) return geo;
+
+		const latitude = Number.parseFloat(manualLatitude);
+		const longitude = Number.parseFloat(manualLongitude);
+		if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+			return null;
+		}
+
+		return {
+			latitude,
+			longitude,
+			accuracy: 0
+		};
+	}
+
 	function validate(): string | null {
 		if (!selectedFile) return 'Foto wajib dipilih';
-		if (!geo) return 'Lokasi belum tersedia. Aktifkan izin lokasi lalu coba lagi.';
+		const location = getResolvedLocation();
+		if (!location) return 'Lokasi belum tersedia. Aktifkan izin lokasi atau isi koordinat manual.';
+		if (location.latitude < -90 || location.latitude > 90) return 'Latitude harus antara -90 sampai 90';
+		if (location.longitude < -180 || location.longitude > 180) return 'Longitude harus antara -180 sampai 180';
 		if (severity < 1 || severity > 5) return 'Pilih tingkat keparahan';
 		if (hasCasualty && casualtyCount < 1) return 'Jumlah korban minimal 1 jika ada korban';
 		if (note.length > 500) return 'Catatan maksimal 500 karakter';
@@ -85,7 +106,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!geo && !locationLoading) {
+		if (!getResolvedLocation() && !locationLoading) {
 			currentStep = 'getting-location';
 			await loadLocation(true);
 			currentStep = 'idle';
@@ -112,6 +133,11 @@
 		error = null;
 
 		try {
+			const location = getResolvedLocation();
+			if (!location) {
+				throw new Error('Lokasi belum tersedia. Aktifkan izin lokasi atau isi koordinat manual.');
+			}
+
 			// Step 1: Compress image
 			currentStep = 'compressing';
 			const compressed = await compressImage(selectedFile!);
@@ -129,15 +155,23 @@
 
 			// Step 3: Upload file
 			currentStep = 'uploading';
-			await uploadFile(upload_url, compressed.blob, 'image/webp', upload_method ?? 'POST', headers ?? {});
+			try {
+				await uploadFile(upload_url, compressed.blob, 'image/webp', upload_method ?? 'POST', headers ?? {});
+			} catch (uploadErr) {
+				if (presignRes.data.upload_mode !== 'r2') {
+					throw uploadErr;
+				}
+
+				await uploadFile(`/api/v1/uploads/file/${object_key}`, compressed.blob, 'image/webp', 'POST');
+			}
 
 			// Step 4: Submit report
 			currentStep = 'submitting';
 			const reportRes = await submitReport({
 				anon_token: token,
-				latitude: geo!.latitude,
-				longitude: geo!.longitude,
-				gps_accuracy_m: geo!.accuracy,
+				latitude: location.latitude,
+				longitude: location.longitude,
+				gps_accuracy_m: geo ? geo.accuracy : undefined,
 				severity,
 				note: note.trim() || undefined,
 				has_casualty: hasCasualty,
@@ -198,6 +232,29 @@
 			<div class="location-loading">Mengambil lokasi...</div>
 		{:else}
 			<div class="location-error">{geoError ?? 'Lokasi belum tersedia.'}</div>
+			<div class="manual-location">
+				<p class="manual-location-help">
+					Jika lokasi otomatis gagal di laptop, isi koordinat manual dari Google Maps.
+				</p>
+				<div class="manual-location-grid">
+					<input
+						type="number"
+						inputmode="decimal"
+						step="any"
+						placeholder="Latitude, mis. -6.200000"
+						bind:value={manualLatitude}
+						disabled={submitting}
+					/>
+					<input
+						type="number"
+						inputmode="decimal"
+						step="any"
+						placeholder="Longitude, mis. 106.816666"
+						bind:value={manualLongitude}
+						disabled={submitting}
+					/>
+				</div>
+			</div>
 			<button
 				type="button"
 				class="location-retry"
@@ -362,6 +419,26 @@
 	.location-retry:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+	.manual-location {
+		margin-top: 10px;
+	}
+	.manual-location-help {
+		font-size: 0.8rem;
+		color: #4a5568;
+		margin: 0 0 8px;
+	}
+	.manual-location-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 8px;
+	}
+	.manual-location-grid input {
+		border: 1px solid #e2e8f0;
+		border-radius: 8px;
+		padding: 10px 12px;
+		font-size: 0.9rem;
+		background: #fff;
 	}
 
 	/* Severity */

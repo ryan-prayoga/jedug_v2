@@ -72,6 +72,7 @@ type Driver interface {
 	GenerateObjectKey(req UploadRequest) (string, error)
 	CreatePresign(ctx context.Context, req UploadRequest, objectKey string) (*PresignResult, error)
 	BuildPublicURL(objectKey string) string
+	Upload(ctx context.Context, objectKey, contentType string, body []byte) error
 }
 
 func AllowedContentTypes() []string {
@@ -262,6 +263,14 @@ func (d *LocalDriver) BuildPublicURL(objectKey string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s/uploads/gallery/%s", d.publicBaseURL, key)
+}
+
+func (d *LocalDriver) Upload(_ context.Context, objectKey, _ string, body []byte) error {
+	absPath := d.AbsPath(objectKey)
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(absPath, body, 0o644)
 }
 
 func (d *LocalDriver) AbsPath(objectKey string) string {

@@ -37,6 +37,10 @@ func (d fakeDriver) BuildPublicURL(objectKey string) string {
 	return "https://cdn.example.test/" + NormalizeObjectKey(objectKey)
 }
 
+func (d fakeDriver) Upload(_ context.Context, _ string, _ string, _ []byte) error {
+	return nil
+}
+
 func TestValidateObjectKey(t *testing.T) {
 	t.Parallel()
 
