@@ -14,10 +14,10 @@ import (
 
 type IssueHandler struct {
 	svc     service.IssueService
-	storage storage.Driver
+	storage *storage.Service
 }
 
-func NewIssueHandler(svc service.IssueService, s storage.Driver) *IssueHandler {
+func NewIssueHandler(svc service.IssueService, s *storage.Service) *IssueHandler {
 	return &IssueHandler{svc: svc, storage: s}
 }
 
@@ -69,11 +69,9 @@ func (h *IssueHandler) Get(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusNotFound, "issue not found")
 	}
 
-	// Populate public_url for each media item using the storage driver
 	for _, m := range detail.Media {
-		m.PublicURL = h.storage.BuildPublicURL(m.ObjectKey)
+		m.PublicURL = h.storage.ResolvePublicURL(m.ObjectKey)
 	}
 
 	return response.OK(c, detail)
 }
-

@@ -12,10 +12,10 @@ import (
 
 type AdminHandler struct {
 	svc     service.AdminService
-	storage storage.Driver
+	storage *storage.Service
 }
 
-func NewAdminHandler(svc service.AdminService, s storage.Driver) *AdminHandler {
+func NewAdminHandler(svc service.AdminService, s *storage.Service) *AdminHandler {
 	return &AdminHandler{svc: svc, storage: s}
 }
 
@@ -81,7 +81,7 @@ func (h *AdminHandler) GetIssue(c *fiber.Ctx) error {
 	}
 
 	for _, m := range detail.Media {
-		m.PublicURL = h.storage.BuildPublicURL(m.ObjectKey)
+		m.PublicURL = h.storage.ResolvePublicURL(m.ObjectKey)
 	}
 
 	return response.OK(c, detail)
