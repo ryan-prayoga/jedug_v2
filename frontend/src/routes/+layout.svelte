@@ -1,0 +1,109 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import AppHeader from '$lib/components/AppHeader.svelte';
+	import ConsentSheet from '$lib/components/ConsentSheet.svelte';
+	import { getAnonToken, setAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
+	import { bootstrapDevice, recordConsent } from '$lib/api/device';
+
+	let { children } = $props();
+
+	let ready = $state(false);
+	let showConsent = $state(false);
+	let initError = $state<string | null>(null);
+
+	onMount(async () => {
+		try {
+			let token = getAnonToken();
+			if (!token) {
+				const res = await bootstrapDevice();
+				if (res.data) {
+					token = res.data.anon_token;
+					setAnonToken(token);
+				}
+			} else {
+				await bootstrapDevice(token).catch(() => {});
+			}
+
+			if (!isConsentGiven()) {
+				showConsent = true;
+			}
+
+			ready = true;
+		} catch (e) {
+			initError = e instanceof Error ? e.message : 'Gagal menginisialisasi';
+			ready = true;
+		}
+	});
+
+	async function handleConsent() {
+		const token = getAnonToken();
+		if (token) {
+			try {
+				await recordConsent(token);
+			} catch {
+				// still allow consent locally
+			}
+		}
+		setConsentGiven();
+		showConsent = false;
+	}
+</script>
+
+<svelte:head>
+	<title>JEDUG — Laporkan Jalan Rusak</title>
+	<meta name="description" content="Platform pelaporan jalan rusak berbasis partisipasi publik" />
+</svelte:head>
+
+<div class="app-shell">
+	<AppHeader />
+	<main class="app-main">
+		{@render children()}
+	</main>
+
+	{#if initError}
+		<div class="init-toast">⚠️ {initError}</div>
+	{/if}
+
+	{#if showConsent}
+		<ConsentSheet onaccept={handleConsent} />
+	{/if}
+</div>
+
+<style>
+	:global(*) {
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+	:global(body) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		background: #f7fafc;
+		color: #1a202c;
+		-webkit-font-smoothing: antialiased;
+	}
+	.app-shell {
+		min-height: 100dvh;
+		display: flex;
+		flex-direction: column;
+	}
+	.app-main {
+		flex: 1;
+		max-width: 480px;
+		width: 100%;
+		margin: 0 auto;
+		padding: 0 16px 24px;
+	}
+	.init-toast {
+		position: fixed;
+		bottom: 1rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: #fff5f5;
+		border: 1px solid #fed7d7;
+		color: #c53030;
+		font-size: 0.85rem;
+		padding: 8px 16px;
+		border-radius: 8px;
+		z-index: 200;
+	}
+</style>
