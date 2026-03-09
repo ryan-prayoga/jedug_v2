@@ -1,0 +1,44 @@
+name: Deploy JEDUG
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+
+            cd /home/ryandotcodotid/projects/jedug_v2
+
+            echo "Pull latest code"
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "Build backend"
+            cd backend
+            go mod tidy
+            mkdir -p bin
+            go build -o bin/jedug-api ./cmd/api
+            pm2 restart jedug-api
+
+            echo "Build frontend"
+            cd ../frontend
+            npm ci
+            npm run build
+            pm2 restart jedug-web
+
+            pm2 save
+
+            echo "Deploy selesai"
