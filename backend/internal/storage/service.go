@@ -61,3 +61,10 @@ func (s *Service) UploadMode() string {
 func (s *Service) LegacyLocal() *LocalDriver {
 	return s.legacyLocal
 }
+
+func (s *Service) Upload(ctx context.Context, objectKey, contentType string, body []byte) error {
+	if err := ValidateSubmittedMedia(objectKey, contentType, len(body)); err != nil {
+		return err
+	}
+	return s.active.Upload(ctx, objectKey, contentType, body)
+}

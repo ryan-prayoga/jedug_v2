@@ -1,9 +1,6 @@
 package handlers
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/gofiber/fiber/v2"
 	"jedug_backend/internal/http/response"
 	"jedug_backend/internal/storage"
@@ -44,11 +41,6 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 }
 
 func (h *UploadHandler) UploadFile(c *fiber.Ctx) error {
-	local := h.storage.LegacyLocal()
-	if local == nil || h.storage.UploadMode() != "local" {
-		return response.Error(c, fiber.StatusNotImplemented, "direct file upload is only available in local storage mode")
-	}
-
 	objectKey := c.Params("*")
 	if err := storage.ValidateObjectKey(objectKey); err != nil {
 		return response.Error(c, fiber.StatusBadRequest, err.Error())
@@ -58,18 +50,14 @@ func (h *UploadHandler) UploadFile(c *fiber.Ctx) error {
 	if len(body) == 0 {
 		return response.Error(c, fiber.StatusBadRequest, "empty file body")
 	}
-	if err := storage.ValidateSubmittedMedia(objectKey, c.Get(fiber.HeaderContentType), len(body)); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, err.Error())
-	}
 	if len(body) > storage.MaxFileSizeBytes {
 		return response.Error(c, fiber.StatusBadRequest, "file exceeds maximum size of 20MB")
 	}
 
-	absPath := local.AbsPath(objectKey)
-	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
-		return response.Error(c, fiber.StatusInternalServerError, "failed to prepare storage directory")
-	}
-	if err := os.WriteFile(absPath, body, 0o644); err != nil {
+	if err := h.storage.Upload(c.Context(), objectKey, c.Get(fiber.HeaderContentType), body); err != nil {
+		if storage.IsValidationError(err) {
+			return response.Error(c, fiber.StatusBadRequest, err.Error())
+		}
 		return response.Error(c, fiber.StatusInternalServerError, "failed to save file")
 	}
 
