@@ -26,7 +26,8 @@ jobs:
             cd /home/ryandotcodotid/projects/jedug_v2
 
             echo "Pull latest code"
-            git fetch origin
+            git remote -v
+            git fetch origin || (sleep 5 && git fetch origin)
             git reset --hard origin/main
 
             echo "Build backend"
