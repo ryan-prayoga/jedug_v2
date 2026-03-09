@@ -16,7 +16,7 @@ func Register(app *fiber.App, corsOrigins string) {
 	}))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: corsOrigins,
-		AllowHeaders: "Origin, Content-Type, Accept, X-Device-Token",
+		AllowHeaders: "Origin, Content-Type, Accept, X-Device-Token, Authorization",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
 }
