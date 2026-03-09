@@ -50,7 +50,7 @@
 	<div class="admin-shell">
 		<header class="admin-header">
 			<div class="header-inner">
-				<a href="/admin" class="logo">JEDUG Admin Test CI</a>
+				<a href="/admin" class="logo">JEDUG Admin</a>
 				<nav class="nav">
 					<a href="/admin/issues">Issues</a>
 				</nav>
