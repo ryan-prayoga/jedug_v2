@@ -17,6 +17,8 @@ export async function uploadFile(
   uploadUrl: string,
   file: Blob,
   contentType: string,
+  uploadMethod = "POST",
+  headers: Record<string, string> = {},
 ) {
-  return apiUploadBinary(uploadUrl, file, contentType);
+  return apiUploadBinary(uploadUrl, file, contentType, uploadMethod, headers);
 }
