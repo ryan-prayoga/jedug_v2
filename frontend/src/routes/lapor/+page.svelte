@@ -27,6 +27,7 @@
 	let currentStep = $state<Step>('idle');
 	let geo = $state<GeoResult | null>(null);
 	let geoError = $state<string | null>(null);
+	let locationLoading = $state(false);
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
@@ -51,12 +52,23 @@
 	// Get location on mount
 	import { onMount } from 'svelte';
 	onMount(async () => {
-		try {
-			geo = await getLocation();
-		} catch (e) {
-			geoError = e instanceof Error ? e.message : 'Gagal mengambil lokasi';
-		}
+		await loadLocation();
 	});
+
+	async function loadLocation(forceFresh = false) {
+		locationLoading = true;
+		geoError = null;
+		error = null;
+
+		try {
+			geo = await getLocation({ forceFresh });
+		} catch (e) {
+			geo = null;
+			geoError = e instanceof Error ? e.message : 'Gagal mengambil lokasi';
+		} finally {
+			locationLoading = false;
+		}
+	}
 
 	function handleFileChange(file: File) {
 		selectedFile = file;
@@ -65,7 +77,7 @@
 
 	function validate(): string | null {
 		if (!selectedFile) return 'Foto wajib dipilih';
-		if (!geo) return 'Lokasi belum tersedia';
+		if (!geo) return 'Lokasi belum tersedia. Aktifkan izin lokasi lalu coba lagi.';
 		if (severity < 1 || severity > 5) return 'Pilih tingkat keparahan';
 		if (hasCasualty && casualtyCount < 1) return 'Jumlah korban minimal 1 jika ada korban';
 		if (note.length > 500) return 'Catatan maksimal 500 karakter';
@@ -73,6 +85,12 @@
 	}
 
 	async function handleSubmit() {
+		if (!geo && !locationLoading) {
+			currentStep = 'getting-location';
+			await loadLocation(true);
+			currentStep = 'idle';
+		}
+
 		const validationError = validate();
 		if (validationError) {
 			error = validationError;
@@ -168,10 +186,26 @@
 				<span>{geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}</span>
 				<span class="accuracy">± {Math.round(geo.accuracy)}m</span>
 			</div>
-		{:else if geoError}
-			<div class="location-error">{geoError}</div>
-		{:else}
+			<button
+				type="button"
+				class="location-retry"
+				onclick={() => loadLocation(true)}
+				disabled={locationLoading || submitting}
+			>
+				Perbarui lokasi
+			</button>
+		{:else if locationLoading}
 			<div class="location-loading">Mengambil lokasi...</div>
+		{:else}
+			<div class="location-error">{geoError ?? 'Lokasi belum tersedia.'}</div>
+			<button
+				type="button"
+				class="location-retry"
+				onclick={() => loadLocation(true)}
+				disabled={locationLoading || submitting}
+			>
+				Coba ambil lokasi lagi
+			</button>
 		{/if}
 	</div>
 
@@ -250,7 +284,7 @@
 	<button
 		class="submit-btn"
 		onclick={handleSubmit}
-		disabled={submitting || !geo || !selectedFile}
+		disabled={submitting || !selectedFile || locationLoading}
 	>
 		{#if submitting}
 			Mengirim...
@@ -314,6 +348,20 @@
 		background: #f7fafc;
 		border: 1px solid #e2e8f0;
 		border-radius: 8px;
+	}
+	.location-retry {
+		margin-top: 8px;
+		border: 1px solid #cbd5e0;
+		background: #fff;
+		color: #2d3748;
+		padding: 8px 12px;
+		border-radius: 8px;
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+	.location-retry:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	/* Severity */
