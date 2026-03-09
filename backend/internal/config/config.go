@@ -11,6 +11,8 @@ type Config struct {
 	StorageDriver        string
 	StoragePublicBaseURL string
 	UploadDir            string
+	AdminUsername        string
+	AdminPassword        string
 }
 
 func Load() *Config {
@@ -23,6 +25,8 @@ func Load() *Config {
 		StorageDriver:        getEnv("STORAGE_DRIVER", "local"),
 		StoragePublicBaseURL: getEnv("STORAGE_PUBLIC_BASE_URL", "http://localhost:8080"),
 		UploadDir:            getEnv("UPLOAD_DIR", "./uploads/gallery"),
+		AdminUsername:        getEnv("ADMIN_USERNAME", "admin"),
+		AdminPassword:        mustGetEnv("ADMIN_PASSWORD"),
 	}
 }
 
