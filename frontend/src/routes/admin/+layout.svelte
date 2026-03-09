@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { getAdminToken, clearAdminToken } from '$lib/utils/storage';
 	import { adminMe } from '$lib/api/admin';
@@ -12,11 +11,16 @@
 
 	const isLoginPage = $derived($page.url.pathname === '/admin/login');
 
-	onMount(async () => {
+	afterNavigate(async ({ from }) => {
 		if (isLoginPage) {
 			ready = true;
 			return;
 		}
+
+		// Skip re-check when navigating within admin (already authenticated)
+		if (ready && from?.url.pathname !== '/admin/login') return;
+
+		ready = false;
 
 		const token = getAdminToken();
 		if (!token) {
