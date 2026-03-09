@@ -25,7 +25,10 @@ func main() {
 	}
 	defer db.Close()
 
-	app := apphttp.NewRouter(cfg, db)
+	app, err := apphttp.NewRouter(cfg, db)
+	if err != nil {
+		log.Fatalf("failed to build router: %v", err)
+	}
 
 	go func() {
 		if err := app.Listen(":" + cfg.AppPort); err != nil {

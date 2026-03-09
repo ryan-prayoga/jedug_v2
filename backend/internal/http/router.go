@@ -1,6 +1,9 @@
 package http
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"jedug_backend/internal/config"
@@ -11,7 +14,7 @@ import (
 	"jedug_backend/internal/storage"
 )
 
-func NewRouter(cfg *config.Config, db *pgxpool.Pool) *fiber.App {
+func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	app := fiber.New(fiber.Config{
 		AppName:   cfg.AppName,
 		BodyLimit: 25 * 1024 * 1024, // 25 MB to accommodate file uploads
@@ -19,10 +22,32 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) *fiber.App {
 
 	middleware.Register(app, cfg.CORSAllowOrigins)
 
-	// Storage driver (local for now; swap in R2Driver here when ready)
-	store := storage.NewLocalDriver(cfg.StoragePublicBaseURL, cfg.UploadDir)
+	legacyLocal := storage.NewLocalDriver(cfg.StoragePublicBaseURL, cfg.UploadDir)
 
-	// Serve uploaded files statically
+	var activeStorage storage.Driver
+	switch cfg.StorageDriver {
+	case "", "local":
+		activeStorage = legacyLocal
+	case "r2":
+		r2Driver, err := storage.NewR2Driver(context.Background(), storage.R2Config{
+			AccountID:       cfg.R2AccountID,
+			AccessKeyID:     cfg.R2AccessKeyID,
+			SecretAccessKey: cfg.R2SecretAccessKey,
+			Bucket:          cfg.R2Bucket,
+			Endpoint:        cfg.R2Endpoint,
+			PublicBaseURL:   cfg.R2PublicBaseURL,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("init r2 storage: %w", err)
+		}
+		activeStorage = r2Driver
+	default:
+		return nil, fmt.Errorf("unsupported STORAGE_DRIVER: %s", cfg.StorageDriver)
+	}
+
+	store := storage.NewService(activeStorage, legacyLocal)
+
+	// Keep serving legacy local uploads even after STORAGE_DRIVER switches to r2.
 	app.Static("/uploads/gallery", cfg.UploadDir)
 
 	// Wire up dependencies
@@ -77,6 +102,5 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) *fiber.App {
 	adminAuth.Post("/issues/:id/unhide", adminHandler.UnhideIssue)
 	adminAuth.Post("/devices/:id/ban", adminHandler.BanDevice)
 
-	return app
+	return app, nil
 }
-

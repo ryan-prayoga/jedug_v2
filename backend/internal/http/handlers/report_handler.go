@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"jedug_backend/internal/http/response"
 	"jedug_backend/internal/service"
+	"jedug_backend/internal/storage"
 )
 
 type ReportHandler struct {
@@ -130,11 +131,8 @@ func validateReportBody(b *submitReportBody) error {
 		if m.ObjectKey == "" {
 			return errors.New("media[" + itoa(i) + "].object_key is required")
 		}
-		if !allowedMimeTypes[m.MimeType] {
-			return errors.New("media[" + itoa(i) + "].mime_type is not supported")
-		}
-		if m.SizeBytes <= 0 {
-			return errors.New("media[" + itoa(i) + "].size_bytes must be > 0")
+		if err := storage.ValidateSubmittedMedia(m.ObjectKey, m.MimeType, m.SizeBytes); err != nil {
+			return errors.New("media[" + itoa(i) + "]: " + err.Error())
 		}
 	}
 	return nil
