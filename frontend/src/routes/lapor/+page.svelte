@@ -107,11 +107,11 @@
 			);
 			if (!presignRes.data) throw new Error('Gagal menyiapkan upload');
 
-			const { object_key, upload_url } = presignRes.data;
+			const { object_key, upload_url, upload_method, headers } = presignRes.data;
 
 			// Step 3: Upload file
 			currentStep = 'uploading';
-			await uploadFile(upload_url, compressed.blob, 'image/webp');
+			await uploadFile(upload_url, compressed.blob, 'image/webp', upload_method ?? 'POST', headers ?? {});
 
 			// Step 4: Submit report
 			currentStep = 'submitting';

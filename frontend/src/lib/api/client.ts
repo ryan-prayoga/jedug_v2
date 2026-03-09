@@ -18,6 +18,13 @@ async function parseResponse<T>(res: Response): Promise<ApiResponse<T>> {
   return json;
 }
 
+function resolveUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  return `${PUBLIC_API_BASE_URL}${path}`;
+}
+
 function getHeaders(token?: string): HeadersInit {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -32,7 +39,7 @@ export async function apiGet<T>(
   path: string,
   token?: string,
 ): Promise<ApiResponse<T>> {
-  const res = await fetch(`${PUBLIC_API_BASE_URL}${path}`, {
+  const res = await fetch(resolveUrl(path), {
     method: "GET",
     headers: getHeaders(token),
   });
@@ -44,7 +51,7 @@ export async function apiPost<T>(
   body?: unknown,
   token?: string,
 ): Promise<ApiResponse<T>> {
-  const res = await fetch(`${PUBLIC_API_BASE_URL}${path}`, {
+  const res = await fetch(resolveUrl(path), {
     method: "POST",
     headers: getHeaders(token),
     body: body ? JSON.stringify(body) : undefined,
@@ -56,13 +63,37 @@ export async function apiUploadBinary(
   path: string,
   file: Blob,
   contentType: string,
+  method = "POST",
+  extraHeaders: Record<string, string> = {},
 ): Promise<ApiResponse<undefined>> {
-  const res = await fetch(`${PUBLIC_API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": contentType,
-    },
+  const headers: HeadersInit = {
+    ...extraHeaders,
+  };
+  if (!("Content-Type" in headers) && !("content-type" in headers)) {
+    headers["Content-Type"] = contentType;
+  }
+
+  const res = await fetch(resolveUrl(path), {
+    method,
+    headers,
     body: file,
   });
-  return parseResponse<undefined>(res);
+
+  if (!res.ok) {
+    const responseType = res.headers.get("content-type") || "";
+    if (responseType.includes("application/json")) {
+      const json: ApiResponse<undefined> = await res.json();
+      throw new ApiError(json.message || "Upload failed", res.status);
+    }
+
+    const message = (await res.text()).trim() || "Upload failed";
+    throw new ApiError(message, res.status);
+  }
+
+  const responseType = res.headers.get("content-type") || "";
+  if (responseType.includes("application/json")) {
+    return parseResponse<undefined>(res);
+  }
+
+  return { success: true };
 }

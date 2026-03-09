@@ -18,7 +18,9 @@ export interface PresignData {
   object_key: string;
   upload_mode: string;
   upload_url: string;
+  upload_method?: string;
   public_url: string;
+  headers?: Record<string, string>;
 }
 
 // Report
