@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ConsentSheet from '$lib/components/ConsentSheet.svelte';
 	import { getAnonToken, setAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
@@ -11,7 +12,14 @@
 	let showConsent = $state(false);
 	let initError = $state<string | null>(null);
 
+	const isAdmin = $derived($page.url.pathname.startsWith('/admin'));
+
 	onMount(async () => {
+		if (isAdmin) {
+			ready = true;
+			return;
+		}
+
 		try {
 			let token = getAnonToken();
 			if (!token) {
@@ -54,20 +62,24 @@
 	<meta name="description" content="Platform pelaporan jalan rusak berbasis partisipasi publik" />
 </svelte:head>
 
-<div class="app-shell">
-	<AppHeader />
-	<main class="app-main">
-		{@render children()}
-	</main>
+{#if isAdmin}
+	{@render children()}
+{:else}
+	<div class="app-shell">
+		<AppHeader />
+		<main class="app-main">
+			{@render children()}
+		</main>
 
-	{#if initError}
-		<div class="init-toast">⚠️ {initError}</div>
-	{/if}
+		{#if initError}
+			<div class="init-toast">⚠️ {initError}</div>
+		{/if}
 
-	{#if showConsent}
-		<ConsentSheet onaccept={handleConsent} />
-	{/if}
-</div>
+		{#if showConsent}
+			<ConsentSheet onaccept={handleConsent} />
+		{/if}
+	</div>
+{/if}
 
 <style>
 	:global(*) {
