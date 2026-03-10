@@ -16,28 +16,33 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 3rem 1rem;
-		color: #c53030;
+		padding: 48px 16px;
+		color: #DC2626;
 	}
 	.icon {
-		font-size: 2.5rem;
-		margin-bottom: 0.75rem;
+		font-size: 48px;
+		margin-bottom: 12px;
+		line-height: 1;
 	}
 	p {
-		font-size: 0.95rem;
+		font-size: 14px;
 		text-align: center;
-		margin-bottom: 1rem;
+		margin-bottom: 16px;
+		max-width: 280px;
+		line-height: 1.5;
 	}
 	.retry-btn {
-		padding: 8px 20px;
-		font-size: 0.9rem;
-		color: #c53030;
-		background: #fff5f5;
-		border: 1px solid #feb2b2;
-		border-radius: 8px;
+		padding: 10px 20px;
+		font-size: 14px;
+		font-weight: 600;
+		color: #DC2626;
+		background: #FEF2F2;
+		border: 1px solid #FECACA;
+		border-radius: 12px;
 		cursor: pointer;
+		transition: background 0.15s;
 	}
 	.retry-btn:hover {
-		background: #fed7d7;
+		background: #FEE2E2;
 	}
 </style>

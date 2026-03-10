@@ -34,14 +34,14 @@
 
 	// ── Severity → color ──────────────────────────────────────────
 	function getSeverityColor(severity: number, status: string): string {
-		if (status === 'fixed' || status === 'archived') return '#94a3b8';
+		if (status === 'fixed' || status === 'archived') return '#94A3B8';
 		switch (severity) {
-			case 1: return '#eab308';
-			case 2: return '#f97316';
-			case 3: return '#ef4444';
-			case 4: return '#dc2626';
-			case 5: return '#991b1b';
-			default: return '#f97316';
+			case 1: return '#F6C453';
+			case 2: return '#F97316';
+			case 3: return '#DC2626';
+			case 4: return '#DC2626';
+			case 5: return '#991B1B';
+			default: return '#F97316';
 		}
 	}
 
@@ -50,9 +50,9 @@
 		const wrapper = document.createElement('div');
 		const color = getSeverityColor(issue.severity_current, issue.status);
 		const isFixed = issue.status === 'fixed' || issue.status === 'archived';
-		// Outer touch-target, inner visible dot
-		const size = 32;
-		const dotSize = issue.severity_current >= 4 ? 20 : issue.severity_current >= 2 ? 16 : 14;
+		// Larger touch-target, inner visible dot
+		const size = 36;
+		const dotSize = issue.severity_current >= 3 ? 20 : issue.severity_current >= 2 ? 16 : 14;
 
 		wrapper.className = 'jedug-marker';
 		wrapper.style.cssText = `
@@ -86,14 +86,14 @@
 			background: ${color};
 			border: 2.5px solid #fff;
 			border-radius: 50%;
-			box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-			${isFixed ? 'opacity: 0.5;' : ''}
+			box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+			${isFixed ? 'opacity: 0.45;' : ''}
 		`;
 		visual.appendChild(dot);
 		wrapper.appendChild(visual);
 
 		wrapper.addEventListener('mouseenter', () => {
-			visual.style.transform = 'scale(1.3)';
+			visual.style.transform = 'scale(1.25)';
 			wrapper.style.zIndex = '10';
 		});
 		wrapper.addEventListener('mouseleave', () => {
@@ -114,9 +114,9 @@
 			const visual = entry.visual;
 			if (id === selectedId) {
 				el.classList.add('selected');
-				visual.style.transform = 'scale(1.4)';
+				visual.style.transform = 'scale(1.5)';
 				el.style.zIndex = '20';
-				visual.style.filter = 'drop-shadow(0 0 4px rgba(239,68,68,0.6))';
+				visual.style.filter = 'drop-shadow(0 0 6px rgba(229,72,77,0.5))';
 			} else {
 				el.classList.remove('selected');
 				visual.style.transform = 'scale(1)';

@@ -17,10 +17,10 @@
 
 	<div class="actions">
 		<a href="/lapor" class="btn btn-primary">
-			📸 Laporkan Jalan Rusak
+			Laporkan Jalan Rusak
 		</a>
 		<a href="/issues" class="btn btn-secondary">
-			📋 Lihat Laporan Publik
+			Lihat Laporan Publik
 		</a>
 	</div>
 </div>
@@ -30,33 +30,34 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding-top: 2.5rem;
+		padding-top: 48px;
 		text-align: center;
 	}
 	.hero {
-		margin-bottom: 1.5rem;
+		margin-bottom: 24px;
 	}
 	.title {
-		font-size: 3rem;
+		font-size: 48px;
 		font-weight: 900;
-		color: #e53e3e;
-		letter-spacing: -1px;
+		color: #E5484D;
+		letter-spacing: -1.5px;
 		margin-bottom: 8px;
+		line-height: 1;
 	}
 	.tagline {
-		font-size: 1.1rem;
-		color: #4a5568;
+		font-size: 16px;
+		color: #64748B;
 		line-height: 1.5;
 	}
 	.description {
 		max-width: 400px;
-		margin-bottom: 2rem;
+		margin-bottom: 32px;
 	}
 	.description p {
-		font-size: 0.95rem;
-		color: #718096;
+		font-size: 14px;
+		color: #64748B;
 		line-height: 1.6;
-		margin-bottom: 0.75rem;
+		margin-bottom: 12px;
 	}
 	.actions {
 		display: flex;
@@ -66,28 +67,35 @@
 		max-width: 320px;
 	}
 	.btn {
-		display: block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		text-align: center;
 		text-decoration: none;
-		padding: 16px 24px;
-		font-size: 1.1rem;
+		padding: 14px 24px;
+		font-size: 16px;
 		font-weight: 600;
 		border-radius: 12px;
-		transition: opacity 0.15s;
+		min-height: 48px;
+		transition: opacity 0.15s, transform 0.1s;
 	}
-	.btn:hover {
-		opacity: 0.9;
+	.btn:active {
+		transform: scale(0.97);
 	}
 	.btn-primary {
-		background: #e53e3e;
+		background: #E5484D;
 		color: #fff;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+	}
+	.btn-primary:hover {
+		opacity: 0.88;
 	}
 	.btn-secondary {
 		background: #fff;
-		color: #2d3748;
-		border: 1px solid #e2e8f0;
+		color: #0F172A;
+		border: 1px solid #E2E8F0;
 	}
 	.btn-secondary:hover {
-		background: #f7fafc;
+		background: #F8FAFC;
 	}
 </style>

@@ -47,11 +47,13 @@
 	}
 	h2 {
 		margin: 0 0 12px;
-		font-size: 1.2rem;
+		font-size: 18px;
+		font-weight: 700;
+		color: #0F172A;
 	}
 	.consent-body {
-		font-size: 0.9rem;
-		color: #4a5568;
+		font-size: 14px;
+		color: #64748B;
 		line-height: 1.5;
 		margin-bottom: 20px;
 	}
@@ -66,18 +68,25 @@
 		margin-bottom: 4px;
 	}
 	.accept-btn {
-		display: block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 100%;
 		padding: 14px;
-		font-size: 1.05rem;
+		font-size: 16px;
 		font-weight: 600;
 		color: #fff;
-		background: #e53e3e;
+		background: #E5484D;
 		border: none;
 		border-radius: 12px;
+		min-height: 48px;
 		cursor: pointer;
+		transition: opacity 0.15s, transform 0.1s;
 	}
 	.accept-btn:hover {
-		opacity: 0.9;
+		opacity: 0.88;
+	}
+	.accept-btn:active {
+		transform: scale(0.97);
 	}
 </style>

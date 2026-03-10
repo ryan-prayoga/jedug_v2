@@ -55,20 +55,21 @@
 		justify-content: center;
 		width: 100%;
 		min-height: 180px;
-		background: #f7fafc;
-		border: 2px dashed #cbd5e0;
+		background: #F8FAFC;
+		border: 2px dashed #E2E8F0;
 		border-radius: 12px;
 		cursor: pointer;
-		color: #718096;
-		font-size: 1rem;
+		color: #64748B;
+		font-size: 14px;
 		gap: 8px;
+		transition: border-color 0.15s, background 0.15s;
 	}
 	.picker-placeholder:hover {
-		border-color: #a0aec0;
-		background: #edf2f7;
+		border-color: #CBD5E1;
+		background: #F1F5F9;
 	}
 	.picker-icon {
-		font-size: 2.5rem;
+		font-size: 36px;
 	}
 	.preview-container {
 		position: relative;
@@ -91,9 +92,10 @@
 		position: absolute;
 		bottom: 8px;
 		right: 8px;
-		background: rgba(0, 0, 0, 0.6);
+		background: rgba(0, 0, 0, 0.55);
 		color: #fff;
-		font-size: 0.8rem;
+		font-size: 12px;
+		font-weight: 500;
 		padding: 4px 12px;
 		border-radius: 8px;
 	}

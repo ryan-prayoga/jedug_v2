@@ -89,10 +89,13 @@
 		box-sizing: border-box;
 	}
 	:global(body) {
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-		background: #f7fafc;
-		color: #1a202c;
+		font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		background: #F8FAFC;
+		color: #0F172A;
+		font-size: 14px;
+		line-height: 1.5;
 		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
 	}
 	.app-shell {
 		min-height: 100dvh;
@@ -116,12 +119,13 @@
 		bottom: 1rem;
 		left: 50%;
 		transform: translateX(-50%);
-		background: #fff5f5;
-		border: 1px solid #fed7d7;
-		color: #c53030;
-		font-size: 0.85rem;
+		background: #FFF5F5;
+		border: 1px solid #FED7D7;
+		color: #DC2626;
+		font-size: 12px;
 		padding: 8px 16px;
-		border-radius: 8px;
+		border-radius: 12px;
+		box-shadow: 0 4px 16px rgba(0,0,0,0.10);
 		z-index: 200;
 	}
 </style>
