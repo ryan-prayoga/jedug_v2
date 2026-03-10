@@ -21,31 +21,28 @@
 
 	let mapContainer: HTMLDivElement;
 	let map: maplibregl.Map | null = null;
-	let markersOnMap: Map<string, { marker: maplibregl.Marker; el: HTMLDivElement; issue: Issue }> = new Map();
+	let mapReady = $state(false); // reactive flag so $effect can track it
+	let markersOnMap: Map<
+		string,
+		{ marker: maplibregl.Marker; el: HTMLDivElement; visual: HTMLDivElement; issue: Issue }
+	> = new Map();
 	let didAutoCenter = false;
 
-	// Default center: Jakarta / Central Java
 	const DEFAULT_CENTER: [number, number] = [110.4, -7.0];
 	const DEFAULT_ZOOM = 7;
 	const USER_ZOOM = 15;
 
 	// ── Severity → color ──────────────────────────────────────────
 	function getSeverityColor(severity: number, status: string): string {
-		if (status === 'fixed' || status === 'archived') return '#94a3b8'; // slate-400
+		if (status === 'fixed' || status === 'archived') return '#94a3b8';
 		switch (severity) {
-			case 1: return '#eab308'; // yellow-500
-			case 2: return '#f97316'; // orange-500
-			case 3: return '#ef4444'; // red-500
-			case 4: return '#dc2626'; // red-600
-			case 5: return '#991b1b'; // red-900
+			case 1: return '#eab308';
+			case 2: return '#f97316';
+			case 3: return '#ef4444';
+			case 4: return '#dc2626';
+			case 5: return '#991b1b';
 			default: return '#f97316';
 		}
-	}
-
-	function getSeverityRing(severity: number): string {
-		if (severity >= 4) return 'rgba(220,38,38,0.25)';
-		if (severity >= 3) return 'rgba(239,68,68,0.2)';
-		return 'transparent';
 	}
 
 	// ── Create marker DOM element ─────────────────────────────────
@@ -53,12 +50,11 @@
 		const wrapper = document.createElement('div');
 		const color = getSeverityColor(issue.severity_current, issue.status);
 		const isFixed = issue.status === 'fixed' || issue.status === 'archived';
-		const ring = getSeverityRing(issue.severity_current);
-		const size = 28; // touch-friendly minimum
-		const dotSize = issue.severity_current >= 4 ? 18 : issue.severity_current >= 2 ? 15 : 13;
+		// Outer touch-target, inner visible dot
+		const size = 32;
+		const dotSize = issue.severity_current >= 4 ? 20 : issue.severity_current >= 2 ? 16 : 14;
 
 		wrapper.className = 'jedug-marker';
-		wrapper.dataset.issueId = issue.id;
 		wrapper.style.cssText = `
 			width: ${size}px;
 			height: ${size}px;
@@ -66,9 +62,21 @@
 			align-items: center;
 			justify-content: center;
 			cursor: pointer;
-			background: ${ring};
 			border-radius: 50%;
-			transition: transform 0.15s ease;
+			pointer-events: auto;
+		`;
+
+		const visual = document.createElement('div');
+		visual.className = 'jedug-marker-visual';
+		visual.style.cssText = `
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 50%;
+			transition: transform 0.15s ease, filter 0.15s ease;
+			transform-origin: center center;
 		`;
 
 		const dot = document.createElement('div');
@@ -78,22 +86,23 @@
 			background: ${color};
 			border: 2.5px solid #fff;
 			border-radius: 50%;
-			box-shadow: 0 1px 6px rgba(0,0,0,0.35);
-			${isFixed ? 'opacity: 0.55;' : ''}
+			box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+			${isFixed ? 'opacity: 0.5;' : ''}
 		`;
-		wrapper.appendChild(dot);
+		visual.appendChild(dot);
+		wrapper.appendChild(visual);
 
-		// Hover/touch feedback
 		wrapper.addEventListener('mouseenter', () => {
-			wrapper.style.transform = 'scale(1.25)';
+			visual.style.transform = 'scale(1.3)';
 			wrapper.style.zIndex = '10';
 		});
 		wrapper.addEventListener('mouseleave', () => {
 			if (!wrapper.classList.contains('selected')) {
-				wrapper.style.transform = 'scale(1)';
+				visual.style.transform = 'scale(1)';
 				wrapper.style.zIndex = '';
 			}
 		});
+		(wrapper as HTMLDivElement & { __visual?: HTMLDivElement }).__visual = visual;
 
 		return wrapper;
 	}
@@ -102,17 +111,17 @@
 	function updateSelectedMarkerStyle(selectedId: string | null) {
 		for (const [id, entry] of markersOnMap) {
 			const el = entry.el;
+			const visual = entry.visual;
 			if (id === selectedId) {
 				el.classList.add('selected');
-				el.style.transform = 'scale(1.35)';
+				visual.style.transform = 'scale(1.4)';
 				el.style.zIndex = '20';
-				// Add selected ring
-				el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.4)';
+				visual.style.filter = 'drop-shadow(0 0 4px rgba(239,68,68,0.6))';
 			} else {
 				el.classList.remove('selected');
-				el.style.transform = 'scale(1)';
+				visual.style.transform = 'scale(1)';
 				el.style.zIndex = '';
-				el.style.boxShadow = '';
+				visual.style.filter = '';
 			}
 		}
 	}
@@ -131,10 +140,16 @@
 	}
 
 	// ── Sync markers with current issues array ────────────────────
-	function syncMarkers() {
+	function syncMarkers(issueList: Issue[]) {
 		if (!map) return;
 
-		const currentIds = new Set(issues.map((i) => i.id));
+		console.log('[IssueMap] syncMarkers called, count:', issueList.length);
+		if (issueList.length > 0) {
+			const sample = issueList[0];
+			console.log('[IssueMap] sample issue:', sample.id, 'lat:', sample.latitude, 'lng:', sample.longitude, 'sev:', sample.severity_current);
+		}
+
+		const currentIds = new Set(issueList.map((i) => i.id));
 
 		// Remove markers no longer in dataset
 		for (const [id, entry] of markersOnMap) {
@@ -144,15 +159,15 @@
 			}
 		}
 
-		// Add new markers
-		for (const issue of issues) {
-			// Skip hidden/rejected (safety — backend already filters)
+		let added = 0;
+		for (const issue of issueList) {
 			if (issue.status === 'hidden' || issue.status === 'rejected') continue;
-			if (!issue.latitude || !issue.longitude) continue;
-
+			// Use typeof check: lat/lng could be 0 which is falsy but valid
+			if (typeof issue.latitude !== 'number' || typeof issue.longitude !== 'number') continue;
 			if (markersOnMap.has(issue.id)) continue;
 
 			const el = createMarkerElement(issue);
+			const visual = (el as HTMLDivElement & { __visual?: HTMLDivElement }).__visual ?? el;
 			el.addEventListener('click', (e) => {
 				e.stopPropagation();
 				onissueselect(issue);
@@ -162,27 +177,31 @@
 				.setLngLat([issue.longitude, issue.latitude])
 				.addTo(map!);
 
-			markersOnMap.set(issue.id, { marker, el, issue });
+			markersOnMap.set(issue.id, { marker, el, visual, issue });
+			added++;
 		}
-
-		// Ensure selected state is applied
-		updateSelectedMarkerStyle(selectedIssue?.id ?? null);
+		console.log('[IssueMap] markers added:', added, 'total on map:', markersOnMap.size);
 	}
 
 	// ── React to issues changes ───────────────────────────────────
+	// CRITICAL: read both reactive deps (mapReady, issues) BEFORE any
+	// conditional so Svelte 5 $effect always tracks them.
 	$effect(() => {
-		if (map && issues) {
-			syncMarkers();
+		const ready = mapReady;
+		const issueList = issues;
+		if (ready && map) {
+			syncMarkers(issueList);
 		}
 	});
 
 	// ── React to selectedIssue ────────────────────────────────────
 	$effect(() => {
-		const selId = selectedIssue?.id ?? null;
-		updateSelectedMarkerStyle(selId);
-		if (map && selectedIssue) {
+		const sel = selectedIssue;
+		const ready = mapReady;
+		updateSelectedMarkerStyle(sel?.id ?? null);
+		if (ready && map && sel) {
 			map.flyTo({
-				center: [selectedIssue.longitude, selectedIssue.latitude],
+				center: [sel.longitude, sel.latitude],
 				zoom: Math.max(map.getZoom(), 14),
 				duration: 500
 			});
@@ -205,7 +224,6 @@
 				});
 			},
 			() => {
-				// Permission denied or error — stay at default center
 				didAutoCenter = true;
 			},
 			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
@@ -227,12 +245,10 @@
 				new maplibregl.AttributionControl({ compact: true }),
 				'bottom-right'
 			);
-
 			map.addControl(
 				new maplibregl.NavigationControl({ showCompass: false }),
 				'top-right'
 			);
-
 			map.addControl(
 				new maplibregl.GeolocateControl({
 					positionOptions: { enableHighAccuracy: true },
@@ -242,14 +258,14 @@
 			);
 
 			map.on('load', () => {
+				console.log('[IssueMap] map style loaded');
+				mapReady = true; // ← triggers $effect
 				emitBBox();
-				// Auto-center to user location once the map is ready
 				tryAutoCenter();
 			});
 
 			map.on('moveend', emitBBox);
 
-			// Click on map background deselects
 			map.on('click', () => {
 				onissueselect(null);
 			});
@@ -274,14 +290,5 @@
 		width: 100%;
 		height: 100%;
 		min-height: 300px;
-	}
-
-	/* Ensure markers are above map tiles */
-	.map-wrapper :global(.maplibregl-marker) {
-		z-index: 1;
-	}
-
-	.map-wrapper :global(.maplibregl-marker:hover) {
-		z-index: 10 !important;
 	}
 </style>
