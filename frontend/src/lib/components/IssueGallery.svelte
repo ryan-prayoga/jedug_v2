@@ -62,8 +62,13 @@
 		</div>
 	{:else}
 		<div class="gallery-empty">
-			<strong>Galeri masih kosong</strong>
-			<p>Belum ada foto tambahan yang layak tampil untuk issue ini.</p>
+			{#if totalPhotoCount > 0}
+				<strong>Foto tidak berhasil dimuat</strong>
+				<p>Coba buka ulang halaman atau jaringan lain untuk melihat foto publik issue ini.</p>
+			{:else}
+				<strong>Galeri masih kosong</strong>
+				<p>Belum ada foto tambahan yang layak tampil untuk issue ini.</p>
+			{/if}
 		</div>
 	{/if}
 </section>

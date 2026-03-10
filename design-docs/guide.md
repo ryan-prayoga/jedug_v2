@@ -123,14 +123,15 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Layout mobile-first dengan urutan informasi:
   1. hero media utama (full-width mobile, rounded desktop)
   2. badges severity/status/verification
-  3. metrik ringkas (laporan/foto/korban/update terakhir)
+  3. metrik ringkas (laporan/foto/korban/reaksi/update terakhir)
   4. galeri media publik
-  5. detail tambahan + catatan publik (jika ada)
+  5. detail tambahan + catatan publik aman (jika ada)
   6. aktivitas terbaru + CTA share/action
 - Shareability built-in:
   - tombol share
   - link cepat WhatsApp/Telegram/Twitter(X)/Facebook
   - metadata SEO/OG/Twitter canonical disiapkan dari SSR data route
+  - OG image memakai `primary_media` bila tersedia, fallback ke asset JEDUG jika tidak ada foto
 - Desktop issue detail memakai container lebih lebar dari route publik biasa, dengan card action/share di kolom samping agar halaman terasa lebih lega tanpa mengubah flow `/issues` map-first.
 - Fallback states wajib:
   - not found
@@ -138,6 +139,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - loading retry
   - fallback media rusak
   - empty gallery
+- Catatan publik di issue detail tidak boleh memakai note mentah bila sudah ada `public_note` yang lebih aman dan ringkas dari API.
 - Visual tetap mengikuti token:
   - severity colors (kuning-oranye-merah)
   - status/verification badge color-coded

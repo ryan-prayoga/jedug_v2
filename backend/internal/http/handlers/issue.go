@@ -81,6 +81,9 @@ func (h *IssueHandler) Get(c *fiber.Ctx) error {
 	for _, m := range detail.Media {
 		m.PublicURL = h.storage.ResolvePublicURL(m.ObjectKey)
 	}
+	if detail.PrimaryMedia != nil && detail.PrimaryMedia.PublicURL == "" {
+		detail.PrimaryMedia.PublicURL = h.storage.ResolvePublicURL(detail.PrimaryMedia.ObjectKey)
+	}
 
 	return response.OK(c, detail)
 }

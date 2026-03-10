@@ -34,6 +34,8 @@ type Issue struct {
 // IssueDetail is returned by the GET /api/v1/issues/:id endpoint.
 type IssueDetail struct {
 	*Issue
+	PrimaryMedia      *MediaItem           `json:"primary_media,omitempty"`
+	PublicNote        *string              `json:"public_note,omitempty"`
 	Media             []*MediaItem         `json:"media"`
 	RecentSubmissions []*SubmissionSummary `json:"recent_submissions"`
 }

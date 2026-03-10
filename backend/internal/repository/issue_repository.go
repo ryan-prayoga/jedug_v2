@@ -12,6 +12,8 @@ import (
 	"jedug_backend/internal/domain"
 )
 
+const maxPublicNoteLength = 220
+
 // BBoxFilter is an optional geographic bounding box filter for issue listing.
 type BBoxFilter struct {
 	MinLng, MinLat, MaxLng, MaxLat float64
@@ -186,9 +188,14 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 		return nil, err
 	}
 
+	var primaryMedia *domain.MediaItem
+	if len(media) > 0 {
+		primaryMedia = media[0]
+	}
+
 	// Last 3 public-facing submissions (minimal public fields only).
 	subRows, err := r.db.Query(ctx, `
-		SELECT id, status, severity, has_casualty, note, reported_at
+		SELECT id, status, severity, has_casualty, casualty_count, note, reported_at
 		FROM issue_submissions
 		WHERE issue_id = $1
 		  AND status <> 'rejected'
@@ -204,19 +211,49 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 	for subRows.Next() {
 		var s domain.SubmissionSummary
 		if err := subRows.Scan(
-			&s.ID, &s.Status, &s.Severity, &s.HasCasualty, &s.Note, &s.ReportedAt,
+			&s.ID, &s.Status, &s.Severity, &s.HasCasualty, &s.CasualtyCount, &s.Note, &s.ReportedAt,
 		); err != nil {
 			return nil, err
 		}
+		s.PublicNote = normalizePublicNote(s.Note, maxPublicNoteLength)
 		subs = append(subs, &s)
 	}
 	if err := subRows.Err(); err != nil {
 		return nil, err
 	}
 
+	var publicNote *string
+	for _, submission := range subs {
+		if submission.PublicNote != nil {
+			publicNote = submission.PublicNote
+			break
+		}
+	}
+
 	return &domain.IssueDetail{
 		Issue:             issue,
+		PrimaryMedia:      primaryMedia,
+		PublicNote:        publicNote,
 		Media:             media,
 		RecentSubmissions: subs,
 	}, nil
+}
+
+func normalizePublicNote(note *string, maxLength int) *string {
+	if note == nil {
+		return nil
+	}
+
+	normalized := strings.Join(strings.Fields(strings.TrimSpace(*note)), " ")
+	if normalized == "" {
+		return nil
+	}
+
+	if maxLength > 0 && len([]rune(normalized)) > maxLength {
+		runes := []rune(normalized)
+		truncated := string(runes[:maxLength-1]) + "…"
+		return &truncated
+	}
+
+	return &normalized
 }
