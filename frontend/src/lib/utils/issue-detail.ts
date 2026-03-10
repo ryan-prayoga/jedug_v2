@@ -1,4 +1,4 @@
-import type { IssueDetail, MediaItem } from '$lib/api/types';
+import type { IssueDetail, MediaItem, SubmissionSummary } from '$lib/api/types';
 
 export interface IssueDetailSeo {
 	title: string;
@@ -6,6 +6,8 @@ export interface IssueDetailSeo {
 	canonical_url: string;
 	og_image_url: string;
 	og_image_alt: string;
+	og_image_width: string | null;
+	og_image_height: string | null;
 	twitter_card: 'summary_large_image';
 	share_text: string;
 	fallback_og_image_url: string;
@@ -77,6 +79,13 @@ export function getVerificationTone(verificationStatus: string): Tone {
 	return VERIFICATION_TONES[verificationStatus] || VERIFICATION_TONES.unverified;
 }
 
+export function getIssuePrimaryMedia(issue: IssueDetail | null): MediaItem | null {
+	if (!issue) return null;
+	if (issue.primary_media) return issue.primary_media;
+	if (issue.media.length === 0) return null;
+	return issue.media.find((item) => item.is_primary) || issue.media[0];
+}
+
 export function getPrimaryMedia(media: MediaItem[]): MediaItem | null {
 	if (media.length === 0) return null;
 	return media.find((item) => item.is_primary) || media[0];
@@ -117,12 +126,45 @@ export function formatCoordinates(latitude: number, longitude: number, precision
 }
 
 export function getPublicIssueNote(issue: IssueDetail, maxLength = 220): string | null {
-	const firstNote = issue.recent_submissions.find((item) => item.note && item.note.trim().length > 0)?.note;
-	if (!firstNote) return null;
+	const note =
+		issue.public_note ||
+		issue.recent_submissions.find((item) => item.public_note && item.public_note.trim().length > 0)
+			?.public_note ||
+		issue.recent_submissions.find((item) => item.note && item.note.trim().length > 0)?.note;
 
-	const normalized = firstNote.replace(/\s+/g, ' ').trim();
+	if (!note) return null;
+
+	const normalized = note.replace(/\s+/g, ' ').trim();
 	if (normalized.length <= maxLength) return normalized;
 	return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+export function getSubmissionPublicNote(submission: SubmissionSummary, maxLength = 180): string | null {
+	const note = submission.public_note || submission.note;
+	if (!note) return null;
+
+	const normalized = note.replace(/\s+/g, ' ').trim();
+	if (normalized.length <= maxLength) return normalized;
+	return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+export function getIssueSnapshot(issue: IssueDetail): string {
+	const parts = [
+		`${getSeverityLabel(issue.severity_current)}`
+	];
+
+	parts.push(`${issue.submission_count} laporan`);
+	parts.push(`${issue.photo_count} foto`);
+
+	if (issue.casualty_count > 0) {
+		parts.push(`${issue.casualty_count} korban tercatat`);
+	}
+
+	if (issue.reaction_count > 0) {
+		parts.push(`${issue.reaction_count} reaksi publik`);
+	}
+
+	return parts.join(' · ');
 }
 
 type BuildSeoOptions = {
@@ -139,6 +181,8 @@ export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeo
 			canonical_url: options.canonicalUrl,
 			og_image_url: options.fallbackOgImageUrl,
 			og_image_alt: 'Ilustrasi laporan jalan rusak JEDUG',
+			og_image_width: null,
+			og_image_height: null,
 			twitter_card: 'summary_large_image',
 			share_text: 'Lihat detail issue jalan rusak di JEDUG',
 			fallback_og_image_url: options.fallbackOgImageUrl
@@ -148,17 +192,30 @@ export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeo
 	const locationLabel = getIssueLocationLabel(issue);
 	const severityLabel = getSeverityLabel(issue.severity_current);
 	const statusLabel = getStatusLabel(issue.status);
-	const primaryMedia = getPrimaryMedia(issue.media);
+	const primaryMedia = getIssuePrimaryMedia(issue);
 
 	const title =
 		issue.status === 'open'
 			? `Jalan Rusak ${severityLabel} di ${locationLabel} | JEDUG`
 			: `Issue Jalan Rusak ${statusLabel} di ${locationLabel} | JEDUG`;
 
+	const detailParts = [
+		`${issue.submission_count} laporan`,
+		`${issue.photo_count} foto`
+	];
+
+	if (issue.casualty_count > 0) {
+		detailParts.push(`${issue.casualty_count} korban tercatat`);
+	}
+
+	if (issue.reaction_count > 0) {
+		detailParts.push(`${issue.reaction_count} reaksi publik`);
+	}
+
 	const description =
 		`Lihat detail laporan jalan rusak di ${locationLabel}: ` +
-		`keparahan ${severityLabel.toLowerCase()}, ${issue.submission_count} laporan, ` +
-		`${issue.photo_count} foto, dan status terbaru ${statusLabel.toLowerCase()}.`;
+		`tingkat keparahan ${severityLabel.toLowerCase()}, ${detailParts.join(', ')}, ` +
+		`dan status terbaru ${statusLabel.toLowerCase()}.`;
 
 	return {
 		title,
@@ -168,8 +225,10 @@ export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeo
 		og_image_alt: primaryMedia
 			? `Foto issue jalan rusak di ${locationLabel}`
 			: 'Ilustrasi laporan jalan rusak JEDUG',
+		og_image_width: primaryMedia?.width ? String(primaryMedia.width) : null,
+		og_image_height: primaryMedia?.height ? String(primaryMedia.height) : null,
 		twitter_card: 'summary_large_image',
-		share_text: `Pantau issue jalan rusak ${severityLabel.toLowerCase()} di ${locationLabel}`,
+		share_text: `Pantau issue jalan rusak ${severityLabel.toLowerCase()} di ${locationLabel} lewat JEDUG`,
 		fallback_og_image_url: options.fallbackOgImageUrl
 	};
 }

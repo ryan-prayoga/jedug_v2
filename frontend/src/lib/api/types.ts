@@ -96,11 +96,15 @@ export interface SubmissionSummary {
   status: string;
   severity: number;
   has_casualty: boolean;
+  casualty_count: number;
   note: string | null;
+  public_note?: string | null;
   reported_at: string;
 }
 
 export interface IssueDetail extends Issue {
+  primary_media?: MediaItem | null;
+  public_note?: string | null;
   media: MediaItem[];
   recent_submissions: SubmissionSummary[];
 }

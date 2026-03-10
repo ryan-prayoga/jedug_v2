@@ -107,6 +107,30 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - tidak ada mismatch arsitektur baru; perubahan terbatas pada UX state dan visual polish frontend.
 
+## 2026-03-10 - Issue Detail Public Contract Tightening
+
+- Scope:
+  - menambah field additive aman pada `GET /api/v1/issues/:id` untuk halaman detail publik production-ready.
+  - mempertegas urutan informasi `/issues/[id]` agar lebih siap dibagikan dan lebih aman untuk publik.
+- Dampak area:
+  - `backend/internal/domain/issue.go`
+  - `backend/internal/domain/submission.go`
+  - `backend/internal/repository/issue_repository.go`
+  - `backend/internal/http/handlers/issue.go`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/lib/utils/issue-detail.ts`
+  - `frontend/src/lib/components/IssueHeader.svelte`
+  - `frontend/src/lib/components/IssueStats.svelte`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tidak ada perubahan breaking; note mentah tetap ada di response untuk kompatibilitas, tetapi UI publik dipindahkan ke `public_note` yang sudah diringkas.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

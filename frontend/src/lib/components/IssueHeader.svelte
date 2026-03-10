@@ -19,6 +19,7 @@
 		verificationLabel,
 		verificationTone,
 		heroMedia,
+		snapshot,
 		onHeroSelect = () => {},
 		onHeroError = () => {}
 	}: {
@@ -33,6 +34,7 @@
 		verificationLabel: string;
 		verificationTone: Tone;
 		heroMedia: MediaItem | null;
+		snapshot: string;
 		onHeroSelect?: () => void;
 		onHeroError?: () => void;
 	} = $props();
@@ -90,6 +92,7 @@
 			<span aria-hidden="true">·</span>
 			{coordinatesLabel}
 		</p>
+		<p class="snapshot">{snapshot}</p>
 
 		<div class="meta-grid">
 			<article class="meta-item">
@@ -251,6 +254,13 @@
 		grid-template-columns: repeat(1, minmax(0, 1fr));
 		gap: 10px;
 		margin-top: 16px;
+	}
+
+	.snapshot {
+		margin-top: 10px;
+		font-size: 13px;
+		line-height: 1.5;
+		color: #334155;
 	}
 
 	.meta-item {

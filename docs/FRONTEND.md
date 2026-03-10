@@ -65,9 +65,9 @@
 - UI detail page bersifat mobile-first:
   - hero media + fallback placeholder
   - meta issue (severity/status/verification/lokasi/first seen/last seen)
-  - metrik ringkas (laporan/foto/korban/update terakhir)
+  - metrik ringkas (laporan/foto/korban/reaksi/update terakhir)
   - galeri media publik sederhana + preview lightbox
-  - detail tambahan + catatan publik ringkas + aktivitas terbaru
+  - detail tambahan + `public_note` ringkas + aktivitas terbaru yang memakai `recent_submissions[].public_note`
   - CTA share + social links + open external map
 - Komponen route dipisah agar maintainable:
   - `IssueHeader.svelte`
@@ -109,6 +109,7 @@ Di `/lapor`:
 - consent bootstrap flow sebelum submit report
 - auth guard admin layout (`/admin/+layout.svelte`)
 - metadata SSR untuk `/issues/[id]` (title/description/OG/Twitter/canonical)
+- additive field detail issue (`primary_media`, `public_note`, `recent_submissions[].public_note`) diprioritaskan untuk halaman publik agar tidak menampilkan note mentah
 
 ## Current Implementation
 

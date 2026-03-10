@@ -83,7 +83,10 @@
   - exclude status `rejected`, `merged` agar deep-link publik konsisten dengan list/map
 - `FindByIDWithDetail`:
   - media publik top 20, primary first, exclude submission berstatus `rejected`
+  - expose `primary_media` additive untuk hero/OG fallback, tetap kompatibel dengan array `media`
+  - expose `public_note` additive sebagai ringkasan catatan publik yang sudah dinormalisasi/truncate
   - recent submissions top 3, exclude submission berstatus `rejected`
+  - recent submissions membawa `casualty_count` dan `public_note` additive agar UI tidak perlu menampilkan note mentah
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
 
@@ -131,6 +134,15 @@ Perubahan field berikut berisiko tinggi:
 - `submission_count`, `photo_count`, `casualty_count`
 - `flag_count`
 - `region_name` (field turunan dari tabel `regions` yang dipakai detail page publik)
+
+Untuk `GET /api/v1/issues/:id`, field additive publik yang dipakai halaman detail production-ready saat ini:
+
+- `primary_media`
+- `public_note`
+- `recent_submissions[].public_note`
+- `recent_submissions[].casualty_count`
+
+Backward compatibility dijaga dengan tidak menghapus field lama seperti `media`, `recent_submissions[].note`, atau shape `Issue` yang dipakai map/list/admin.
 
 ## Current Implementation
 

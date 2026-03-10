@@ -7,11 +7,13 @@
 		submissionCount,
 		photoCount,
 		casualtyCount,
+		reactionCount,
 		updatedAt
 	}: {
 		submissionCount: number;
 		photoCount: number;
 		casualtyCount: number;
+		reactionCount: number;
 		updatedAt: string;
 	} = $props();
 </script>
@@ -31,6 +33,11 @@
 		<span class="label">Korban</span>
 		<strong>{numberFormatter.format(casualtyCount)}</strong>
 		<small>{casualtyCount > 0 ? 'Laporan korban tercatat' : 'Belum ada korban tercatat'}</small>
+	</article>
+	<article class="stat-card">
+		<span class="label">Reaksi</span>
+		<strong>{numberFormatter.format(reactionCount)}</strong>
+		<small>{reactionCount > 0 ? 'Dukungan publik tercatat' : 'Belum ada reaksi publik'}</small>
 	</article>
 	<article class="stat-card">
 		<span class="label">Diperbarui</span>
@@ -86,7 +93,7 @@
 
 	@media (min-width: 768px) {
 		.issue-stats {
-			grid-template-columns: repeat(4, minmax(0, 1fr));
+			grid-template-columns: repeat(5, minmax(0, 1fr));
 		}
 	}
 </style>

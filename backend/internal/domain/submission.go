@@ -23,10 +23,12 @@ type MediaItem struct {
 
 // SubmissionSummary is a lightweight submission view used in issue detail responses.
 type SubmissionSummary struct {
-	ID          uuid.UUID `json:"id"`
-	Status      string    `json:"status"`
-	Severity    int       `json:"severity"`
-	HasCasualty bool      `json:"has_casualty"`
-	Note        *string   `json:"note,omitempty"`
-	ReportedAt  time.Time `json:"reported_at"`
+	ID            uuid.UUID `json:"id"`
+	Status        string    `json:"status"`
+	Severity      int       `json:"severity"`
+	HasCasualty   bool      `json:"has_casualty"`
+	CasualtyCount int       `json:"casualty_count"`
+	Note          *string   `json:"note,omitempty"`
+	PublicNote    *string   `json:"public_note,omitempty"`
+	ReportedAt    time.Time `json:"reported_at"`
 }

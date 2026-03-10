@@ -80,14 +80,16 @@ Dokumen ini bukan sumber utama token desain.
   - lokasi utama
   - first seen
   - last seen
+  - snapshot singkat issue (`severity · laporan · foto · korban/reaksi jika ada`)
 
 ## IssueStats
 
-- Grid 2 kolom di mobile, 4 kolom di desktop
+- Grid 2 kolom di mobile, 5 kolom di desktop
 - Item wajib:
   - laporan
   - foto
   - korban
+  - reaksi
   - update terakhir
 - Card korban boleh diberi state alert ringan jika `casualty_count > 0`
 
@@ -114,6 +116,15 @@ Dokumen ini bukan sumber utama token desain.
   - Facebook
   - salin link
 - Primary share menggunakan Web Share API bila tersedia, lalu fallback ke copy link
+
+## Issue Detail Activity
+
+- Ringkasan aktivitas publik hanya boleh memakai data aman:
+  - severity
+  - reported_at
+  - `public_note` yang sudah diringkas
+  - casualty indicator/count jika aman
+- Jangan tampilkan moderation note, device info, atau catatan internal lain.
 
 ## PrimaryButton
 
