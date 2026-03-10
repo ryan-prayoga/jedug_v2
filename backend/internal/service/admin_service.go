@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"log"
 	"sync"
 	"time"
 
@@ -143,12 +144,18 @@ func (s *adminService) FixIssue(ctx context.Context, id uuid.UUID, username stri
 	if err := s.repo.UpdateIssueStatus(ctx, id, "fixed"); err != nil {
 		return err
 	}
+	if err := s.repo.AdjustSubmitterTrustScores(ctx, id, 1); err != nil {
+		log.Printf("[TRUST] fix_adjust_failed issue=%s err=%v", id, err)
+	}
 	return s.repo.CreateModerationAction(ctx, "mark_fixed", "issue", id, username, reason)
 }
 
 func (s *adminService) RejectIssue(ctx context.Context, id uuid.UUID, username string, reason *string) error {
 	if err := s.repo.UpdateIssueStatus(ctx, id, "rejected"); err != nil {
 		return err
+	}
+	if err := s.repo.AdjustSubmitterTrustScores(ctx, id, -2); err != nil {
+		log.Printf("[TRUST] reject_adjust_failed issue=%s err=%v", id, err)
 	}
 	return s.repo.CreateModerationAction(ctx, "reject_issue", "issue", id, username, reason)
 }

@@ -22,6 +22,7 @@ type SubmitMediaInput struct {
 }
 
 type SubmitInput struct {
+	ClientRequestID uuid.UUID
 	DeviceID      uuid.UUID
 	Longitude     float64
 	Latitude      float64
@@ -42,6 +43,7 @@ type SubmitResult struct {
 
 type ReportRepository interface {
 	SubmitReport(ctx context.Context, input SubmitInput) (*SubmitResult, error)
+	FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error)
 }
 
 type reportRepository struct {
@@ -85,7 +87,7 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	}
 
 	submissionID := uuid.New()
-	clientRequestID := uuid.New()
+	clientRequestID := input.ClientRequestID
 	if err := createSubmission(ctx, tx, submissionID, clientRequestID, issueID, regionID, input); err != nil {
 		return nil, err
 	}
@@ -235,4 +237,22 @@ func updateIssueCounters(ctx context.Context, tx pgx.Tx, issueID uuid.UUID, inpu
 		WHERE id = $4
 	`, len(input.Media), casualtyCount, input.Severity, issueID)
 	return err
+}
+
+func (r *reportRepository) FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error) {
+	var issueID, submissionID uuid.UUID
+	err := r.db.QueryRow(ctx, `
+		SELECT issue_id, id FROM issue_submissions WHERE client_request_id = $1 LIMIT 1
+	`, clientRequestID).Scan(&issueID, &submissionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &SubmitResult{
+		IssueID:      issueID,
+		SubmissionID: submissionID,
+		IsNewIssue:   false,
+	}, nil
 }

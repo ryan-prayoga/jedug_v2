@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,11 +56,13 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueRepo := repository.NewIssueRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
+	flagRepo := repository.NewFlagRepository(db)
 
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
 	reportSvc := service.NewReportService(deviceRepo, reportRepo)
 	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo)
+	flagSvc := service.NewFlagService(deviceRepo, flagRepo, adminRepo)
 
 	healthHandler := handlers.NewHealthHandler(db)
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
@@ -67,6 +70,14 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	uploadHandler := handlers.NewUploadHandler(store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
 	adminHandler := handlers.NewAdminHandler(adminSvc, store)
+	flagHandler := handlers.NewFlagHandler(flagSvc)
+
+	// Rate limiters
+	rlBootstrap := middleware.RateLimit(10, 1*time.Minute)
+	rlConsent := middleware.RateLimit(10, 1*time.Minute)
+	rlPresign := middleware.RateLimit(20, 1*time.Minute)
+	rlReport := middleware.RateLimit(5, 1*time.Minute)
+	rlFlag := middleware.RateLimit(10, 1*time.Minute)
 
 	// Routes
 	api := app.Group("/api/v1")
@@ -74,18 +85,19 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	api.Get("/health", healthHandler.Health)
 
 	device := api.Group("/device")
-	device.Post("/bootstrap", deviceHandler.Bootstrap)
-	device.Post("/consent", deviceHandler.Consent)
+	device.Post("/bootstrap", rlBootstrap, deviceHandler.Bootstrap)
+	device.Post("/consent", rlConsent, deviceHandler.Consent)
 
 	uploads := api.Group("/uploads")
-	uploads.Post("/presign", uploadHandler.Presign)
+	uploads.Post("/presign", rlPresign, uploadHandler.Presign)
 	uploads.Post("/file/*", uploadHandler.UploadFile)
 
-	api.Post("/reports", reportHandler.Submit)
+	api.Post("/reports", rlReport, reportHandler.Submit)
 
 	issues := api.Group("/issues")
 	issues.Get("/", issueHandler.List)
 	issues.Get("/:id", issueHandler.Get)
+	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
 
 	// Admin routes
 	admin := api.Group("/admin")
