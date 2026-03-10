@@ -1,42 +1,27 @@
-# sv
+# JEDUG Frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Frontend JEDUG dibangun dengan SvelteKit 2 + Svelte 5 + MapLibre.
 
-## Creating a project
+## Quick Start
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.12.5 create --template minimal --types ts --no-install .
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+```bash
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+## Dokumentasi Utama
 
-To create a production version of your app:
+Gunakan dokumen pusat berikut agar konsisten lintas agent:
 
-```sh
-npm run build
-```
+- `AGENTS.md`
+- `docs/FRONTEND.md`
+- `docs/MAP_AND_LOCATION.md`
+- `docs/STORAGE_AND_MEDIA.md`
+- `docs/DESIGN_INDEX.md`
+- `design-docs/design-system.md`
+- `design-docs/component-spec.md`
+- `design-docs/guide.md`
 
-You can preview the production build with `npm run preview`.
+## Catatan
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+`README` ini sengaja ringkas. Detail arsitektur route, kontrak API, flow map, upload, dan aturan desain dipelihara di `docs/` + `design-docs/` sebagai source of truth.
