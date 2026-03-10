@@ -50,6 +50,7 @@ Dokumen ini disusun dari:
 - Rawan salah paham:
   - `status` bukan hal yang sama dengan visibility; visibility utama publik tetap dipengaruhi `is_hidden`.
   - `severity_current`/`severity_max` adalah agregasi issue, bukan severity tiap submission.
+  - API publik dapat menurunkan `region_name` via join tabel `regions`; field ini turunan query, bukan kolom fisik di `issues`.
 
 ### `issue_submissions`
 

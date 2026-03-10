@@ -116,11 +116,27 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 ### Detail Laporan (`/issues/[id]`)
 
-- Severity colors baru (kuning-oranye-merah)
-- Status badges color-coded per status
-- Semua rem → px, grays → design spec neutrals
-- Button primary `#E5484D`, secondary white + border
-- 12px radius cards, min-height 48px buttons
+- Layout mobile-first dengan urutan informasi:
+  1. hero media utama (full-width mobile, rounded desktop)
+  2. badges severity/status/verification
+  3. metrik ringkas (laporan/foto/korban/reaksi/visibility)
+  4. info utama + info tambahan + catatan publik (jika ada)
+  5. galeri media + aktivitas terbaru + CTA share/action
+- Shareability built-in:
+  - tombol share
+  - link cepat WhatsApp/Telegram/Twitter(X)/Facebook
+  - metadata SEO/OG/Twitter canonical disiapkan dari SSR data route
+- Fallback states wajib:
+  - not found
+  - error
+  - loading retry
+  - fallback media rusak
+  - empty gallery
+- Visual tetap mengikuti token:
+  - severity colors (kuning-oranye-merah)
+  - status/verification badge color-coded
+  - card white + border `#E2E8F0`, radius 16px
+  - CTA primary `#E5484D`, min-height 48px
 
 ---
 
@@ -143,10 +159,9 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 ## Apa yang Belum Diubah
 
-- **Backend** — tidak ada perubahan di Go/API
-- **Fungsionalitas** — tidak ada logic baru, murni visual
-- **Struktur file** — tidak ada file baru di `src/`, hanya edit
-- **Tailwind/CSS framework** — tetap inline scoped styles
+- **Flow map publik utama (`/issues`)** — tetap map-first, tidak dirombak.
+- **Flow submit report (`/lapor`)** — tidak berubah.
+- **Tailwind/CSS framework** — tetap inline scoped styles (tanpa migrasi framework).
 
 ## Read This Next
 

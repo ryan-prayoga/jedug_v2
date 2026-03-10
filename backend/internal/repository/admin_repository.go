@@ -40,6 +40,7 @@ const adminIssueCols = `
 	ST_X(i.public_location::geometry) AS longitude,
 	ST_Y(i.public_location::geometry) AS latitude,
 	i.region_id,
+	r.name AS region_name,
 	i.road_name,
 	i.road_type,
 	i.submission_count,
@@ -58,7 +59,7 @@ func scanAdminIssue(row pgx.Row, i *domain.AdminIssue) error {
 	return row.Scan(
 		&i.ID, &i.Status, &i.VerificationStatus, &i.SeverityCurrent, &i.SeverityMax,
 		&i.Longitude, &i.Latitude,
-		&i.RegionID, &i.RoadName, &i.RoadType,
+		&i.RegionID, &i.RegionName, &i.RoadName, &i.RoadType,
 		&i.SubmissionCount, &i.PhotoCount, &i.CasualtyCount, &i.ReactionCount, &i.FlagCount,
 		&i.IsHidden,
 		&i.FirstSeenAt, &i.LastSeenAt, &i.CreatedAt, &i.UpdatedAt,
@@ -66,7 +67,7 @@ func scanAdminIssue(row pgx.Row, i *domain.AdminIssue) error {
 }
 
 func (r *adminRepository) ListIssues(ctx context.Context, limit, offset int, status *string) ([]*domain.AdminIssue, error) {
-	query := `SELECT ` + adminIssueCols + ` FROM issues i`
+	query := `SELECT ` + adminIssueCols + ` FROM issues i LEFT JOIN regions r ON r.id = i.region_id`
 	args := []any{}
 	n := 1
 
@@ -91,7 +92,7 @@ func (r *adminRepository) ListIssues(ctx context.Context, limit, offset int, sta
 		if err := rows.Scan(
 			&i.ID, &i.Status, &i.VerificationStatus, &i.SeverityCurrent, &i.SeverityMax,
 			&i.Longitude, &i.Latitude,
-			&i.RegionID, &i.RoadName, &i.RoadType,
+			&i.RegionID, &i.RegionName, &i.RoadName, &i.RoadType,
 			&i.SubmissionCount, &i.PhotoCount, &i.CasualtyCount, &i.ReactionCount, &i.FlagCount,
 			&i.IsHidden,
 			&i.FirstSeenAt, &i.LastSeenAt, &i.CreatedAt, &i.UpdatedAt,
@@ -104,7 +105,7 @@ func (r *adminRepository) ListIssues(ctx context.Context, limit, offset int, sta
 }
 
 func (r *adminRepository) FindIssueByID(ctx context.Context, id uuid.UUID) (*domain.AdminIssue, error) {
-	query := `SELECT ` + adminIssueCols + ` FROM issues i WHERE i.id = $1 LIMIT 1`
+	query := `SELECT ` + adminIssueCols + ` FROM issues i LEFT JOIN regions r ON r.id = i.region_id WHERE i.id = $1 LIMIT 1`
 	var i domain.AdminIssue
 	err := scanAdminIssue(r.db.QueryRow(ctx, query, id), &i)
 	if err != nil {
@@ -252,5 +253,3 @@ func (r *adminRepository) AdjustSubmitterTrustScores(ctx context.Context, issueI
 	`, delta, issueID)
 	return err
 }
-
-

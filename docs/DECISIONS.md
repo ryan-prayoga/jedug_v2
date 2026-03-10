@@ -61,6 +61,16 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - false positive mungkin terjadi di kasus kontroversial.
   - audit auto-hide wajib tercatat di `moderation_actions`.
 
+## 2026-03-10 - Selective SSR untuk Public Issue Detail
+
+- Keputusan:
+  - tetap mempertahankan CSR global di root layout, tetapi mengaktifkan SSR khusus route `/issues/[id]`.
+- Konteks:
+  - halaman detail issue harus shareable lintas platform sosial dengan metadata yang tersedia saat initial response.
+- Konsekuensi:
+  - metadata `title/description/og/twitter/canonical` dapat di-generate server-side tanpa merombak flow map publik yang sudah live.
+  - implementasi route detail perlu menjaga fallback state client (error/not-found/retry) agar UX tetap stabil saat API bermasalah.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.

@@ -17,6 +17,7 @@ type Issue struct {
 	Longitude          float64   `json:"longitude"`
 	Latitude           float64   `json:"latitude"`
 	RegionID           *int64    `json:"region_id,omitempty"`
+	RegionName         *string   `json:"region_name,omitempty"`
 	RoadName           *string   `json:"road_name,omitempty"`
 	RoadType           *string   `json:"road_type,omitempty"`
 	SubmissionCount    int       `json:"submission_count"`
@@ -36,4 +37,3 @@ type IssueDetail struct {
 	Media             []*MediaItem         `json:"media"`
 	RecentSubmissions []*SubmissionSummary `json:"recent_submissions"`
 }
-

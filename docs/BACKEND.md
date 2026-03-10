@@ -77,8 +77,11 @@
   - filter `is_hidden = false`
   - exclude status `rejected`, `merged`
   - optional `status`, `severity >=`, `bbox`
+  - enrich lokasi dengan `region_name` (join `regions`) untuk kebutuhan UI publik
 - `FindByIDWithDetail`:
   - media top 5, recent submissions top 3
+  - resolve `public_url` media via storage service (compatible local legacy + R2)
+  - hanya expose field publik (tanpa device/admin/internal note)
 
 ### Moderation
 
@@ -123,6 +126,7 @@ Perubahan field berikut berisiko tinggi:
 - `severity_current`
 - `submission_count`, `photo_count`, `casualty_count`
 - `flag_count`
+- `region_name` (field turunan dari tabel `regions` yang dipakai detail page publik)
 
 ## Current Implementation
 
