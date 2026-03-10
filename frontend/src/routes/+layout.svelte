@@ -13,6 +13,7 @@
 	let initError = $state<string | null>(null);
 
 	const isAdmin = $derived($page.url.pathname.startsWith('/admin'));
+	const isMapPage = $derived($page.url.pathname === '/issues');
 
 	onMount(async () => {
 		if (isAdmin) {
@@ -67,7 +68,7 @@
 {:else}
 	<div class="app-shell">
 		<AppHeader />
-		<main class="app-main">
+		<main class="app-main" class:app-main-full={isMapPage}>
 			{@render children()}
 		</main>
 
@@ -104,6 +105,11 @@
 		width: 100%;
 		margin: 0 auto;
 		padding: 0 16px 24px;
+	}
+	.app-main-full {
+		max-width: none;
+		padding: 0;
+		overflow: hidden;
 	}
 	.init-toast {
 		position: fixed;

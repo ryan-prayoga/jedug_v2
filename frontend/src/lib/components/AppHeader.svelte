@@ -2,7 +2,7 @@
 	<a href="/" class="logo">JEDUG</a>
 	<div class="nav-links">
 		<a href="/lapor">Lapor</a>
-		<a href="/issues">Daftar</a>
+		<a href="/issues">Peta</a>
 	</div>
 </nav>
 

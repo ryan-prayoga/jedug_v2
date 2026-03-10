@@ -18,7 +18,7 @@ type BBoxFilter struct {
 }
 
 type IssueRepository interface {
-	List(ctx context.Context, limit, offset int, status *string, bbox *BBoxFilter) ([]*domain.Issue, error)
+	List(ctx context.Context, limit, offset int, status *string, severity *int, bbox *BBoxFilter) ([]*domain.Issue, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.Issue, error)
 	FindByIDWithDetail(ctx context.Context, id uuid.UUID) (*domain.IssueDetail, error)
 }
@@ -65,7 +65,7 @@ func scanIssueRow(row pgx.Row, i *domain.Issue) error {
 	)
 }
 
-func (r *issueRepository) List(ctx context.Context, limit, offset int, status *string, bbox *BBoxFilter) ([]*domain.Issue, error) {
+func (r *issueRepository) List(ctx context.Context, limit, offset int, status *string, severity *int, bbox *BBoxFilter) ([]*domain.Issue, error) {
 	conditions := []string{
 		"i.is_hidden = FALSE",
 		"i.status NOT IN ('rejected', 'merged')",
@@ -76,6 +76,12 @@ func (r *issueRepository) List(ctx context.Context, limit, offset int, status *s
 	if status != nil {
 		conditions = append(conditions, fmt.Sprintf("i.status = $%d", n))
 		args = append(args, *status)
+		n++
+	}
+
+	if severity != nil {
+		conditions = append(conditions, fmt.Sprintf("i.severity_current >= $%d", n))
+		args = append(args, *severity)
 		n++
 	}
 
