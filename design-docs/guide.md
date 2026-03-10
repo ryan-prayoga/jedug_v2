@@ -104,7 +104,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 ### Peta & Daftar Laporan (`/issues`)
 
 - Map overlay 10px radius, side panel 360px
-- Empty state dengan icon + CTA link ke /lapor
+- Empty state map tidak memakai popup tengah; status area ditampilkan sebagai info badge di kiri atas
 - Toolbar, badges, filter semua ke design spec
 - Bottom CTA `#E5484D`, 48px min-height
 - Guard state transisi list ↔ map untuk menghindari false-empty/flicker saat map remount

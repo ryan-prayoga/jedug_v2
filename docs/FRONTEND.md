@@ -54,6 +54,7 @@
 - Reset cache bbox saat user kembali dari list ke map untuk mencegah stuck loading pada viewport yang sama.
 - Empty state map hanya dirender setelah fetch viewport valid selesai agar tidak muncul false-empty saat map baru mount.
 - Error fetch viewport tidak langsung mengosongkan marker; state terakhir dipertahankan untuk menghindari flicker.
+- Empty state map menggunakan info badge top-left (tanpa popup tengah) agar tidak menutupi area peta.
 
 ## Detail Issue Publik (`/issues/[id]`)
 

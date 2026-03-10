@@ -26,8 +26,8 @@ Dokumen ini bukan sumber utama token desain.
 - Full viewport minus header
 - Map controls: top-right, compact
 - Loading overlay: top-left, pill badge, spinning dot + "Memuat..."
-- Issue count badge: top-left, pill, `{n} titik`, bold, white bg, soft shadow
-- Empty state overlay: centered, rounded card, muted text + CTA link
+- Map info badge: top-left, pill, menampilkan `{n} titik` + status area (ada/tidak ada laporan)
+- Empty state map tidak menggunakan popup tengah; informasi "tidak ada laporan" ditampilkan di info badge
 - Error overlay: top full-width, red bg
 
 ## Marker
