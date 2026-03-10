@@ -13,12 +13,22 @@
 	} = $props();
 
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
-	const severityColor = ['', '#38a169', '#d69e2e', '#dd6b20', '#e53e3e', '#9b2c2c'];
+	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
 	const statusLabel: Record<string, string> = {
 		open: 'Terbuka',
-		fixed: 'Diperbaiki',
+		fixed: 'Selesai',
 		archived: 'Diarsipkan'
 	};
+	const statusColor: Record<string, { bg: string; text: string }> = {
+		open: { bg: '#EFF6FF', text: '#2563EB' },
+		fixed: { bg: '#F1F5F9', text: '#64748B' },
+		archived: { bg: '#F1F5F9', text: '#64748B' }
+	};
+
+	function getStatusStyle(status: string) {
+		const sc = statusColor[status] || statusColor['open'];
+		return `background: ${sc.bg}; color: ${sc.text}`;
+	}
 
 	function handleOverlayClick() {
 		onclose();
@@ -36,18 +46,23 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="sheet" onclick={handleSheetClick}>
-			<div class="sheet-handle"></div>
+			<div class="sheet-handle-area">
+				<div class="sheet-handle"></div>
+			</div>
 
 			<div class="sheet-content">
-				<!-- Badges -->
-				<div class="badges">
+				<!-- Severity as dominant element -->
+				<div class="sheet-top-row">
 					<span
 						class="severity-badge"
-						style="background: {severityColor[issue.severity_current] || '#888'}"
+						style="background: {severityColor[issue.severity_current] || '#94A3B8'}"
 					>
 						{severityLabel[issue.severity_current] || `Level ${issue.severity_current}`}
 					</span>
-					<span class="status-badge">
+					<span
+						class="status-badge"
+						style={getStatusStyle(issue.status)}
+					>
 						{statusLabel[issue.status] || issue.status}
 					</span>
 				</div>
@@ -55,7 +70,7 @@
 				<!-- Location -->
 				<div class="location">
 					{#if issue.road_name}
-						<strong>{issue.road_name}</strong>
+						<span class="road-name">{issue.road_name}</span>
 					{:else}
 						<span class="coords">{issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}</span>
 					{/if}
@@ -64,7 +79,7 @@
 					{/if}
 				</div>
 
-				<!-- Stats -->
+				<!-- Stats Grid -->
 				<div class="stats">
 					<div class="stat">
 						<span class="stat-value">{issue.submission_count}</span>
@@ -89,7 +104,7 @@
 				<!-- Actions -->
 				<div class="actions">
 					<a href="/issues/{issue.id}" class="btn btn-primary">Lihat Detail</a>
-					<a href="/lapor" class="btn btn-secondary">📸 Lapor di Sini</a>
+					<a href="/lapor" class="btn btn-secondary">Lapor di Sini</a>
 				</div>
 			</div>
 		</div>
@@ -106,7 +121,6 @@
 		justify-content: center;
 	}
 
-	/* Desktop: side panel style */
 	@media (min-width: 768px) {
 		.sheet-overlay {
 			align-items: stretch;
@@ -116,126 +130,130 @@
 		}
 		.sheet {
 			pointer-events: auto;
-			width: 360px !important;
+			width: 380px !important;
 			max-height: 100% !important;
 			border-radius: 0 !important;
-			border-left: 1px solid #e2e8f0;
+			border-left: 1px solid #E2E8F0;
 			animation: slideInRight 0.2s ease-out !important;
+		}
+		.sheet-handle-area {
+			display: none;
 		}
 	}
 
 	.sheet {
 		background: #fff;
 		width: 100%;
-		max-height: 60vh;
-		border-radius: 16px 16px 0 0;
-		box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+		max-height: 55vh;
+		border-radius: 20px 20px 0 0;
+		box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.10);
 		animation: slideUp 0.2s ease-out;
 		overflow-y: auto;
 	}
 
 	@keyframes slideUp {
-		from {
-			transform: translateY(100%);
-		}
-		to {
-			transform: translateY(0);
-		}
+		from { transform: translateY(100%); }
+		to { transform: translateY(0); }
 	}
 
 	@keyframes slideInRight {
-		from {
-			transform: translateX(100%);
-		}
-		to {
-			transform: translateX(0);
-		}
+		from { transform: translateX(100%); }
+		to { transform: translateX(0); }
+	}
+
+	.sheet-handle-area {
+		padding: 12px 0 4px;
+		display: flex;
+		justify-content: center;
 	}
 
 	.sheet-handle {
-		width: 36px;
+		width: 40px;
 		height: 4px;
-		background: #cbd5e0;
+		background: #CBD5E1;
 		border-radius: 2px;
-		margin: 10px auto 0;
-	}
-
-	@media (min-width: 768px) {
-		.sheet-handle {
-			display: none;
-		}
 	}
 
 	.sheet-content {
-		padding: 14px 18px 20px;
+		padding: 12px 20px 24px;
 	}
 
-	.badges {
+	.sheet-top-row {
 		display: flex;
+		align-items: center;
 		gap: 8px;
-		margin-bottom: 8px;
+		margin-bottom: 12px;
 	}
 
 	.severity-badge {
-		font-size: 0.75rem;
+		font-size: 12px;
 		font-weight: 600;
 		color: #fff;
-		padding: 2px 10px;
+		padding: 4px 12px;
 		border-radius: 999px;
+		line-height: 1;
 	}
 
 	.status-badge {
-		font-size: 0.75rem;
-		color: #718096;
-		background: #edf2f7;
-		padding: 2px 10px;
+		font-size: 12px;
+		font-weight: 500;
+		padding: 4px 12px;
 		border-radius: 999px;
+		line-height: 1;
 	}
 
 	.location {
-		margin-bottom: 10px;
-		font-size: 0.95rem;
+		margin-bottom: 16px;
+	}
+
+	.road-name {
+		font-size: 15px;
+		font-weight: 600;
+		color: #0F172A;
 	}
 
 	.coords {
-		color: #718096;
-		font-size: 0.85rem;
+		color: #64748B;
+		font-size: 13px;
+		font-family: 'SF Mono', 'Fira Code', monospace;
 	}
 
 	.road-type {
-		color: #a0aec0;
-		font-size: 0.85rem;
+		color: #94A3B8;
+		font-size: 13px;
+		margin-left: 4px;
 	}
 
 	.stats {
 		display: flex;
-		gap: 12px;
-		margin-bottom: 14px;
+		gap: 16px;
+		margin-bottom: 16px;
 		flex-wrap: wrap;
 	}
 
 	.stat {
 		text-align: center;
-		min-width: 50px;
+		min-width: 48px;
 	}
 
 	.stat-value {
 		display: block;
-		font-size: 0.9rem;
+		font-size: 14px;
 		font-weight: 600;
-		color: #2d3748;
+		color: #0F172A;
 	}
 
 	.stat-label {
 		display: block;
-		font-size: 0.65rem;
-		color: #a0aec0;
+		font-size: 11px;
+		color: #94A3B8;
 		text-transform: uppercase;
 		letter-spacing: 0.3px;
+		margin-top: 2px;
 	}
 
 	.stat-danger .stat-value {
-		color: #e53e3e;
+		color: #DC2626;
 	}
 
 	.actions {
@@ -245,33 +263,41 @@
 
 	.btn {
 		flex: 1;
-		display: block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		text-align: center;
 		text-decoration: none;
-		padding: 10px 14px;
-		font-size: 0.85rem;
+		padding: 12px 16px;
+		font-size: 14px;
 		font-weight: 600;
-		border-radius: 10px;
+		border-radius: 12px;
 		border: none;
 		cursor: pointer;
+		min-height: 48px;
+		transition: opacity 0.15s, transform 0.1s;
+	}
+
+	.btn:active {
+		transform: scale(0.97);
 	}
 
 	.btn-primary {
-		background: #e53e3e;
+		background: #E5484D;
 		color: #fff;
 	}
 
 	.btn-primary:hover {
-		opacity: 0.9;
+		opacity: 0.88;
 	}
 
 	.btn-secondary {
 		background: #fff;
-		color: #4a5568;
-		border: 1px solid #e2e8f0;
+		color: #0F172A;
+		border: 1px solid #E2E8F0;
 	}
 
 	.btn-secondary:hover {
-		background: #f7fafc;
+		background: #F8FAFC;
 	}
 </style>

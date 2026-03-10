@@ -140,7 +140,9 @@
 				<!-- Empty state overlay -->
 				{#if !loading && issues.length === 0 && !error}
 					<div class="map-empty">
-						Tidak ada laporan di area ini
+						<span class="map-empty-icon">🚧</span>
+						<span class="map-empty-text">Tidak ada laporan di area ini</span>
+						<a href="/lapor" class="map-empty-cta">Laporkan Jalan Rusak</a>
 					</div>
 				{/if}
 
@@ -202,6 +204,8 @@
 				<EmptyState
 					message="Belum ada laporan. Jadilah yang pertama melaporkan!"
 					icon="🚧"
+					ctaHref="/lapor"
+					ctaLabel="Laporkan Jalan Rusak"
 				/>
 			{:else}
 				<div class="issue-list">
@@ -215,7 +219,7 @@
 
 	<!-- Bottom CTA -->
 	<div class="bottom-cta" class:cta-over-map={viewMode === 'map' && !mapError}>
-		<a href="/lapor" class="report-cta">📸 Laporkan Jalan Rusak</a>
+		<a href="/lapor" class="report-cta">Laporkan Jalan Rusak</a>
 	</div>
 </div>
 
@@ -223,7 +227,7 @@
 	.issues-page {
 		display: flex;
 		flex-direction: column;
-		height: calc(100dvh - 49px); /* subtract header height */
+		height: calc(100dvh - 49px);
 	}
 
 	.issues-page.map-mode {
@@ -238,41 +242,44 @@
 		justify-content: space-between;
 		padding: 10px 16px;
 		background: #fff;
-		border-bottom: 1px solid #e2e8f0;
+		border-bottom: 1px solid #E2E8F0;
 		flex-shrink: 0;
 		z-index: 10;
 	}
 
 	.toolbar h1 {
-		font-size: 1.1rem;
-		font-weight: 700;
+		font-size: 16px;
+		font-weight: 600;
 		margin: 0;
+		color: #0F172A;
 	}
 
 	.toolbar-actions {
 		display: flex;
-		gap: 8px;
+		gap: 6px;
 	}
 
 	.tool-btn {
 		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 8px;
-		padding: 5px 10px;
-		font-size: 0.85rem;
+		border: 1px solid #E2E8F0;
+		border-radius: 10px;
+		padding: 6px 12px;
+		font-size: 13px;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		gap: 4px;
+		transition: background 0.15s;
 	}
 
 	.tool-btn:hover {
-		background: #f7fafc;
+		background: #F8FAFC;
 	}
 
 	.btn-label {
-		font-size: 0.8rem;
-		color: #4a5568;
+		font-size: 13px;
+		color: #64748B;
+		font-weight: 500;
 	}
 
 	/* Map container */
@@ -295,20 +302,22 @@
 		top: 12px;
 		left: 12px;
 		background: #fff;
-		padding: 5px 12px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+		padding: 6px 14px;
+		border-radius: 10px;
+		font-size: 12px;
+		font-weight: 500;
+		color: #64748B;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 		z-index: 5;
 	}
 
 	.loading-dot {
 		width: 8px;
 		height: 8px;
-		background: #e53e3e;
+		background: #E5484D;
 		border-radius: 50%;
 		animation: pulse 1s infinite;
 	}
@@ -323,12 +332,12 @@
 		top: 12px;
 		left: 12px;
 		background: #fff;
-		padding: 4px 10px;
-		border-radius: 8px;
-		font-size: 0.75rem;
+		padding: 6px 14px;
+		border-radius: 10px;
+		font-size: 13px;
 		font-weight: 600;
-		color: #4a5568;
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+		color: #0F172A;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 		z-index: 5;
 	}
 
@@ -337,14 +346,45 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		background: rgba(255, 255, 255, 0.92);
-		padding: 12px 20px;
-		border-radius: 10px;
-		font-size: 0.9rem;
-		color: #718096;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+		background: rgba(255, 255, 255, 0.96);
+		padding: 24px 32px;
+		border-radius: 16px;
+		font-size: 14px;
+		color: #64748B;
+		box-shadow: 0 4px 16px rgba(0,0,0,0.10);
 		z-index: 5;
-		pointer-events: none;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		text-align: center;
+	}
+
+	.map-empty-icon {
+		font-size: 32px;
+		line-height: 1;
+	}
+
+	.map-empty-text {
+		font-size: 14px;
+		color: #64748B;
+	}
+
+	.map-empty-cta {
+		margin-top: 4px;
+		font-size: 13px;
+		font-weight: 600;
+		color: #E5484D;
+		text-decoration: none;
+		padding: 8px 16px;
+		border: 1px solid #E5484D;
+		border-radius: 10px;
+		transition: background 0.15s;
+		pointer-events: auto;
+	}
+
+	.map-empty-cta:hover {
+		background: #FEF2F2;
 	}
 
 	.map-error-overlay {
@@ -352,12 +392,12 @@
 		top: 12px;
 		left: 12px;
 		right: 12px;
-		background: #fff5f5;
-		border: 1px solid #fed7d7;
+		background: #FEF2F2;
+		border: 1px solid #FECACA;
 		padding: 8px 12px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		color: #c53030;
+		border-radius: 10px;
+		font-size: 12px;
+		color: #DC2626;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -368,18 +408,18 @@
 	.map-error-overlay button {
 		background: none;
 		border: none;
-		color: #c53030;
+		color: #DC2626;
 		font-weight: 600;
 		cursor: pointer;
-		font-size: 0.8rem;
+		font-size: 12px;
 		white-space: nowrap;
 	}
 
 	/* Side panel */
 	.side-panel {
-		width: 340px;
+		width: 360px;
 		background: #fff;
-		border-left: 1px solid #e2e8f0;
+		border-left: 1px solid #E2E8F0;
 		display: flex;
 		flex-direction: column;
 		flex-shrink: 0;
@@ -390,22 +430,23 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 10px 14px;
-		border-bottom: 1px solid #e2e8f0;
+		padding: 12px 16px;
+		border-bottom: 1px solid #E2E8F0;
 	}
 
 	.side-panel-header h2 {
-		font-size: 0.9rem;
+		font-size: 14px;
 		font-weight: 600;
 		margin: 0;
+		color: #0F172A;
 	}
 
 	.close-panel {
 		background: none;
 		border: none;
-		font-size: 1rem;
+		font-size: 16px;
 		cursor: pointer;
-		color: #718096;
+		color: #64748B;
 		padding: 4px;
 	}
 
@@ -415,7 +456,7 @@
 		padding: 8px;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 	}
 
 	.list-item-btn {
@@ -423,12 +464,12 @@
 		cursor: pointer;
 		display: block;
 		width: 100%;
-		border-radius: 12px;
+		border-radius: 16px;
 		transition: outline 0.1s;
 	}
 
 	.list-item-btn.selected {
-		outline: 2px solid #e53e3e;
+		outline: 2px solid #E5484D;
 		outline-offset: -1px;
 	}
 
@@ -452,34 +493,34 @@
 	.list-view {
 		flex: 1;
 		overflow-y: auto;
-		padding: 0 16px;
+		padding: 12px 16px;
 		max-width: 480px;
 		margin: 0 auto;
 		width: 100%;
 	}
 
 	.map-error-banner {
-		background: #fff5f5;
-		border: 1px solid #fed7d7;
-		color: #c53030;
-		font-size: 0.85rem;
+		background: #FEF2F2;
+		border: 1px solid #FECACA;
+		color: #DC2626;
+		font-size: 13px;
 		padding: 8px 12px;
-		border-radius: 8px;
+		border-radius: 10px;
 		margin-bottom: 12px;
 	}
 
 	.issue-list {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 12px;
 	}
 
 	/* Bottom CTA */
 	.bottom-cta {
-		padding: 10px 16px;
+		padding: 12px 16px;
 		text-align: center;
 		background: #fff;
-		border-top: 1px solid #e2e8f0;
+		border-top: 1px solid #E2E8F0;
 		flex-shrink: 0;
 	}
 
@@ -489,22 +530,31 @@
 		left: 0;
 		right: 0;
 		z-index: 10;
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(4px);
+		background: rgba(255, 255, 255, 0.96);
+		backdrop-filter: blur(8px);
 	}
 
 	.report-cta {
-		display: inline-block;
-		padding: 10px 22px;
-		font-size: 0.9rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 12px 24px;
+		font-size: 14px;
 		font-weight: 600;
 		color: #fff;
-		background: #e53e3e;
+		background: #E5484D;
 		border-radius: 12px;
 		text-decoration: none;
+		min-height: 48px;
+		transition: opacity 0.15s, transform 0.1s;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 	}
 
 	.report-cta:hover {
-		opacity: 0.9;
+		opacity: 0.88;
+	}
+
+	.report-cta:active {
+		transform: scale(0.97);
 	}
 </style>

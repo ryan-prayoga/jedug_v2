@@ -1,8 +1,11 @@
 <nav class="app-header">
-	<a href="/" class="logo">JEDUG</a>
+	<a href="/" class="logo-group">
+		<span class="logo-text">JEDUG</span>
+		<span class="logo-sub">Pantau Jalan Rusak</span>
+	</a>
 	<div class="nav-links">
-		<a href="/lapor">Lapor</a>
-		<a href="/issues">Peta</a>
+		<a href="/lapor" class="nav-link">Lapor</a>
+		<a href="/issues" class="nav-link">Peta</a>
 	</div>
 </nav>
 
@@ -13,29 +16,51 @@
 		justify-content: space-between;
 		padding: 12px 16px;
 		background: #fff;
-		border-bottom: 1px solid #e2e8f0;
+		border-bottom: 1px solid #E2E8F0;
 		position: sticky;
 		top: 0;
 		z-index: 100;
 	}
-	.logo {
-		font-size: 1.3rem;
-		font-weight: 800;
-		color: #e53e3e;
+	.logo-group {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
 		text-decoration: none;
+	}
+	.logo-text {
+		font-size: 1.25rem;
+		font-weight: 800;
+		color: #E5484D;
 		letter-spacing: -0.5px;
+		line-height: 1;
+	}
+	.logo-sub {
+		font-size: 11px;
+		color: #64748B;
+		font-weight: 400;
+		letter-spacing: 0;
+		display: none;
+	}
+	@media (min-width: 360px) {
+		.logo-sub {
+			display: inline;
+		}
 	}
 	.nav-links {
 		display: flex;
-		gap: 16px;
+		gap: 4px;
 	}
-	.nav-links a {
-		font-size: 0.9rem;
-		color: #4a5568;
+	.nav-link {
+		font-size: 14px;
+		color: #64748B;
 		text-decoration: none;
 		font-weight: 500;
+		padding: 6px 12px;
+		border-radius: 8px;
+		transition: background 0.15s, color 0.15s;
 	}
-	.nav-links a:hover {
-		color: #e53e3e;
+	.nav-link:hover {
+		color: #E5484D;
+		background: #FEF2F2;
 	}
 </style>

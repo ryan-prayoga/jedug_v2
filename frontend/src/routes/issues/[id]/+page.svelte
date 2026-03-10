@@ -12,11 +12,18 @@
 	let error = $state<string | null>(null);
 
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
-	const severityColor = ['', '#38a169', '#d69e2e', '#dd6b20', '#e53e3e', '#9b2c2c'];
+	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
 	const statusLabel: Record<string, string> = {
 		open: 'Terbuka',
+		fixed: 'Selesai',
 		closed: 'Selesai',
 		in_progress: 'Diproses'
+	};
+	const statusStyle: Record<string, string> = {
+		open: 'background: #EFF6FF; color: #2563EB',
+		fixed: 'background: #F1F5F9; color: #64748B',
+		closed: 'background: #F1F5F9; color: #64748B',
+		in_progress: 'background: #F0FDF4; color: #16A34A'
 	};
 
 	async function fetchIssue() {
@@ -63,7 +70,7 @@
 				>
 					{severityLabel[issue.severity_current] || `Level ${issue.severity_current}`}
 				</span>
-				<span class="status-badge">
+			<span class="status-badge" style="{statusStyle[issue.status] || statusStyle['open']}">
 					{statusLabel[issue.status] || issue.status}
 				</span>
 			</div>
@@ -149,7 +156,7 @@
 
 		<!-- Actions -->
 		<div class="actions">
-			<a href="/lapor" class="btn btn-primary">📸 Laporkan Lagi</a>
+			<a href="/lapor" class="btn btn-primary">Laporkan Lagi</a>
 			<a href="/issues" class="btn btn-secondary">← Kembali ke Daftar</a>
 		</div>
 	{/if}
@@ -157,12 +164,12 @@
 
 <style>
 	.detail-page {
-		padding-top: 0.5rem;
-		padding-bottom: 2rem;
+		padding-top: 8px;
+		padding-bottom: 32px;
 	}
 	.primary-photo {
 		margin: 0 -16px;
-		margin-bottom: 1rem;
+		margin-bottom: 16px;
 	}
 	.primary-photo img {
 		width: 100%;
@@ -170,7 +177,7 @@
 		object-fit: cover;
 	}
 	.detail-header {
-		margin-bottom: 1rem;
+		margin-bottom: 16px;
 	}
 	.badges {
 		display: flex;
@@ -178,27 +185,29 @@
 		margin-bottom: 8px;
 	}
 	.severity-badge {
-		font-size: 0.8rem;
+		font-size: 12px;
 		font-weight: 600;
 		color: #fff;
-		padding: 3px 12px;
+		padding: 4px 12px;
 		border-radius: 999px;
+		line-height: 1;
 	}
 	.status-badge {
-		font-size: 0.8rem;
-		color: #718096;
-		background: #edf2f7;
-		padding: 3px 12px;
+		font-size: 12px;
+		font-weight: 500;
+		padding: 4px 12px;
 		border-radius: 999px;
+		line-height: 1;
 	}
 	.road-name {
-		font-size: 1.3rem;
+		font-size: 20px;
 		font-weight: 700;
 		margin: 0;
+		color: #0F172A;
 	}
 	.road-type {
-		font-size: 0.85rem;
-		color: #a0aec0;
+		font-size: 13px;
+		color: #94A3B8;
 		margin: 2px 0 0;
 		text-transform: capitalize;
 	}
@@ -208,54 +217,56 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr 1fr;
 		gap: 8px;
-		margin-bottom: 1rem;
+		margin-bottom: 16px;
 	}
 	.meta-item {
 		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 10px;
-		padding: 10px;
+		border: 1px solid #E2E8F0;
+		border-radius: 12px;
+		padding: 12px;
 		text-align: center;
 	}
 	.meta-label {
 		display: block;
-		font-size: 0.7rem;
-		color: #a0aec0;
+		font-size: 11px;
+		color: #94A3B8;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		margin-bottom: 2px;
 	}
 	.meta-value {
-		font-size: 0.9rem;
+		font-size: 14px;
 		font-weight: 600;
-		color: #2d3748;
+		color: #0F172A;
 	}
 
 	/* Location */
 	.location-box {
 		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 10px;
+		border: 1px solid #E2E8F0;
+		border-radius: 12px;
 		padding: 12px;
-		margin-bottom: 1.5rem;
-		font-size: 0.85rem;
-		color: #4a5568;
+		margin-bottom: 24px;
+		font-size: 13px;
+		color: #64748B;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
 	}
 	.region {
-		font-size: 0.75rem;
-		color: #a0aec0;
+		font-size: 12px;
+		color: #94A3B8;
 	}
 
 	/* Gallery */
 	.gallery-section {
-		margin-bottom: 1.5rem;
+		margin-bottom: 24px;
 	}
 	.gallery-section h2 {
-		font-size: 1rem;
+		font-size: 16px;
+		font-weight: 600;
 		margin-bottom: 8px;
+		color: #0F172A;
 	}
 	.gallery {
 		display: grid;
@@ -266,29 +277,31 @@
 		width: 100%;
 		height: 120px;
 		object-fit: cover;
-		border-radius: 8px;
+		border-radius: 12px;
 	}
 
 	/* Submissions */
 	.submissions-section {
-		margin-bottom: 1.5rem;
+		margin-bottom: 24px;
 	}
 	.submissions-section h2 {
-		font-size: 1rem;
+		font-size: 16px;
+		font-weight: 600;
 		margin-bottom: 8px;
+		color: #0F172A;
 	}
 	.submission-item {
 		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 10px;
-		padding: 10px 12px;
-		margin-bottom: 6px;
+		border: 1px solid #E2E8F0;
+		border-radius: 12px;
+		padding: 12px;
+		margin-bottom: 8px;
 	}
 	.sub-header {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 0.85rem;
+		font-size: 13px;
 	}
 	.severity-dot {
 		width: 8px;
@@ -300,46 +313,53 @@
 		font-weight: 600;
 	}
 	.sub-time {
-		color: #a0aec0;
+		color: #94A3B8;
 		margin-left: auto;
-		font-size: 0.75rem;
+		font-size: 12px;
 	}
 	.sub-note {
-		font-size: 0.85rem;
-		color: #4a5568;
+		font-size: 13px;
+		color: #64748B;
 		margin-top: 4px;
-		line-height: 1.4;
+		line-height: 1.5;
 	}
 
 	/* Actions */
 	.actions {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
-		margin-top: 1.5rem;
+		gap: 12px;
+		margin-top: 24px;
 	}
 	.btn {
-		display: block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		text-align: center;
 		text-decoration: none;
 		padding: 14px 20px;
-		font-size: 1rem;
+		font-size: 16px;
 		font-weight: 600;
 		border-radius: 12px;
+		min-height: 48px;
+		transition: opacity 0.15s, transform 0.1s;
+	}
+	.btn:active {
+		transform: scale(0.97);
 	}
 	.btn-primary {
-		background: #e53e3e;
+		background: #E5484D;
 		color: #fff;
 	}
 	.btn-primary:hover {
-		opacity: 0.9;
+		opacity: 0.88;
 	}
 	.btn-secondary {
 		background: #fff;
-		color: #4a5568;
-		border: 1px solid #e2e8f0;
+		color: #0F172A;
+		border: 1px solid #E2E8F0;
 	}
 	.btn-secondary:hover {
-		background: #f7fafc;
+		background: #F8FAFC;
 	}
 </style>

@@ -13,14 +13,14 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 3rem 1rem;
-		color: #666;
+		padding: 48px 16px;
+		color: #64748B;
 	}
 	.spinner {
 		width: 32px;
 		height: 32px;
-		border: 3px solid #e2e2e2;
-		border-top-color: #e53e3e;
+		border: 3px solid #E2E8F0;
+		border-top-color: #E5484D;
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}
@@ -28,7 +28,7 @@
 		to { transform: rotate(360deg); }
 	}
 	p {
-		margin-top: 1rem;
-		font-size: 0.9rem;
+		margin-top: 16px;
+		font-size: 14px;
 	}
 </style>

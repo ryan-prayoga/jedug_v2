@@ -14,24 +14,25 @@
 		display: block;
 		width: 100%;
 		padding: 14px 24px;
-		font-size: 1.1rem;
+		font-size: 16px;
 		font-weight: 600;
 		color: #fff;
-		background: #e53e3e;
+		background: #E5484D;
 		border: none;
 		border-radius: 12px;
 		cursor: pointer;
-		transition: opacity 0.15s;
+		transition: opacity 0.15s, transform 0.1s;
 		text-align: center;
+		min-height: 48px;
 	}
 	.primary-btn:hover:not(:disabled) {
-		opacity: 0.9;
+		opacity: 0.88;
 	}
 	.primary-btn:active:not(:disabled) {
-		transform: scale(0.98);
+		transform: scale(0.97);
 	}
 	.primary-btn:disabled {
-		opacity: 0.5;
+		opacity: 0.45;
 		cursor: not-allowed;
 	}
 </style>
