@@ -14,6 +14,9 @@
 
 	const isAdmin = $derived($page.url.pathname.startsWith('/admin'));
 	const isMapPage = $derived($page.url.pathname === '/issues');
+	const isIssueDetailPage = $derived(
+		$page.url.pathname.startsWith('/issues/') && $page.url.pathname !== '/issues'
+	);
 
 	onMount(async () => {
 		if (isAdmin) {
@@ -68,7 +71,11 @@
 {:else}
 	<div class="app-shell">
 		<AppHeader />
-		<main class="app-main" class:app-main-full={isMapPage}>
+		<main
+			class="app-main"
+			class:app-main-full={isMapPage}
+			class:app-main-wide={isIssueDetailPage}
+		>
 			{@render children()}
 		</main>
 
@@ -114,6 +121,10 @@
 		padding: 0;
 		overflow: hidden;
 	}
+	.app-main-wide {
+		max-width: 1120px;
+		padding-bottom: 40px;
+	}
 	.init-toast {
 		position: fixed;
 		bottom: 1rem;
@@ -127,5 +138,12 @@
 		border-radius: 12px;
 		box-shadow: 0 4px 16px rgba(0,0,0,0.10);
 		z-index: 200;
+	}
+
+	@media (min-width: 768px) {
+		.app-main-wide {
+			padding-left: 24px;
+			padding-right: 24px;
+		}
 	}
 </style>

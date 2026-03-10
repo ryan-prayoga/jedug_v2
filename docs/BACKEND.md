@@ -78,8 +78,12 @@
   - exclude status `rejected`, `merged`
   - optional `status`, `severity >=`, `bbox`
   - enrich lokasi dengan `region_name` (join `regions`) untuk kebutuhan UI publik
+- `IssueRepository.FindByID`:
+  - hanya mengembalikan issue publik (`is_hidden = false`)
+  - exclude status `rejected`, `merged` agar deep-link publik konsisten dengan list/map
 - `FindByIDWithDetail`:
-  - media top 5, recent submissions top 3
+  - media publik top 20, primary first, exclude submission berstatus `rejected`
+  - recent submissions top 3, exclude submission berstatus `rejected`
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
 
