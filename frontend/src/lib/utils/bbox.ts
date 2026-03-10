@@ -6,6 +6,7 @@ export type BBox = [number, number, number, number]; // [minLng, minLat, maxLng,
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let lastBBoxKey = "";
+let activeRequestId = 0;
 
 /**
  * Fetch issues for a given bounding box with debounce.
@@ -16,16 +17,17 @@ export function fetchIssuesByBBox(
   options: { limit?: number; status?: string; severity?: number } = {},
   callback: (issues: Issue[], error: string | null) => void,
   debounceMs = 300,
-): void {
+): "scheduled" | "skipped" {
   const key = bbox.map((v) => v.toFixed(5)).join(",");
 
   // Skip if same bbox
-  if (key === lastBBoxKey) return;
+  if (key === lastBBoxKey) return "skipped";
   lastBBoxKey = key;
 
   if (debounceTimer) clearTimeout(debounceTimer);
 
   debounceTimer = setTimeout(async () => {
+    const requestId = ++activeRequestId;
     try {
       const params: ListIssuesParams = {
         bbox,
@@ -34,15 +36,22 @@ export function fetchIssuesByBBox(
         ...(options.severity ? { severity: options.severity } : {}),
       };
       const res = await listIssues(params);
-      callback(res.data || [], null);
+      if (requestId === activeRequestId) {
+        callback(res.data || [], null);
+      }
     } catch (e) {
-      callback([], e instanceof Error ? e.message : "Gagal memuat data peta");
+      if (requestId === activeRequestId) {
+        callback([], e instanceof Error ? e.message : "Gagal memuat data peta");
+      }
     }
   }, debounceMs);
+
+  return "scheduled";
 }
 
 /** Reset debounce state (e.g. on component destroy) */
 export function resetBBoxFetcher(): void {
   if (debounceTimer) clearTimeout(debounceTimer);
   lastBBoxKey = "";
+  activeRequestId = 0;
 }

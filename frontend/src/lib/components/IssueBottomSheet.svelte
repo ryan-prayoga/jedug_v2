@@ -12,6 +12,17 @@
 		visible: boolean;
 	} = $props();
 
+	let sheetEl = $state<HTMLDivElement | null>(null);
+	let dragOffsetY = $state(0);
+	let isDragging = $state(false);
+	let dragPointerId = $state<number | null>(null);
+	let dragStartY = $state(0);
+	let dragStartAt = $state(0);
+	let ignoreNextOverlayClick = $state(false);
+
+	const DRAG_CLOSE_THRESHOLD_PX = 96;
+	const DRAG_CLOSE_VELOCITY = 0.7; // px/ms
+
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
 	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
 	const statusLabel: Record<string, string> = {
@@ -31,12 +42,110 @@
 	}
 
 	function handleOverlayClick() {
+		if (ignoreNextOverlayClick) {
+			ignoreNextOverlayClick = false;
+			return;
+		}
 		onclose();
 	}
 
 	function handleSheetClick(e: MouseEvent) {
 		e.stopPropagation();
 	}
+
+	function isMobileViewport(): boolean {
+		return window.matchMedia('(max-width: 767px)').matches;
+	}
+
+	function resetDragState() {
+		dragOffsetY = 0;
+		isDragging = false;
+		dragPointerId = null;
+		dragStartY = 0;
+		dragStartAt = 0;
+	}
+
+	function canStartDrag(target: EventTarget | null): boolean {
+		if (!target || !sheetEl) return false;
+		if (!isMobileViewport()) return false;
+
+		const element = target as HTMLElement;
+		const insideHandle = element.closest('.sheet-handle-area');
+		if (insideHandle) return true;
+
+		// Allow dragging from content only when sheet is at top to avoid fighting internal scroll.
+		if (sheetEl.scrollTop > 0) return false;
+		if (element.closest('a, button, input, textarea, select, label')) return false;
+		return true;
+	}
+
+	function handlePointerDown(e: PointerEvent) {
+		if (!visible || !canStartDrag(e.target)) return;
+		if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+		dragPointerId = e.pointerId;
+		dragStartY = e.clientY;
+		dragStartAt = performance.now();
+		isDragging = true;
+		ignoreNextOverlayClick = false;
+		sheetEl?.setPointerCapture(e.pointerId);
+	}
+
+	function handlePointerMove(e: PointerEvent) {
+		if (!isDragging || dragPointerId !== e.pointerId) return;
+		const deltaY = Math.max(0, e.clientY - dragStartY);
+		if (deltaY > 8) {
+			ignoreNextOverlayClick = true;
+		}
+		dragOffsetY = deltaY;
+
+		if (e.cancelable) {
+			e.preventDefault();
+		}
+	}
+
+	function finishDrag(shouldClose: boolean) {
+		if (shouldClose) {
+			resetDragState();
+			onclose();
+			return;
+		}
+
+		isDragging = false;
+		dragOffsetY = 0;
+		dragPointerId = null;
+	}
+
+	function handlePointerUp(e: PointerEvent) {
+		if (!isDragging || dragPointerId !== e.pointerId) return;
+
+		const deltaY = Math.max(0, e.clientY - dragStartY);
+		const durationMs = Math.max(1, performance.now() - dragStartAt);
+		const velocity = deltaY / durationMs;
+
+		const shouldClose =
+			deltaY >= DRAG_CLOSE_THRESHOLD_PX ||
+			(deltaY >= 32 && velocity >= DRAG_CLOSE_VELOCITY);
+
+		finishDrag(shouldClose);
+
+		if (ignoreNextOverlayClick) {
+			setTimeout(() => {
+				ignoreNextOverlayClick = false;
+			}, 120);
+		}
+	}
+
+	function handlePointerCancel(e: PointerEvent) {
+		if (!isDragging || dragPointerId !== e.pointerId) return;
+		finishDrag(false);
+	}
+
+	$effect(() => {
+		if (!visible) {
+			resetDragState();
+		}
+	});
 </script>
 
 {#if visible && issue}
@@ -45,12 +154,28 @@
 	<div class="sheet-overlay" onclick={handleOverlayClick}>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="sheet" onclick={handleSheetClick}>
+		<div
+			class="sheet"
+			class:dragging={isDragging}
+			bind:this={sheetEl}
+			style="transform: translateY({dragOffsetY}px);"
+			onclick={handleSheetClick}
+			onpointerdown={handlePointerDown}
+			onpointermove={handlePointerMove}
+			onpointerup={handlePointerUp}
+			onpointercancel={handlePointerCancel}
+		>
 			<div class="sheet-handle-area">
 				<div class="sheet-handle"></div>
 			</div>
 
 			<div class="sheet-content">
+				<div class="sheet-close-row">
+					<button class="sheet-close-btn" type="button" onclick={onclose} aria-label="Tutup detail issue">
+						✕
+					</button>
+				</div>
+
 				<!-- Severity as dominant element -->
 				<div class="sheet-top-row">
 					<span
@@ -149,6 +274,13 @@
 		box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.10);
 		animation: slideUp 0.2s ease-out;
 		overflow-y: auto;
+		touch-action: pan-y;
+		transition: transform 0.2s ease-out;
+		will-change: transform;
+	}
+
+	.sheet.dragging {
+		transition: none;
 	}
 
 	@keyframes slideUp {
@@ -165,6 +297,15 @@
 		padding: 12px 0 4px;
 		display: flex;
 		justify-content: center;
+		touch-action: none;
+		cursor: grab;
+	}
+
+	/* Desktop/web: hide swipe affordance, keep close button only */
+	@media (hover: hover) and (pointer: fine) {
+		.sheet-handle-area {
+			display: none;
+		}
 	}
 
 	.sheet-handle {
@@ -176,6 +317,33 @@
 
 	.sheet-content {
 		padding: 12px 20px 24px;
+	}
+
+	.sheet-close-row {
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: 6px;
+	}
+
+	.sheet-close-btn {
+		width: 28px;
+		height: 28px;
+		border: 1px solid #E2E8F0;
+		border-radius: 999px;
+		background: #fff;
+		color: #64748B;
+		font-size: 14px;
+		line-height: 1;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.sheet-close-btn:hover {
+		background: #F8FAFC;
+		color: #0F172A;
 	}
 
 	.sheet-top-row {
@@ -270,11 +438,11 @@
 		text-decoration: none;
 		padding: 12px 16px;
 		font-size: 14px;
-		font-weight: 600;
+		font-weight: 700;
 		border-radius: 12px;
 		border: none;
 		cursor: pointer;
-		min-height: 48px;
+		min-height: 50px;
 		transition: opacity 0.15s, transform 0.1s;
 	}
 
@@ -283,8 +451,10 @@
 	}
 
 	.btn-primary {
-		background: #E5484D;
+		background: linear-gradient(180deg, #EB5960 0%, #E5484D 100%);
 		color: #fff;
+		border: 1px solid rgba(173, 40, 45, 0.35);
+		box-shadow: 0 4px 12px rgba(229, 72, 77, 0.2), 0 1px 2px rgba(0,0,0,0.06);
 	}
 
 	.btn-primary:hover {

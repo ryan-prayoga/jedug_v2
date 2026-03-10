@@ -42,6 +42,10 @@ Ringkasan issue bottom sheet:
 - overlay memakai `position: absolute`
 - state visibility tergantung `selectedIssue`
 - interaksi ini sensitif terhadap perubahan event click marker/map
+- mobile sheet bisa di-drag/swipe ke bawah untuk menutup:
+  - drag melewati threshold -> close
+  - drag pendek -> snap kembali ke posisi awal
+  - drag diprioritaskan dari handle dan tidak bentrok dengan scroll internal konten
 
 ## Geolocation Initial Center
 
@@ -67,6 +71,7 @@ Di halaman `/lapor`:
 
 - map-first UX berjalan baik untuk browse issue.
 - fallback ke mode list sudah ada saat map gagal.
+- transisi list ↔ map memakai guard untuk mencegah false-empty/flicker saat mount ulang map.
 
 ## Known Mismatch
 

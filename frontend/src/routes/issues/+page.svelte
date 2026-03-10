@@ -19,6 +19,18 @@
 	let selectedIssue = $state<Issue | null>(null);
 	let viewMode = $state<'map' | 'list'>('map');
 	let showList = $state(false);
+	let mapReady = $state(false);
+	let mapFetching = $state(false);
+	let mapHasFetchedViewport = $state(false);
+
+	const showMapLoading = $derived(mapFetching && !mapHasFetchedViewport && issues.length === 0);
+	const showMapEmpty = $derived(
+		mapReady &&
+			mapHasFetchedViewport &&
+			!mapFetching &&
+			issues.length === 0 &&
+			!error
+	);
 
 	// Dynamically import map components (graceful fallback if they fail)
 	onMount(async () => {
@@ -55,26 +67,44 @@
 	}
 
 	function handleBBoxChange(bbox: BBox) {
-		loading = true;
-		fetchIssuesByBBox(bbox, { limit: 100 }, (data, err) => {
+		mapFetching = true;
+		const fetchState = fetchIssuesByBBox(bbox, { limit: 100 }, (data, err) => {
 			if (err) {
 				error = err;
 			} else {
 				error = null;
 				issues = data;
+				mapHasFetchedViewport = true;
+				if (selectedIssue && !data.some((issue) => issue.id === selectedIssue?.id)) {
+					selectedIssue = null;
+				}
 			}
+			mapFetching = false;
 			loading = false;
 		});
+
+		if (fetchState === 'skipped') {
+			mapFetching = false;
+			loading = false;
+		}
 	}
 
 	function handleIssueSelect(issue: Issue | null) {
+		if (issue && showList && window.matchMedia('(min-width: 768px)').matches) {
+			showList = false;
+		}
 		selectedIssue = issue;
 	}
 
 	function handleMapError(msg: string) {
 		mapError = msg;
 		viewMode = 'list';
+		mapReady = false;
 		fetchList();
+	}
+
+	function handleMapReady() {
+		mapReady = true;
 	}
 
 	function handleCloseSheet() {
@@ -84,13 +114,20 @@
 	function toggleView() {
 		if (viewMode === 'map') {
 			viewMode = 'list';
-			if (issues.length === 0) fetchList();
+			if (issues.length === 0 && !loading) fetchList();
 		} else {
+			resetBBoxFetcher();
 			viewMode = 'map';
+			mapReady = false;
+			mapFetching = false;
+			mapHasFetchedViewport = issues.length > 0;
 		}
 	}
 
 	function toggleListPanel() {
+		if (!showList && selectedIssue && window.matchMedia('(min-width: 768px)').matches) {
+			selectedIssue = null;
+		}
 		showList = !showList;
 	}
 </script>
@@ -112,60 +149,67 @@
 		</div>
 	</div>
 
-	{#if viewMode === 'map' && IssueMap && !mapError}
+	{#if viewMode === 'map' && !mapError}
 		<!-- Map View -->
 		<div class="map-container">
-			<div class="map-area">
-				<IssueMap
-					{issues}
-					{selectedIssue}
-					onbboxchange={handleBBoxChange}
-					onissueselect={handleIssueSelect}
-					onmaperror={handleMapError}
-				/>
-
-				<!-- Loading overlay -->
-				{#if loading}
-					<div class="map-loading">
-						<span class="loading-dot"></span>
-						Memuat...
-					</div>
-				{/if}
-
-				<!-- Issue count badge -->
-				{#if !loading && issues.length > 0}
-					<div class="issue-count">{issues.length} titik</div>
-				{/if}
-
-				<!-- Empty state overlay -->
-				{#if !loading && issues.length === 0 && !error}
-					<div class="map-empty">
-						<span class="map-empty-icon">🚧</span>
-						<span class="map-empty-text">Tidak ada laporan di area ini</span>
-						<a href="/lapor" class="map-empty-cta">Laporkan Jalan Rusak</a>
-					</div>
-				{/if}
-
-				<!-- Error overlay -->
-				{#if error}
-					<div class="map-error-overlay">
-						{error}
-						<button onclick={() => { error = null; }}>Tutup</button>
-					</div>
-				{/if}
-
-				<!-- Bottom sheet for selected issue -->
-				{#if IssueBottomSheet}
-					<IssueBottomSheet
-						issue={selectedIssue}
-						visible={selectedIssue !== null}
-						onclose={handleCloseSheet}
+			{#if IssueMap}
+				<div class="map-area">
+					<IssueMap
+						{issues}
+						{selectedIssue}
+						onbboxchange={handleBBoxChange}
+						onissueselect={handleIssueSelect}
+						onmaperror={handleMapError}
+						onmapready={handleMapReady}
 					/>
-				{/if}
-			</div>
+
+					<!-- Loading overlay -->
+					{#if showMapLoading}
+						<div class="map-loading">
+							<span class="loading-dot"></span>
+							Memuat titik laporan...
+						</div>
+					{/if}
+
+					<!-- Issue count badge -->
+					{#if !showMapLoading && issues.length > 0}
+						<div class="issue-count">{issues.length} titik</div>
+					{/if}
+
+					<!-- Empty state overlay -->
+					{#if showMapEmpty}
+						<div class="map-empty">
+							<span class="map-empty-icon">🚧</span>
+							<span class="map-empty-text">Tidak ada laporan di area ini</span>
+							<a href="/lapor" class="map-empty-cta">Laporkan Jalan Rusak</a>
+						</div>
+					{/if}
+
+					<!-- Error overlay -->
+					{#if error}
+						<div class="map-error-overlay">
+							{error}
+							<button onclick={() => { error = null; }}>Tutup</button>
+						</div>
+					{/if}
+
+					<!-- Bottom sheet for selected issue -->
+					{#if IssueBottomSheet}
+						<IssueBottomSheet
+							issue={selectedIssue}
+							visible={selectedIssue !== null}
+							onclose={handleCloseSheet}
+						/>
+					{/if}
+				</div>
+			{:else}
+				<div class="map-bootstrap">
+					<LoadingState message="Menyiapkan peta..." />
+				</div>
+			{/if}
 
 			<!-- Side list panel (desktop) / slide panel -->
-			{#if showList}
+			{#if showList && IssueMap}
 				<div class="side-panel">
 					<div class="side-panel-header">
 						<h2>Daftar Laporan ({issues.length})</h2>
@@ -294,6 +338,14 @@
 		flex: 1;
 		position: relative;
 		min-height: 0;
+	}
+
+	.map-bootstrap {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
 	}
 
 	/* Map overlays */
@@ -535,26 +587,31 @@
 	}
 
 	.report-cta {
-		display: inline-flex;
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 12px 24px;
-		font-size: 14px;
-		font-weight: 600;
+		padding: 14px 24px;
+		font-size: 15px;
+		font-weight: 700;
 		color: #fff;
-		background: #E5484D;
+		background: linear-gradient(180deg, #EB5960 0%, #E5484D 100%);
 		border-radius: 12px;
+		border: 1px solid rgba(173, 40, 45, 0.35);
 		text-decoration: none;
-		min-height: 48px;
-		transition: opacity 0.15s, transform 0.1s;
-		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+		min-height: 52px;
+		width: 100%;
+		letter-spacing: 0.1px;
+		transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+		box-shadow: 0 6px 16px rgba(229, 72, 77, 0.22), 0 1px 3px rgba(0,0,0,0.08);
 	}
 
 	.report-cta:hover {
-		opacity: 0.88;
+		opacity: 0.94;
+		box-shadow: 0 8px 20px rgba(229, 72, 77, 0.28), 0 1px 3px rgba(0,0,0,0.1);
 	}
 
 	.report-cta:active {
 		transform: scale(0.97);
+		box-shadow: 0 4px 12px rgba(229, 72, 77, 0.2);
 	}
 </style>

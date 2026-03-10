@@ -10,13 +10,15 @@
 		selectedIssue = null,
 		onbboxchange,
 		onissueselect,
-		onmaperror
+		onmaperror,
+		onmapready
 	}: {
 		issues: Issue[];
 		selectedIssue: Issue | null;
 		onbboxchange: (bbox: BBox) => void;
 		onissueselect: (issue: Issue | null) => void;
 		onmaperror?: (error: string) => void;
+		onmapready?: () => void;
 	} = $props();
 
 	let mapContainer: HTMLDivElement;
@@ -260,6 +262,7 @@
 			map.on('load', () => {
 				console.log('[IssueMap] map style loaded');
 				mapReady = true; // ← triggers $effect
+				onmapready?.();
 				emitBBox();
 				tryAutoCenter();
 			});

@@ -97,8 +97,9 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 ### Landing (`/`)
 
-- Heading 48px, CTA tanpa emoji
-- Button colors `#E5484D`, min-height 48px
+- Hero diperkuat dengan kicker/trust statement ringan + card treatment lembut
+- Hierarki teks diperjelas: brand title tegas, tagline lebih readable, intro lebih terstruktur
+- CTA utama/sekunder diselaraskan (radius 12px, min-height ~52px, shadow lembut)
 
 ### Peta & Daftar Laporan (`/issues`)
 
@@ -106,6 +107,9 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Empty state dengan icon + CTA link ke /lapor
 - Toolbar, badges, filter semua ke design spec
 - Bottom CTA `#E5484D`, 48px min-height
+- Guard state transisi list ↔ map untuk menghindari false-empty/flicker saat map remount
+- Empty state map hanya tampil setelah fetch viewport valid, bukan saat map baru mount
+- Bottom sheet mobile mendukung swipe-down close dengan threshold + snap-back
 
 ### Form Lapor (`/lapor`)
 
