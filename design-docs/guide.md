@@ -131,7 +131,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - tombol share
   - link cepat WhatsApp/Telegram/Twitter(X)/Facebook
   - metadata SEO/OG/Twitter canonical disiapkan dari SSR data route
-  - OG image memakai `primary_media` bila tersedia, fallback ke asset JEDUG jika tidak ada foto
+  - OG image memakai generator dinamis `/api/og/issues/{id}` dengan komposisi teks issue + background foto (jika ada) atau gradient brand fallback
 - Desktop issue detail memakai container lebih lebar dari route publik biasa, dengan card action/share di kolom samping agar halaman terasa lebih lega tanpa mengubah flow `/issues` map-first.
 - Fallback states wajib:
   - not found

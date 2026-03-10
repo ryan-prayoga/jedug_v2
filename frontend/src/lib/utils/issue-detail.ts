@@ -6,11 +6,10 @@ export interface IssueDetailSeo {
 	canonical_url: string;
 	og_image_url: string;
 	og_image_alt: string;
-	og_image_width: string | null;
-	og_image_height: string | null;
+	og_image_width: string;
+	og_image_height: string;
 	twitter_card: 'summary_large_image';
 	share_text: string;
-	fallback_og_image_url: string;
 }
 
 type Tone = {
@@ -169,7 +168,7 @@ export function getIssueSnapshot(issue: IssueDetail): string {
 
 type BuildSeoOptions = {
 	canonicalUrl: string;
-	fallbackOgImageUrl: string;
+	ogImageUrl: string;
 };
 
 export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeoOptions): IssueDetailSeo {
@@ -179,20 +178,18 @@ export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeo
 			description:
 				'Lihat detail issue jalan rusak publik di JEDUG: lokasi, tingkat keparahan, foto, jumlah laporan, dan status terbaru.',
 			canonical_url: options.canonicalUrl,
-			og_image_url: options.fallbackOgImageUrl,
-			og_image_alt: 'Ilustrasi laporan jalan rusak JEDUG',
-			og_image_width: null,
-			og_image_height: null,
+			og_image_url: options.ogImageUrl,
+			og_image_alt: 'Preview issue jalan rusak JEDUG',
+			og_image_width: '1200',
+			og_image_height: '630',
 			twitter_card: 'summary_large_image',
-			share_text: 'Lihat detail issue jalan rusak di JEDUG',
-			fallback_og_image_url: options.fallbackOgImageUrl
+			share_text: 'Lihat detail issue jalan rusak di JEDUG'
 		};
 	}
 
 	const locationLabel = getIssueLocationLabel(issue);
 	const severityLabel = getSeverityLabel(issue.severity_current);
 	const statusLabel = getStatusLabel(issue.status);
-	const primaryMedia = getIssuePrimaryMedia(issue);
 
 	const title =
 		issue.status === 'open'
@@ -221,14 +218,11 @@ export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeo
 		title,
 		description,
 		canonical_url: options.canonicalUrl,
-		og_image_url: primaryMedia?.public_url || options.fallbackOgImageUrl,
-		og_image_alt: primaryMedia
-			? `Foto issue jalan rusak di ${locationLabel}`
-			: 'Ilustrasi laporan jalan rusak JEDUG',
-		og_image_width: primaryMedia?.width ? String(primaryMedia.width) : null,
-		og_image_height: primaryMedia?.height ? String(primaryMedia.height) : null,
+		og_image_url: options.ogImageUrl,
+		og_image_alt: `Preview issue jalan rusak di ${locationLabel}`,
+		og_image_width: '1200',
+		og_image_height: '630',
 		twitter_card: 'summary_large_image',
-		share_text: `Pantau issue jalan rusak ${severityLabel.toLowerCase()} di ${locationLabel} lewat JEDUG`,
-		fallback_og_image_url: options.fallbackOgImageUrl
+		share_text: `Pantau issue jalan rusak ${severityLabel.toLowerCase()} di ${locationLabel} lewat JEDUG`
 	};
 }

@@ -19,6 +19,7 @@
 - `/lapor` submit report
 - `/issues` peta + list issue publik
 - `/issues/[id]` detail issue
+- `/api/og/issues/[id]` dynamic Open Graph image generator (PNG 1200x630)
 
 ## Route Admin
 
@@ -61,6 +62,7 @@
 - Route memakai `+page.ts` (SSR-enabled di level page) untuk:
   - fetch detail issue saat initial request
   - menghasilkan metadata share (`title`, `description`, Open Graph, Twitter card, canonical)
+  - mengarah ke OG image dinamis per issue: `/api/og/issues/{id}`
   - treat `400/404` sebagai not-found publik
 - UI detail page bersifat mobile-first:
   - hero media + fallback placeholder
@@ -81,6 +83,17 @@
   - error
   - fallback media gagal load
   - empty gallery
+
+## Dynamic OG Image (`/api/og/issues/[id]`)
+
+- Endpoint server route SvelteKit (`+server.ts`) yang merender `image/png` ukuran `1200x630`.
+- Source data OG mengikuti endpoint backend publik `GET /api/v1/issues/:id`.
+- Jika issue punya foto (`primary_media` atau media pertama), foto dipakai sebagai background + dark overlay.
+- Jika issue tidak punya foto, endpoint pakai gradient brand (`#E5484D`) sebagai fallback.
+- Jika issue tidak ditemukan / API gagal, endpoint mengembalikan fallback OG image PNG (bukan JSON error) agar crawler sosial tetap dapat preview.
+- Header cache diset aman untuk crawler/CDN:
+  - response issue valid: short-lived public cache + `stale-while-revalidate`
+  - fallback response: cache lebih pendek
 
 ## Integrasi Upload + Submit
 
