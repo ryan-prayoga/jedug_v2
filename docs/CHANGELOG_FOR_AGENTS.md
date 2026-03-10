@@ -131,6 +131,25 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - tidak ada perubahan breaking; note mentah tetap ada di response untuk kompatibilitas, tetapi UI publik dipindahkan ke `public_note` yang sudah diringkas.
 
+## 2026-03-10 - Dynamic OG Image Generator untuk Issue
+
+- Scope:
+  - menambahkan endpoint server-side OG image dinamis untuk issue publik: `/api/og/issues/[id]`.
+  - memperbarui metadata SEO issue detail agar `og:image` dan `twitter:image` selalu memakai endpoint OG dinamis.
+- Dampak area:
+  - `frontend/src/routes/api/og/issues/[id]/+server.ts`
+  - `frontend/src/routes/issues/[id]/+page.ts`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+  - `frontend/src/lib/utils/issue-detail.ts`
+  - `frontend/package.json`
+  - `frontend/package-lock.json`
+- File docs yang diupdate:
+  - `docs/FRONTEND.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - asumsi runtime frontend production berbasis adapter-node (bukan edge runtime) agar rendering `@vercel/og` berjalan konsisten di VPS + PM2.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

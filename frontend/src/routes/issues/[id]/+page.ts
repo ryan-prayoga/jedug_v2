@@ -17,8 +17,8 @@ function getCanonicalUrl(origin: string, issueID: string): string {
 	return `${origin}/issues/${encodeURIComponent(issueID)}`;
 }
 
-function getFallbackOgImageUrl(origin: string): string {
-	return `${origin}/og/issue-fallback.svg`;
+function getIssueOgImageUrl(origin: string, issueID: string): string {
+	return `${origin}/api/og/issues/${encodeURIComponent(issueID)}`;
 }
 
 function getApiIssueDetailUrl(origin: string, issueID: string): string {
@@ -29,14 +29,14 @@ function getApiIssueDetailUrl(origin: string, issueID: string): string {
 export const load: PageLoad = async ({ params, fetch, url }) => {
 	const id = params.id;
 	const canonicalUrl = getCanonicalUrl(url.origin, id);
-	const fallbackOgImageUrl = getFallbackOgImageUrl(url.origin);
+	const ogImageUrl = getIssueOgImageUrl(url.origin, id);
 
 	const data: IssueDetailPageData = {
 		id,
 		issue: null,
 		notFound: false,
 		loadError: null,
-		seo: buildIssueDetailSeo(null, { canonicalUrl, fallbackOgImageUrl })
+		seo: buildIssueDetailSeo(null, { canonicalUrl, ogImageUrl })
 	};
 
 	let response: Response;
@@ -75,7 +75,7 @@ export const load: PageLoad = async ({ params, fetch, url }) => {
 		return {
 			...data,
 			issue: json.data,
-			seo: buildIssueDetailSeo(json.data, { canonicalUrl, fallbackOgImageUrl })
+			seo: buildIssueDetailSeo(json.data, { canonicalUrl, ogImageUrl })
 		};
 	} catch {
 		return {

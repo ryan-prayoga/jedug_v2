@@ -40,9 +40,9 @@
 	let failedMediaIDs = $state<Set<string>>(new Set());
 
 	const canonicalUrl = (() => data.seo.canonical_url)();
-	const fallbackOgImageUrl = (() => data.seo.fallback_og_image_url)();
+	const ogImageUrl = (() => data.seo.og_image_url)();
 
-	const seo = $derived(buildIssueDetailSeo(issue, { canonicalUrl, fallbackOgImageUrl }));
+	const seo = $derived(buildIssueDetailSeo(issue, { canonicalUrl, ogImageUrl }));
 	const locationLabel = $derived(issue ? getIssueLocationLabel(issue) : '-');
 	const locationContext = $derived(issue ? getIssueRegionOrCoordinates(issue) : '-');
 	const coordinatesLabel = $derived(
