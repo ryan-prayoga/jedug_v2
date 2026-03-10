@@ -1,2 +1,4 @@
-# Design & internal docs (local only)
-/design-docs/
+# Keep documentation tracked in git (including design-docs and docs)
+
+# macOS
+.DS_Store
