@@ -20,6 +20,7 @@ type AdminRepository interface {
 	BanDevice(ctx context.Context, id uuid.UUID, reason *string) error
 	CreateModerationAction(ctx context.Context, actionType, targetType string, targetID uuid.UUID, adminUsername string, note *string) error
 	GetModerationLog(ctx context.Context, targetType string, targetID uuid.UUID) ([]*domain.ModerationAction, error)
+	AdjustSubmitterTrustScores(ctx context.Context, issueID uuid.UUID, delta int) error
 }
 
 type adminRepository struct {
@@ -204,7 +205,7 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 }
 
 func (r *adminRepository) BanDevice(ctx context.Context, id uuid.UUID, reason *string) error {
-	_, err := r.db.Exec(ctx, `UPDATE devices SET is_banned = TRUE, ban_reason = $1 WHERE id = $2`, reason, id)
+	_, err := r.db.Exec(ctx, `UPDATE devices SET is_banned = TRUE, ban_reason = $1, trust_score = -100 WHERE id = $2`, reason, id)
 	return err
 }
 
@@ -240,6 +241,16 @@ func (r *adminRepository) GetModerationLog(ctx context.Context, targetType strin
 		actions = append(actions, &a)
 	}
 	return actions, rows.Err()
+}
+
+func (r *adminRepository) AdjustSubmitterTrustScores(ctx context.Context, issueID uuid.UUID, delta int) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE devices SET trust_score = trust_score + $1
+		WHERE id IN (
+			SELECT DISTINCT device_id FROM issue_submissions WHERE issue_id = $2
+		)
+	`, delta, issueID)
+	return err
 }
 
 

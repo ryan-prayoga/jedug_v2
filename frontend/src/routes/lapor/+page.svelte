@@ -7,6 +7,10 @@
 	import { compressImage } from '$lib/utils/image';
 	import { presignUpload, uploadFile } from '$lib/api/uploads';
 	import { submitReport } from '$lib/api/reports';
+	import { ApiError } from '$lib/api/client';
+
+	// Idempotency key: one per form session, prevents double-submit
+	let clientRequestId = crypto.randomUUID();
 
 	// Form state
 	let selectedFile = $state<File | null>(null);
@@ -168,6 +172,7 @@
 			// Step 4: Submit report
 			currentStep = 'submitting';
 			const reportRes = await submitReport({
+				client_request_id: clientRequestId,
 				anon_token: token,
 				latitude: location.latitude,
 				longitude: location.longitude,
@@ -199,7 +204,13 @@
 				goto(`/issues/${reportRes.data!.issue_id}`);
 			}, 500);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Terjadi kesalahan';
+			if (e instanceof ApiError && e.status === 429) {
+				error = e.message || 'Terlalu banyak permintaan. Coba lagi nanti.';
+			} else if (e instanceof ApiError && e.status === 403) {
+				error = e.message || 'Akun tidak diizinkan mengirim laporan saat ini.';
+			} else {
+				error = e instanceof Error ? e.message : 'Terjadi kesalahan';
+			}
 			currentStep = 'idle';
 		} finally {
 			if (currentStep !== 'done') {

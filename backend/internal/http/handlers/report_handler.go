@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"strconv"
 	"time"
 
@@ -30,16 +31,17 @@ type reportMediaInput struct {
 }
 
 type submitReportBody struct {
-	AnonToken     string             `json:"anon_token"`
-	Latitude      float64            `json:"latitude"`
-	Longitude     float64            `json:"longitude"`
-	GPSAccuracyM  *float64           `json:"gps_accuracy_m"`
-	Severity      int                `json:"severity"`
-	Note          *string            `json:"note"`
-	HasCasualty   bool               `json:"has_casualty"`
-	CasualtyCount int                `json:"casualty_count"`
-	CapturedAt    *time.Time         `json:"captured_at"`
-	Media         []reportMediaInput `json:"media"`
+	ClientRequestID *string            `json:"client_request_id"`
+	AnonToken       string             `json:"anon_token"`
+	Latitude        float64            `json:"latitude"`
+	Longitude       float64            `json:"longitude"`
+	GPSAccuracyM    *float64           `json:"gps_accuracy_m"`
+	Severity        int                `json:"severity"`
+	Note            *string            `json:"note"`
+	HasCasualty     bool               `json:"has_casualty"`
+	CasualtyCount   int                `json:"casualty_count"`
+	CapturedAt      *time.Time         `json:"captured_at"`
+	Media           []reportMediaInput `json:"media"`
 }
 
 func (h *ReportHandler) Submit(c *fiber.Ctx) error {
@@ -49,6 +51,7 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 	}
 
 	if err := validateReportBody(&body); err != nil {
+		log.Printf("[ANTISPAM] validation_failed ip=%s reason=%s", c.IP(), err.Error())
 		return response.Error(c, fiber.StatusBadRequest, err.Error())
 	}
 
@@ -67,23 +70,37 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 	}
 
 	result, err := h.svc.SubmitReport(c.Context(), service.SubmitReportRequest{
-		AnonToken:     body.AnonToken,
-		Latitude:      body.Latitude,
-		Longitude:     body.Longitude,
-		GPSAccuracyM:  body.GPSAccuracyM,
-		CapturedAt:    body.CapturedAt,
-		Severity:      body.Severity,
-		HasCasualty:   body.HasCasualty,
-		CasualtyCount: body.CasualtyCount,
-		Note:          body.Note,
-		Media:         media,
+		ClientRequestID: body.ClientRequestID,
+		AnonToken:       body.AnonToken,
+		Latitude:        body.Latitude,
+		Longitude:       body.Longitude,
+		GPSAccuracyM:    body.GPSAccuracyM,
+		CapturedAt:      body.CapturedAt,
+		Severity:        body.Severity,
+		HasCasualty:     body.HasCasualty,
+		CasualtyCount:   body.CasualtyCount,
+		Note:            body.Note,
+		Media:           media,
 	})
 	if err != nil {
 		if errors.Is(err, service.ErrDeviceNotFound) {
 			return response.Error(c, fiber.StatusUnauthorized, "device not found; bootstrap first")
 		}
 		if errors.Is(err, service.ErrDeviceBanned) {
+			log.Printf("[ANTISPAM] banned_submit ip=%s", c.IP())
 			return response.Error(c, fiber.StatusForbidden, "device is banned")
+		}
+		if errors.Is(err, service.ErrCooldown) {
+			log.Printf("[ANTISPAM] cooldown_submit ip=%s", c.IP())
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"success":     false,
+				"message":     "Tunggu beberapa menit sebelum mengirim laporan berikutnya.",
+				"retry_after": 120,
+			})
+		}
+		if errors.Is(err, service.ErrLowTrustScore) {
+			log.Printf("[ANTISPAM] low_trust_submit ip=%s", c.IP())
+			return response.Error(c, fiber.StatusForbidden, "Akun tidak diizinkan mengirim laporan saat ini.")
 		}
 		return response.Error(c, fiber.StatusInternalServerError, "failed to submit report")
 	}
@@ -117,6 +134,9 @@ func validateReportBody(b *submitReportBody) error {
 	}
 	if len(b.Media) == 0 {
 		return errors.New("at least one media item is required")
+	}
+	if len(b.Media) > 5 {
+		return errors.New("maximum 5 media items allowed")
 	}
 	if b.CasualtyCount < 0 {
 		return errors.New("casualty_count must be >= 0")

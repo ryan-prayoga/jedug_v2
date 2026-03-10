@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,6 +16,8 @@ type DeviceRepository interface {
 	Create(ctx context.Context, device *domain.Device) error
 	UpdateLastSeen(ctx context.Context, id uuid.UUID) error
 	CreateConsent(ctx context.Context, consent *domain.DeviceConsent) error
+	UpdateTrustScore(ctx context.Context, id uuid.UUID, delta int) error
+	FindLastSubmissionTime(ctx context.Context, deviceID uuid.UUID) (*time.Time, error)
 }
 
 type deviceRepository struct {
@@ -77,4 +80,26 @@ func (r *deviceRepository) CreateConsent(ctx context.Context, consent *domain.De
 		consent.IPAddress, consent.UserAgent,
 	)
 	return err
+}
+
+func (r *deviceRepository) UpdateTrustScore(ctx context.Context, id uuid.UUID, delta int) error {
+	_, err := r.db.Exec(ctx, `UPDATE devices SET trust_score = trust_score + $1 WHERE id = $2`, delta, id)
+	return err
+}
+
+func (r *deviceRepository) FindLastSubmissionTime(ctx context.Context, deviceID uuid.UUID) (*time.Time, error) {
+	var t time.Time
+	err := r.db.QueryRow(ctx, `
+		SELECT reported_at FROM issue_submissions
+		WHERE device_id = $1
+		ORDER BY reported_at DESC
+		LIMIT 1
+	`, deviceID).Scan(&t)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &t, nil
 }
