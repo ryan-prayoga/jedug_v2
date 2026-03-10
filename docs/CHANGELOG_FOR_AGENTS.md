@@ -42,6 +42,25 @@ Area yang selalu wajib update docs bila berubah:
 - auth admin runtime masih env + in-memory session, belum memakai tabel user/session schema.
 - indikasi formatting typo pada SQL `submission_media` (`widthINT/heightINT`) perlu verifikasi manual terhadap DB nyata.
 
+## 2026-03-10 - Production-Ready Public Issue Detail + Shareability
+
+- Scope:
+  - memperkuat halaman publik `/issues/[id]` agar mobile-first, informatif, dan siap dibagikan ke sosial media.
+  - menambahkan metadata SEO/OG/Twitter + canonical berbasis SSR route data.
+  - menambahkan `region_name` pada response issue publik/admin (derived field via join `regions`).
+- Dampak area:
+  - frontend route issue detail (`+page.ts` dan `+page.svelte`)
+  - helper UI/SEO share (`src/lib/utils/issue-detail.ts`)
+  - backend repository/domain issue dan admin issue (query join region)
+  - static asset fallback OG image (`frontend/static/og/issue-fallback.svg`)
+- File docs yang diupdate:
+  - `docs/FRONTEND.md`
+  - `docs/BACKEND.md`
+  - `docs/SCHEMA.md`
+  - `design-docs/guide.md`
+- Mismatch baru (jika ada):
+  - tidak ada mismatch baru yang teridentifikasi dari perubahan ini; kontrak lama tetap dipertahankan dan hanya ditambah field turunan.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

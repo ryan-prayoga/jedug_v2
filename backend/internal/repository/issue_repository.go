@@ -42,6 +42,7 @@ const issueCols = `
 	ST_X(i.public_location::geometry) AS longitude,
 	ST_Y(i.public_location::geometry) AS latitude,
 	i.region_id,
+	r.name AS region_name,
 	i.road_name,
 	i.road_type,
 	i.submission_count,
@@ -59,7 +60,7 @@ func scanIssueRow(row pgx.Row, i *domain.Issue) error {
 	return row.Scan(
 		&i.ID, &i.Status, &i.VerificationStatus, &i.SeverityCurrent, &i.SeverityMax,
 		&i.Longitude, &i.Latitude,
-		&i.RegionID, &i.RoadName, &i.RoadType,
+		&i.RegionID, &i.RegionName, &i.RoadName, &i.RoadType,
 		&i.SubmissionCount, &i.PhotoCount, &i.CasualtyCount, &i.ReactionCount, &i.FlagCount,
 		&i.FirstSeenAt, &i.LastSeenAt, &i.CreatedAt, &i.UpdatedAt,
 	)
@@ -96,7 +97,7 @@ func (r *issueRepository) List(ctx context.Context, limit, offset int, status *s
 
 	args = append(args, limit, offset)
 	query := fmt.Sprintf(
-		"SELECT %s FROM issues i WHERE %s ORDER BY i.last_seen_at DESC LIMIT $%d OFFSET $%d",
+		"SELECT %s FROM issues i LEFT JOIN regions r ON r.id = i.region_id WHERE %s ORDER BY i.last_seen_at DESC LIMIT $%d OFFSET $%d",
 		issueCols,
 		strings.Join(conditions, " AND "),
 		n, n+1,
@@ -114,7 +115,7 @@ func (r *issueRepository) List(ctx context.Context, limit, offset int, status *s
 		if err := rows.Scan(
 			&i.ID, &i.Status, &i.VerificationStatus, &i.SeverityCurrent, &i.SeverityMax,
 			&i.Longitude, &i.Latitude,
-			&i.RegionID, &i.RoadName, &i.RoadType,
+			&i.RegionID, &i.RegionName, &i.RoadName, &i.RoadType,
 			&i.SubmissionCount, &i.PhotoCount, &i.CasualtyCount, &i.ReactionCount, &i.FlagCount,
 			&i.FirstSeenAt, &i.LastSeenAt, &i.CreatedAt, &i.UpdatedAt,
 		); err != nil {
@@ -128,6 +129,7 @@ func (r *issueRepository) List(ctx context.Context, limit, offset int, status *s
 func (r *issueRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Issue, error) {
 	query := `SELECT ` + issueCols + `
 		FROM issues i
+		LEFT JOIN regions r ON r.id = i.region_id
 		WHERE i.id = $1 AND i.is_hidden = FALSE
 		LIMIT 1`
 
@@ -214,4 +216,3 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 		RecentSubmissions: subs,
 	}, nil
 }
-

@@ -64,6 +64,7 @@ export interface Issue {
   longitude: number;
   latitude: number;
   region_id: number | null;
+  region_name: string | null;
   road_name: string | null;
   road_type: string | null;
   submission_count: number;
@@ -122,6 +123,7 @@ export interface AdminIssue {
   longitude: number;
   latitude: number;
   region_id: number | null;
+  region_name: string | null;
   road_name: string | null;
   road_type: string | null;
   submission_count: number;

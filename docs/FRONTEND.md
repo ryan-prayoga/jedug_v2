@@ -51,6 +51,23 @@
 - BBox sama (rounded 5 desimal) di-skip untuk mengurangi fetch redundant.
 - Marker click memilih issue -> tampilkan bottom sheet.
 
+## Detail Issue Publik (`/issues/[id]`)
+
+- Route memakai `+page.ts` (SSR-enabled di level page) untuk:
+  - fetch detail issue saat initial request
+  - menghasilkan metadata share (`title`, `description`, Open Graph, Twitter card, canonical)
+- UI detail page bersifat mobile-first:
+  - hero media + fallback placeholder
+  - metrik ringkas (laporan/foto/korban/reaksi/visibility)
+  - info utama + info tambahan + galeri + aktivitas terbaru
+  - CTA share + social links + open external map
+- State wajib tersedia:
+  - loading (retry fetch)
+  - not found
+  - error
+  - fallback media gagal load
+  - empty gallery
+
 ## Integrasi Upload + Submit
 
 Di `/lapor`:
@@ -77,12 +94,13 @@ Di `/lapor`:
 - alur upload fallback (R2 -> local endpoint)
 - consent bootstrap flow sebelum submit report
 - auth guard admin layout (`/admin/+layout.svelte`)
+- metadata SSR untuk `/issues/[id]` (title/description/OG/Twitter/canonical)
 
 ## Current Implementation
 
 - Public UI sudah map-first dan cukup konsisten dengan design-docs.
 - Admin UI fungsional untuk moderation utama.
-- SSR dimatikan (`+layout.ts` dan `/admin/+layout.ts` set `ssr = false`).
+- SSR global tetap nonaktif di root layout, tetapi detail issue publik `/issues/[id]` diaktifkan SSR pada page-level untuk shareability.
 
 ## Known Mismatch
 

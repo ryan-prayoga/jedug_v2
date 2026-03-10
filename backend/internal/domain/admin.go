@@ -16,6 +16,7 @@ type AdminIssue struct {
 	Longitude          float64   `json:"longitude"`
 	Latitude           float64   `json:"latitude"`
 	RegionID           *int64    `json:"region_id,omitempty"`
+	RegionName         *string   `json:"region_name,omitempty"`
 	RoadName           *string   `json:"road_name,omitempty"`
 	RoadType           *string   `json:"road_type,omitempty"`
 	SubmissionCount    int       `json:"submission_count"`
@@ -34,8 +35,8 @@ type AdminIssue struct {
 type AdminIssueDetail struct {
 	*AdminIssue
 	Media         []*MediaItem              `json:"media"`
-	Submissions   []*AdminSubmissionSummary  `json:"submissions"`
-	ModerationLog []*ModerationAction        `json:"moderation_log"`
+	Submissions   []*AdminSubmissionSummary `json:"submissions"`
+	ModerationLog []*ModerationAction       `json:"moderation_log"`
 }
 
 // AdminSubmissionSummary extends the public submission summary with device info.
