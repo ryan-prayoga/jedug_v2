@@ -61,11 +61,20 @@
 - Route memakai `+page.ts` (SSR-enabled di level page) untuk:
   - fetch detail issue saat initial request
   - menghasilkan metadata share (`title`, `description`, Open Graph, Twitter card, canonical)
+  - treat `400/404` sebagai not-found publik
 - UI detail page bersifat mobile-first:
   - hero media + fallback placeholder
-  - metrik ringkas (laporan/foto/korban/reaksi/visibility)
-  - info utama + info tambahan + galeri + aktivitas terbaru
+  - meta issue (severity/status/verification/lokasi/first seen/last seen)
+  - metrik ringkas (laporan/foto/korban/update terakhir)
+  - galeri media publik sederhana + preview lightbox
+  - detail tambahan + catatan publik ringkas + aktivitas terbaru
   - CTA share + social links + open external map
+- Komponen route dipisah agar maintainable:
+  - `IssueHeader.svelte`
+  - `IssueStats.svelte`
+  - `IssueGallery.svelte`
+  - `ShareActions.svelte`
+- Layout desktop issue detail memakai container lebar sendiri (`app-main-wide`) tanpa mengubah flow route publik lain.
 - State wajib tersedia:
   - loading (retry fetch)
   - not found

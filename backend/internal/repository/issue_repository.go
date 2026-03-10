@@ -130,7 +130,9 @@ func (r *issueRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.I
 	query := `SELECT ` + issueCols + `
 		FROM issues i
 		LEFT JOIN regions r ON r.id = i.region_id
-		WHERE i.id = $1 AND i.is_hidden = FALSE
+		WHERE i.id = $1
+		  AND i.is_hidden = FALSE
+		  AND i.status NOT IN ('rejected', 'merged')
 		LIMIT 1`
 
 	var i domain.Issue
@@ -153,15 +155,16 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 		return nil, nil
 	}
 
-	// Top 5 media items, primary first
+	// Public gallery media, primary first.
 	mediaRows, err := r.db.Query(ctx, `
 		SELECT sm.id, sm.object_key, sm.mime_type, sm.size_bytes,
 		       sm.width, sm.height, sm.blurhash, sm.is_primary, sm.created_at
 		FROM submission_media sm
 		JOIN issue_submissions s ON s.id = sm.submission_id
 		WHERE s.issue_id = $1
-		ORDER BY sm.is_primary DESC, sm.created_at DESC
-		LIMIT 5
+		  AND s.status <> 'rejected'
+		ORDER BY sm.is_primary DESC, sm.sort_order ASC, sm.created_at DESC
+		LIMIT 20
 	`, id)
 	if err != nil {
 		return nil, err
@@ -183,11 +186,12 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 		return nil, err
 	}
 
-	// Last 3 submissions (minimal public fields only)
+	// Last 3 public-facing submissions (minimal public fields only).
 	subRows, err := r.db.Query(ctx, `
 		SELECT id, status, severity, has_casualty, note, reported_at
 		FROM issue_submissions
 		WHERE issue_id = $1
+		  AND status <> 'rejected'
 		ORDER BY reported_at DESC
 		LIMIT 3
 	`, id)

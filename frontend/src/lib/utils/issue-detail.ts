@@ -104,6 +104,14 @@ export function getIssueLocationLabel(issue: IssueDetail): string {
 	return formatCoordinates(issue.latitude, issue.longitude, 5);
 }
 
+export function getIssueRegionOrCoordinates(issue: IssueDetail): string {
+	if (issue.region_name) {
+		return issue.region_name;
+	}
+
+	return `Koordinat ${formatCoordinates(issue.latitude, issue.longitude, 5)}`;
+}
+
 export function formatCoordinates(latitude: number, longitude: number, precision = 6): string {
 	return `${latitude.toFixed(precision)}, ${longitude.toFixed(precision)}`;
 }
@@ -157,7 +165,9 @@ export function buildIssueDetailSeo(issue: IssueDetail | null, options: BuildSeo
 		description,
 		canonical_url: options.canonicalUrl,
 		og_image_url: primaryMedia?.public_url || options.fallbackOgImageUrl,
-		og_image_alt: `Foto issue jalan rusak di ${locationLabel}`,
+		og_image_alt: primaryMedia
+			? `Foto issue jalan rusak di ${locationLabel}`
+			: 'Ilustrasi laporan jalan rusak JEDUG',
 		twitter_card: 'summary_large_image',
 		share_text: `Pantau issue jalan rusak ${severityLabel.toLowerCase()} di ${locationLabel}`,
 		fallback_og_image_url: options.fallbackOgImageUrl

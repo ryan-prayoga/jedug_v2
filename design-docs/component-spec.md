@@ -69,6 +69,52 @@ Dokumen ini bukan sumber utama token desain.
 - Road name bold
 - Meta line: submission count, casualty, relative time
 
+## IssueHeader
+
+- Hero media tampil penuh di mobile, rounded card di desktop
+- Jika hero image gagal atau tidak ada, tampilkan placeholder civic-grade yang tetap menonjolkan lokasi issue
+- Summary card wajib memuat:
+  - severity badge
+  - status badge
+  - verification badge
+  - lokasi utama
+  - first seen
+  - last seen
+
+## IssueStats
+
+- Grid 2 kolom di mobile, 4 kolom di desktop
+- Item wajib:
+  - laporan
+  - foto
+  - korban
+  - update terakhir
+- Card korban boleh diberi state alert ringan jika `casualty_count > 0`
+
+## IssueGallery
+
+- Grid sederhana, tidak memakai carousel
+- Klik gambar membuka preview full-screen/lightbox ringan
+- Jika total foto lebih besar dari foto yang dikirim endpoint, tampilkan helper text yang menjelaskan bahwa yang tampil adalah subset terbaru
+- Empty state harus membedakan:
+  - benar-benar belum ada foto
+  - foto ada tetapi gagal dimuat di perangkat
+
+## ShareActions
+
+- Harus menyediakan CTA:
+  - kembali ke peta
+  - bagikan issue
+  - lapor di sekitar sini
+  - buka lokasi di peta eksternal
+- Share links cepat:
+  - WhatsApp
+  - Telegram
+  - Twitter/X
+  - Facebook
+  - salin link
+- Primary share menggunakan Web Share API bila tersedia, lalu fallback ke copy link
+
 ## PrimaryButton
 
 - Full width, `#E5484D`, white text, 12px radius

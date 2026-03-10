@@ -21,6 +21,11 @@ function getFallbackOgImageUrl(origin: string): string {
 	return `${origin}/og/issue-fallback.svg`;
 }
 
+function getApiIssueDetailUrl(origin: string, issueID: string): string {
+	const baseUrl = PUBLIC_API_BASE_URL || origin;
+	return new URL(`/api/v1/issues/${encodeURIComponent(issueID)}`, baseUrl).toString();
+}
+
 export const load: PageLoad = async ({ params, fetch, url }) => {
 	const id = params.id;
 	const canonicalUrl = getCanonicalUrl(url.origin, id);
@@ -36,7 +41,7 @@ export const load: PageLoad = async ({ params, fetch, url }) => {
 
 	let response: Response;
 	try {
-		response = await fetch(`${PUBLIC_API_BASE_URL}/api/v1/issues/${encodeURIComponent(id)}`);
+		response = await fetch(getApiIssueDetailUrl(url.origin, id));
 	} catch {
 		return {
 			...data,
@@ -44,7 +49,7 @@ export const load: PageLoad = async ({ params, fetch, url }) => {
 		};
 	}
 
-	if (response.status === 404) {
+	if (response.status === 400 || response.status === 404) {
 		return {
 			...data,
 			notFound: true

@@ -42,6 +42,30 @@ Area yang selalu wajib update docs bila berubah:
 - auth admin runtime masih env + in-memory session, belum memakai tabel user/session schema.
 - indikasi formatting typo pada SQL `submission_media` (`widthINT/heightINT`) perlu verifikasi manual terhadap DB nyata.
 
+## 2026-03-10 - Issue Detail Page Production-Ready
+
+- Scope:
+  - merapikan ulang halaman publik `/issues/[id]` menjadi halaman detail issue yang mobile-first, shareable, dan SEO friendly.
+  - memecah UI detail issue menjadi komponen `IssueHeader`, `IssueStats`, `IssueGallery`, dan `ShareActions`.
+  - memperketat endpoint publik detail issue agar konsisten dengan visibilitas publik map/list.
+- Dampak area:
+  - `frontend/src/routes/issues/[id]/+page.ts`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+  - `frontend/src/routes/+layout.svelte`
+  - `frontend/src/lib/components/IssueHeader.svelte`
+  - `frontend/src/lib/components/IssueStats.svelte`
+  - `frontend/src/lib/components/IssueGallery.svelte`
+  - `frontend/src/lib/components/ShareActions.svelte`
+  - `frontend/src/lib/utils/issue-detail.ts`
+  - `backend/internal/repository/issue_repository.go`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+- Mismatch baru (jika ada):
+  - endpoint publik detail issue menampilkan maksimal 20 foto publik terbaru demi payload yang tetap ringan; UI menjelaskan bila total foto lebih besar dari subset yang ditampilkan.
+
 ## 2026-03-10 - Production-Ready Public Issue Detail + Shareability
 
 - Scope:
