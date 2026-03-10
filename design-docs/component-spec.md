@@ -44,6 +44,11 @@ Dokumen ini bukan sumber utama token desain.
 - Mobile: slides from bottom, 20px top radius, drag handle, max-height 55vh
 - Desktop: side panel 380px, right-aligned, border-left
 - Drag handle: 40×4px, `#CBD5E1`, centered
+- Swipe-to-close (mobile):
+  - drag down dari handle/area atas sheet
+  - close jika melewati threshold gesture
+  - jika drag pendek, sheet snap-back ke posisi awal
+  - tidak boleh bentrok dengan scroll konten internal
 - Content padding: 16px 20px 24px
 - Layout:
   1. Severity pill (most prominent, colored bg)
@@ -67,9 +72,9 @@ Dokumen ini bukan sumber utama token desain.
 ## PrimaryButton
 
 - Full width, `#E5484D`, white text, 12px radius
-- Min height: 48px
-- Font: 16px, 600 weight
-- Hover: opacity 0.88
+- Min height: 52px
+- Font: 15–16px, 700 weight
+- Hover: opacity halus + soft elevated shadow
 - Active: scale(0.97)
 - Disabled: opacity 0.45
 

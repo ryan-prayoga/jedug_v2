@@ -61,6 +61,27 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - tidak ada mismatch baru yang teridentifikasi dari perubahan ini; kontrak lama tetap dipertahankan dan hanya ditambah field turunan.
 
+## 2026-03-10 - UX Bugfix Map Mobile + CTA/Homepage Polish
+
+- Scope:
+  - memperbaiki interaksi `IssueBottomSheet` agar bisa swipe/drag down untuk close di mobile.
+  - menstabilkan transisi list ↔ map dengan guard state agar tidak muncul false-empty/flicker.
+  - memoles visual CTA utama (`Laporkan Jalan Rusak`) di map/home dan komponen tombol utama.
+  - memoles homepage agar hierarki visual lebih matang tanpa mengubah flow bisnis.
+- Dampak area:
+  - `frontend/src/routes/issues/+page.svelte`
+  - `frontend/src/lib/components/IssueBottomSheet.svelte`
+  - `frontend/src/lib/utils/bbox.ts`
+  - `frontend/src/lib/components/PrimaryButton.svelte`
+  - `frontend/src/routes/+page.svelte`
+- File docs yang diupdate:
+  - `docs/FRONTEND.md`
+  - `docs/MAP_AND_LOCATION.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+- Mismatch baru (jika ada):
+  - tidak ada mismatch arsitektur baru; perubahan terbatas pada UX state dan visual polish frontend.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

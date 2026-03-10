@@ -37,6 +37,7 @@
 - `IssueBottomSheet.svelte`
   - mobile bottom sheet
   - desktop side panel style
+  - support swipe/drag down untuk close di mobile (threshold + snap-back)
 - `IssueCard.svelte`
   - ringkasan issue untuk list/panel
 - `ImagePicker.svelte`
@@ -50,6 +51,9 @@
 - Debounce default 300ms.
 - BBox sama (rounded 5 desimal) di-skip untuk mengurangi fetch redundant.
 - Marker click memilih issue -> tampilkan bottom sheet.
+- Reset cache bbox saat user kembali dari list ke map untuk mencegah stuck loading pada viewport yang sama.
+- Empty state map hanya dirender setelah fetch viewport valid selesai agar tidak muncul false-empty saat map baru mount.
+- Error fetch viewport tidak langsung mengosongkan marker; state terakhir dipertahankan untuk menghindari flicker.
 
 ## Detail Issue Publik (`/issues/[id]`)
 
