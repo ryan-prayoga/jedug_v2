@@ -24,13 +24,7 @@
 	let mapHasFetchedViewport = $state(false);
 
 	const showMapLoading = $derived(mapFetching && !mapHasFetchedViewport && issues.length === 0);
-	const showMapEmpty = $derived(
-		mapReady &&
-			mapHasFetchedViewport &&
-			!mapFetching &&
-			issues.length === 0 &&
-			!error
-	);
+	const showMapInfo = $derived(mapReady && mapHasFetchedViewport && !showMapLoading && !error);
 
 	// Dynamically import map components (graceful fallback if they fail)
 	onMount(async () => {
@@ -171,17 +165,14 @@
 						</div>
 					{/if}
 
-					<!-- Issue count badge -->
-					{#if !showMapLoading && issues.length > 0}
-						<div class="issue-count">{issues.length} titik</div>
-					{/if}
-
-					<!-- Empty state overlay -->
-					{#if showMapEmpty}
-						<div class="map-empty">
-							<span class="map-empty-icon">🚧</span>
-							<span class="map-empty-text">Tidak ada laporan di area ini</span>
-							<a href="/lapor" class="map-empty-cta">Laporkan Jalan Rusak</a>
+					<!-- Map info badge (no center popup) -->
+					{#if showMapInfo}
+						<div class="map-info-badge" class:empty={issues.length === 0}>
+							<span class="map-info-count">{issues.length} titik</span>
+							<span class="map-info-separator">•</span>
+							<span class="map-info-text">
+								{issues.length === 0 ? 'Belum ada laporan di area ini' : 'Laporan di area ini'}
+							</span>
 						</div>
 					{/if}
 
@@ -379,64 +370,43 @@
 		50% { opacity: 0.3; }
 	}
 
-	.issue-count {
+	.map-info-badge {
 		position: absolute;
 		top: 12px;
 		left: 12px;
 		background: #fff;
-		padding: 6px 14px;
+		padding: 8px 12px;
 		border-radius: 10px;
-		font-size: 13px;
+		font-size: 12px;
 		font-weight: 600;
 		color: #0F172A;
-		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-		z-index: 5;
-	}
-
-	.map-empty {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		background: rgba(255, 255, 255, 0.96);
-		padding: 24px 32px;
-		border-radius: 16px;
-		font-size: 14px;
-		color: #64748B;
-		box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+		border: 1px solid #E2E8F0;
+		box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 		z-index: 5;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		gap: 8px;
-		text-align: center;
 	}
 
-	.map-empty-icon {
-		font-size: 32px;
-		line-height: 1;
+	.map-info-badge.empty {
+		background: rgba(255, 255, 255, 0.96);
 	}
 
-	.map-empty-text {
-		font-size: 14px;
-		color: #64748B;
-	}
-
-	.map-empty-cta {
-		margin-top: 4px;
+	.map-info-count {
 		font-size: 13px;
-		font-weight: 600;
-		color: #E5484D;
-		text-decoration: none;
-		padding: 8px 16px;
-		border: 1px solid #E5484D;
-		border-radius: 10px;
-		transition: background 0.15s;
-		pointer-events: auto;
+		font-weight: 700;
+		color: #0F172A;
 	}
 
-	.map-empty-cta:hover {
-		background: #FEF2F2;
+	.map-info-separator {
+		color: #94A3B8;
+		font-size: 11px;
+	}
+
+	.map-info-text {
+		color: #64748B;
+		font-size: 12px;
+		font-weight: 500;
 	}
 
 	.map-error-overlay {

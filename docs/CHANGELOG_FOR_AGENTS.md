@@ -66,6 +66,7 @@ Area yang selalu wajib update docs bila berubah:
 - Scope:
   - memperbaiki interaksi `IssueBottomSheet` agar bisa swipe/drag down untuk close di mobile.
   - menstabilkan transisi list ↔ map dengan guard state agar tidak muncul false-empty/flicker.
+  - mengganti empty state map dari popup tengah menjadi info badge top-left agar tidak menutupi peta.
   - memoles visual CTA utama (`Laporkan Jalan Rusak`) di map/home dan komponen tombol utama.
   - memoles homepage agar hierarki visual lebih matang tanpa mengubah flow bisnis.
 - Dampak area:

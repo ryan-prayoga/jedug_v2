@@ -72,6 +72,7 @@ Di halaman `/lapor`:
 - map-first UX berjalan baik untuk browse issue.
 - fallback ke mode list sudah ada saat map gagal.
 - transisi list ↔ map memakai guard untuk mencegah false-empty/flicker saat mount ulang map.
+- status jumlah titik + "tidak ada laporan" ditampilkan via badge info top-left, bukan popup tengah.
 
 ## Known Mismatch
 
