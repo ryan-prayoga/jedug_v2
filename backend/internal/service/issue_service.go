@@ -9,7 +9,7 @@ import (
 )
 
 type IssueService interface {
-	List(ctx context.Context, limit, offset int, status *string, bbox *repository.BBoxFilter) ([]*domain.Issue, error)
+	List(ctx context.Context, limit, offset int, status *string, severity *int, bbox *repository.BBoxFilter) ([]*domain.Issue, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Issue, error)
 	GetByIDWithDetail(ctx context.Context, id uuid.UUID) (*domain.IssueDetail, error)
 }
@@ -22,14 +22,14 @@ func NewIssueService(repo repository.IssueRepository) IssueService {
 	return &issueService{repo: repo}
 }
 
-func (s *issueService) List(ctx context.Context, limit, offset int, status *string, bbox *repository.BBoxFilter) ([]*domain.Issue, error) {
+func (s *issueService) List(ctx context.Context, limit, offset int, status *string, severity *int, bbox *repository.BBoxFilter) ([]*domain.Issue, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
 	if offset < 0 {
 		offset = 0
 	}
-	return s.repo.List(ctx, limit, offset, status, bbox)
+	return s.repo.List(ctx, limit, offset, status, severity, bbox)
 }
 
 func (s *issueService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Issue, error) {

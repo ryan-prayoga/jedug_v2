@@ -30,6 +30,15 @@ func (h *IssueHandler) List(c *fiber.Ctx) error {
 		status = &s
 	}
 
+	var severity *int
+	if s := c.Query("severity"); s != "" {
+		v, err := strconv.Atoi(s)
+		if err != nil || v < 1 || v > 5 {
+			return response.Error(c, fiber.StatusBadRequest, "severity must be 1-5")
+		}
+		severity = &v
+	}
+
 	var bbox *repository.BBoxFilter
 	if raw := c.Query("bbox"); raw != "" {
 		parts := strings.Split(raw, ",")
@@ -47,7 +56,7 @@ func (h *IssueHandler) List(c *fiber.Ctx) error {
 		bbox = &repository.BBoxFilter{MinLng: vals[0], MinLat: vals[1], MaxLng: vals[2], MaxLat: vals[3]}
 	}
 
-	issues, err := h.svc.List(c.Context(), limit, offset, status, bbox)
+	issues, err := h.svc.List(c.Context(), limit, offset, status, severity, bbox)
 	if err != nil {
 		return response.Error(c, fiber.StatusInternalServerError, "failed to fetch issues")
 	}
