@@ -49,6 +49,7 @@ Konsekuensi:
 - `DATABASE_URL` (required)
 - `ADMIN_PASSWORD` (required)
 - `APP_PORT`, `CORS_ALLOW_ORIGINS`
+- `DUPLICATE_RADIUS_M` (optional, default `30`, satuan meter)
 - `STORAGE_DRIVER`, `STORAGE_PUBLIC_BASE_URL`, `UPLOAD_DIR`
 - R2 vars saat mode R2 aktif:
   - `R2_ACCESS_KEY_ID`

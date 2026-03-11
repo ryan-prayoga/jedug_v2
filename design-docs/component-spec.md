@@ -29,6 +29,14 @@ Dokumen ini bukan sumber utama token desain.
 - Map info badge: top-left, pill, menampilkan `{n} titik` + status area (ada/tidak ada laporan)
 - Empty state map tidak menggunakan popup tengah; informasi "tidak ada laporan" ditampilkan di info badge
 - Error overlay: top full-width, red bg
+- Marker publik memakai layer stack:
+  - cluster circles
+  - cluster count
+  - unclustered hit-area
+  - unclustered marker dot
+  - selected glow/core
+- Klik cluster harus zoom/focus ke area cluster
+- Jika setup cluster gagal, fallback ke unclustered marker layer (tanpa memutus flow map)
 
 ## Marker
 
@@ -36,8 +44,18 @@ Dokumen ini bukan sumber utama token desain.
 - Fixed/archived: `#94A3B8`, opacity 0.45
 - Touch target: 36px
 - Visual dot sizes: 14/16/20px by severity
-- Selected: scale(1.5), glow shadow
-- Hover: scale(1.25)
+- Selected: glow + core marker (base marker disembunyikan via filter)
+- Cluster count harus tetap terbaca di mobile (text + halo)
+
+## Report Location Panel (`/lapor`)
+
+- User selalu melihat koordinat mentah (`lat, lon`) sebagai acuan utama.
+- Label lokasi manusiawi (wilayah) ditampilkan sebagai konfirmasi UX, bukan source of truth geospatial.
+- Lookup label dipicu saat:
+  - lokasi awal berhasil didapat
+  - koordinat manual dipilih eksplisit
+- Jangan melakukan request berulang saat user sedang mengetik koordinat.
+- Jika lookup label gagal, submit tetap bisa lanjut dengan koordinat mentah.
 
 ## IssueBottomSheet
 

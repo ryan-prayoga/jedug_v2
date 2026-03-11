@@ -110,6 +110,12 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Guard state transisi list ↔ map untuk menghindari false-empty/flicker saat map remount
 - Empty state map hanya tampil setelah fetch viewport valid, bukan saat map baru mount
 - Bottom sheet mobile mendukung swipe-down close dengan threshold + snap-back
+- Marker map publik menggunakan clustering:
+  - zoom out: marker bergabung ke cluster yang menampilkan count
+  - zoom in: cluster pecah otomatis ke marker individual
+  - klik cluster: map auto zoom/focus ke area cluster
+- Marker individual tetap clickable dan tetap membuka bottom sheet ringkas
+- Jika setup clustering gagal, map fallback ke marker individual layer agar tetap usable
 
 ### Form Lapor (`/lapor`)
 
@@ -117,6 +123,9 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Severity selected `#E5484D`, bg `#F1F5F9`
 - Submit `#E5484D`, disabled 0.45, active scale(0.97)
 - Semua px units, warna sesuai spec
+- Setelah koordinat tersedia, tampilkan label lokasi manusiawi dari lookup wilayah internal
+- Label lokasi hanya bersifat konfirmasi UX; koordinat mentah tetap ditampilkan dan tetap jadi acuan submit
+- Jika label gagal didapat, user tetap bisa submit report tanpa blocking
 
 ### Detail Laporan (`/issues/[id]`)
 

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -22,6 +23,7 @@ type Config struct {
 	R2PublicBaseURL      string
 	AdminUsername        string
 	AdminPassword        string
+	DuplicateRadiusM     float64
 }
 
 func Load() *Config {
@@ -42,6 +44,7 @@ func Load() *Config {
 		R2PublicBaseURL:      getEnv("R2_PUBLIC_BASE_URL", ""),
 		AdminUsername:        getEnv("ADMIN_USERNAME", "admin"),
 		AdminPassword:        mustGetEnv("ADMIN_PASSWORD"),
+		DuplicateRadiusM:     getEnvPositiveFloat64("DUPLICATE_RADIUS_M", 30),
 	}
 }
 
@@ -50,6 +53,20 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvPositiveFloat64(key string, fallback float64) float64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseFloat(v, 64)
+	if err != nil || parsed <= 0 {
+		panic("invalid positive float environment variable: " + key)
+	}
+
+	return parsed
 }
 
 // mustGetEnv panics at startup if a required env var is missing.

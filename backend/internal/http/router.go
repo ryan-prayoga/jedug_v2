@@ -54,15 +54,19 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	// Wire up dependencies
 	deviceRepo := repository.NewDeviceRepository(db)
 	issueRepo := repository.NewIssueRepository(db)
-	reportRepo := repository.NewReportRepository(db)
+	reportRepo := repository.NewReportRepository(db, repository.ReportRepositoryConfig{
+		DuplicateRadiusM: cfg.DuplicateRadiusM,
+	})
 	adminRepo := repository.NewAdminRepository(db)
 	flagRepo := repository.NewFlagRepository(db)
+	locationRepo := repository.NewLocationRepository(db)
 
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
 	reportSvc := service.NewReportService(deviceRepo, reportRepo)
 	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo)
 	flagSvc := service.NewFlagService(deviceRepo, flagRepo, adminRepo)
+	locationSvc := service.NewLocationService(locationRepo)
 
 	healthHandler := handlers.NewHealthHandler(db)
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
@@ -71,6 +75,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	reportHandler := handlers.NewReportHandler(reportSvc)
 	adminHandler := handlers.NewAdminHandler(adminSvc, store)
 	flagHandler := handlers.NewFlagHandler(flagSvc)
+	locationHandler := handlers.NewLocationHandler(locationSvc)
 
 	// Rate limiters
 	rlBootstrap := middleware.RateLimit(10, 1*time.Minute)
@@ -93,6 +98,9 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	uploads.Post("/file/*", uploadHandler.UploadFile)
 
 	api.Post("/reports", rlReport, reportHandler.Submit)
+
+	location := api.Group("/location")
+	location.Get("/label", locationHandler.ResolveLabel)
 
 	issues := api.Group("/issues")
 	issues.Get("/", issueHandler.List)

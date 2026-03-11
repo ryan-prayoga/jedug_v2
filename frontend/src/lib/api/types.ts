@@ -54,6 +54,17 @@ export interface ReportInput {
   media: ReportMediaInput[];
 }
 
+// Location label
+export interface LocationLabelData {
+  label: string | null;
+  region_id: number | null;
+  region_name: string | null;
+  region_level: string | null;
+  parent_name: string | null;
+  grandparent_name: string | null;
+  source: string;
+}
+
 // Issue
 export interface Issue {
   id: string;

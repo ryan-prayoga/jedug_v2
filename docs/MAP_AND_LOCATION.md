@@ -23,13 +23,24 @@ Catatan penting:
 
 ## Marker Behavior
 
-- warna marker mengikuti severity (dengan override status fixed/archived)
-- ukuran dot berbeda per severity
+- marker publik dirender dari satu `GeoJSON source`:
+  - `cluster circles`
+  - `cluster count labels`
+  - `unclustered hit-area`
+  - `unclustered marker dots`
+  - `selected glow/core`
+- warna marker individual mengikuti severity (dengan override status fixed/archived)
+- ukuran dot individual berbeda per severity
+- cluster count dibuat tetap terbaca di mobile (symbol layer dengan halo)
+- klik cluster melakukan zoom/focus ke cluster (`getClusterExpansionZoom` + `easeTo`)
 - selected marker:
-  - scale up
-  - glow effect
+  - marker base disembunyikan via filter
+  - selected glow + core layer ditampilkan
   - map `flyTo` ke marker
-- klik area map kosong akan clear selected issue
+- klik area map kosong akan clear selected issue (guard terhadap klik cluster/marker agar tidak bentrok event)
+- fallback safety:
+  - jika setup clustering gagal, map fallback ke layer marker individual tanpa cluster
+  - flow klik marker + bottom sheet tetap berjalan
 
 ## Bottom Sheet (Ringkasan Issue)
 
@@ -58,6 +69,12 @@ Di halaman `/lapor`:
 
 - geolocation high accuracy dengan fallback mode lebih longgar
 - jika tetap gagal, user bisa input koordinat manual
+- setelah koordinat tersedia, frontend memanggil `GET /api/v1/location/label` untuk label lokasi manusiawi
+  - trigger saat lokasi awal berhasil didapat
+  - trigger saat koordinat manual dipilih eksplisit
+  - tidak dipanggil terus-menerus saat user mengetik
+  - ada cache in-memory (key koordinat rounded) untuk menekan request berulang
+- jika label gagal didapat, koordinat mentah tetap dipakai dan submit report tidak diblokir
 
 ## Hal Sensitif yang Jangan Dirusak
 

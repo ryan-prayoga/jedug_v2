@@ -12,14 +12,18 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - trust/ban diarahkan ke device, bukan akun user.
   - raw token hanya muncul di client; backend simpan hash.
 
-## 2026-03-10 - Smart Grouping ke Issue Terdekat (10 Meter)
+## 2026-03-10 - Smart Duplicate Merge ke Issue Aktif (Default 30 Meter)
 
 - Keputusan:
-  - submission baru akan di-attach ke issue `open` terdekat dalam radius 10m.
+  - submission baru di-attach ke issue aktif publik terdekat (`open|verified|in_progress`, `is_hidden=false`) dalam radius default 30m (configurable via `DUPLICATE_RADIUS_M`).
+  - issue `fixed`, `archived`, `rejected`, `merged`, atau hidden tidak dipakai sebagai target merge.
+  - jika ada beberapa kandidat, prioritas pemilihan: distance terdekat -> status/verification aktif -> `last_seen_at` terbaru -> severity lebih tinggi.
 - Konteks:
-  - menghindari duplikasi issue pada titik yang sama.
+  - menurunkan duplikasi marker publik tanpa merusak flow submit yang sudah live.
 - Konsekuensi:
-  - kualitas koordinat dan threshold spasial sangat mempengaruhi akurasi grouping.
+  - map lebih bersih dan issue aggregate lebih stabil.
+  - laporan dekat issue fixed/archived akan membentuk issue baru (tidak re-open diam-diam).
+  - `casualty_count` issue saat merge disimpan sebagai nilai tertinggi terlapor (`GREATEST`) untuk menghindari overcount dari laporan duplikat.
 
 ## 2026-03-10 - Storage Driver Abstraction (Local dan R2)
 

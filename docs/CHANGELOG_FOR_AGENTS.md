@@ -25,6 +25,58 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-10 - Map Marker Clustering + Location Label UX (`/lapor`)
+
+- Scope:
+  - mengganti render marker map publik ke `GeoJSON source + layer` MapLibre dengan clustering.
+  - menambahkan interaksi cluster (count, click-to-zoom) dan menjaga marker individual tetap clickable untuk bottom sheet.
+  - menambahkan endpoint backend ringan `GET /api/v1/location/label` untuk resolve label wilayah dari `regions`.
+  - menambahkan UX label lokasi manusiawi di `/lapor` dengan cache/guard request, tanpa memblok submit jika lookup gagal.
+- Dampak area:
+  - `frontend/src/lib/components/IssueMap.svelte`
+  - `frontend/src/routes/lapor/+page.svelte`
+  - `frontend/src/lib/api/location.ts`
+  - `frontend/src/lib/api/types.ts`
+  - `backend/internal/http/router.go`
+  - `backend/internal/http/handlers/location.go`
+  - `backend/internal/service/location_service.go`
+  - `backend/internal/repository/location_repository.go`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `docs/MAP_AND_LOCATION.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tidak ada mismatch arsitektur baru; endpoint label lokasi bersifat additive dan non-blocking terhadap flow submit.
+
+## 2026-03-10 - Duplicate Detection / Smart Issue Merge di Submit Report
+
+- Scope:
+  - memperkuat flow `POST /api/v1/reports` agar submission baru merge ke issue aktif terdekat, bukan selalu membuat issue baru.
+  - menambah duplicate radius configurable (`DUPLICATE_RADIUS_M`, default 30 meter).
+  - menambahkan tie-break kandidat (distance -> status/verification -> last_seen -> severity) + logging audit behavior merge/new issue.
+  - mengubah agregasi merge issue untuk `casualty_count` menjadi `GREATEST(existing, incoming)` agar tidak overcount duplikasi.
+- Dampak area:
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/service/report_service.go`
+  - `backend/internal/http/router.go`
+  - `backend/internal/config/config.go`
+  - `backend/internal/repository/report_repository_test.go`
+  - `backend/internal/http/handlers/report_handler_test.go`
+  - `backend/.env.example`
+- File docs yang diupdate:
+  - `docs/PROJECT_OVERVIEW.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/BACKEND.md`
+  - `docs/SCHEMA.md`
+  - `docs/DEPLOYMENT.md`
+  - `docs/DECISIONS.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - test integration ke Postgres/PostGIS belum ada; skenario geo query multi-kandidat masih perlu verifikasi manual/staging DB.
+
 ## 2026-03-10 - Baseline Dokumentasi Terpadu
 
 - Menambahkan pusat navigasi agent di `AGENTS.md`.

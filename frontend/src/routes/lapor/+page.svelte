@@ -5,6 +5,8 @@
 	import { getAnonToken, isConsentGiven } from '$lib/utils/storage';
 	import { getLocation, type GeoResult } from '$lib/utils/geolocation';
 	import { compressImage } from '$lib/utils/image';
+	import { resolveLocationLabel } from '$lib/api/location';
+	import type { LocationLabelData } from '$lib/api/types';
 	import { presignUpload, uploadFile } from '$lib/api/uploads';
 	import { submitReport } from '$lib/api/reports';
 	import { ApiError } from '$lib/api/client';
@@ -32,10 +34,15 @@
 	let geo = $state<GeoResult | null>(null);
 	let geoError = $state<string | null>(null);
 	let locationLoading = $state(false);
+	let locationLabel = $state<LocationLabelData | null>(null);
+	let locationLabelLoading = $state(false);
+	let locationLabelError = $state<string | null>(null);
 	let manualLatitude = $state('');
 	let manualLongitude = $state('');
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
+	const locationLabelCache = new Map<string, LocationLabelData>();
+	let activeLocationLabelRequestId = 0;
 
 	const stepLabels: Record<Step, string> = {
 		idle: '',
@@ -68,22 +75,22 @@
 
 		try {
 			geo = await getLocation({ forceFresh });
+			void resolveLocationLabelForPoint(geo, { forceRefresh: forceFresh });
 		} catch (e) {
 			geo = null;
 			geoError = e instanceof Error ? e.message : 'Gagal mengambil lokasi';
+			locationLabel = null;
+			locationLabelError = null;
 		} finally {
 			locationLoading = false;
 		}
 	}
 
-	function handleFileChange(file: File) {
-		selectedFile = file;
-		error = null;
+	function getPointKey(latitude: number, longitude: number): string {
+		return `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
 	}
 
-	function getResolvedLocation(): GeoResult | null {
-		if (geo) return geo;
-
+	function parseManualLocation(): GeoResult | null {
 		const latitude = Number.parseFloat(manualLatitude);
 		const longitude = Number.parseFloat(manualLongitude);
 		if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
@@ -95,6 +102,71 @@
 			longitude,
 			accuracy: 0
 		};
+	}
+
+	async function resolveLocationLabelForPoint(
+		point: GeoResult,
+		options: { forceRefresh?: boolean } = {}
+	) {
+		const { forceRefresh = false } = options;
+		const key = getPointKey(point.latitude, point.longitude);
+
+		if (!forceRefresh) {
+			const cached = locationLabelCache.get(key);
+			if (cached) {
+				locationLabel = cached;
+				locationLabelError = null;
+				locationLabelLoading = false;
+				return;
+			}
+		}
+
+		const requestId = ++activeLocationLabelRequestId;
+		locationLabelLoading = true;
+		locationLabelError = null;
+		locationLabel = null;
+
+		try {
+			const res = await resolveLocationLabel(point.latitude, point.longitude);
+			if (requestId !== activeLocationLabelRequestId) return;
+
+			const data = res.data ?? null;
+			if (data) {
+				locationLabelCache.set(key, data);
+			}
+			locationLabel = data;
+		} catch {
+			if (requestId !== activeLocationLabelRequestId) return;
+			locationLabel = null;
+			locationLabelError = 'Nama wilayah belum tersedia. Koordinat tetap dipakai.';
+		} finally {
+			if (requestId === activeLocationLabelRequestId) {
+				locationLabelLoading = false;
+			}
+		}
+	}
+
+	function handleFileChange(file: File) {
+		selectedFile = file;
+		error = null;
+	}
+
+	async function applyManualLocation() {
+		const manual = parseManualLocation();
+		if (!manual) {
+			geoError = 'Koordinat manual belum valid. Pastikan latitude dan longitude terisi benar.';
+			return;
+		}
+
+		geo = manual;
+		geoError = null;
+		error = null;
+		await resolveLocationLabelForPoint(manual);
+	}
+
+	function getResolvedLocation(): GeoResult | null {
+		if (geo) return geo;
+		return parseManualLocation();
 	}
 
 	function validate(): string | null {
@@ -229,8 +301,21 @@
 		{#if geo}
 			<div class="location-info">
 				<span>{geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}</span>
-				<span class="accuracy">± {Math.round(geo.accuracy)}m</span>
+				<span class="accuracy">
+					{geo.accuracy > 0 ? `± ${Math.round(geo.accuracy)}m` : 'Koordinat manual'}
+				</span>
 			</div>
+			{#if locationLabelLoading}
+				<div class="location-label location-label-loading">Mencari nama wilayah...</div>
+			{:else if locationLabel?.label}
+				<div class="location-label location-label-success">{locationLabel.label}</div>
+			{:else if locationLabelError}
+				<div class="location-label location-label-warning">{locationLabelError}</div>
+			{:else}
+				<div class="location-label location-label-muted">
+					Nama wilayah belum tersedia, koordinat tetap jadi acuan laporan.
+				</div>
+			{/if}
 			<button
 				type="button"
 				class="location-retry"
@@ -265,6 +350,14 @@
 						disabled={submitting}
 					/>
 				</div>
+				<button
+					type="button"
+					class="manual-location-apply"
+					onclick={applyManualLocation}
+					disabled={submitting || locationLoading}
+				>
+					Gunakan koordinat ini
+				</button>
 			</div>
 			<button
 				type="button"
@@ -433,6 +526,33 @@
 		opacity: 0.45;
 		cursor: not-allowed;
 	}
+	.location-label {
+		margin-top: 8px;
+		padding: 8px 12px;
+		border-radius: 10px;
+		font-size: 13px;
+	}
+	.location-label-loading {
+		background: #F8FAFC;
+		border: 1px solid #E2E8F0;
+		color: #64748B;
+	}
+	.location-label-success {
+		background: #EFF6FF;
+		border: 1px solid #BFDBFE;
+		color: #1D4ED8;
+		font-weight: 600;
+	}
+	.location-label-warning {
+		background: #FFF7ED;
+		border: 1px solid #FED7AA;
+		color: #C2410C;
+	}
+	.location-label-muted {
+		background: #F8FAFC;
+		border: 1px solid #E2E8F0;
+		color: #64748B;
+	}
 	.manual-location {
 		margin-top: 10px;
 	}
@@ -452,6 +572,21 @@
 		padding: 10px 12px;
 		font-size: 14px;
 		background: #fff;
+	}
+	.manual-location-apply {
+		margin-top: 8px;
+		border: 1px solid #E2E8F0;
+		background: #fff;
+		color: #0F172A;
+		padding: 8px 12px;
+		border-radius: 10px;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.manual-location-apply:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	/* Severity */

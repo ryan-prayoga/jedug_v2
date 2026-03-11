@@ -40,7 +40,7 @@ JEDUG diposisikan sebagai civic reporting platform yang:
 
 - anonymous device bootstrap + consent
 - upload media local/R2
-- submit report -> auto-group ke issue terdekat (10m)
+- submit report -> smart merge ke issue aktif terdekat (default radius 30m, configurable)
 - list/detail issue publik
 - admin moderation: hide/unhide/fix/reject issue, ban device
 - flag issue oleh komunitas + auto-hide threshold
