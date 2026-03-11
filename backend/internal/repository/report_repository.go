@@ -3,11 +3,31 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	defaultDuplicateRadiusM    = 30.0
+	duplicateCandidateQueryCap = 50
+)
+
+var (
+	duplicateStatusPriority = map[string]int{
+		"open":        0,
+		"verified":    1,
+		"in_progress": 2,
+	}
+	duplicateVerificationPriority = map[string]int{
+		"verified":   0,
+		"pending":    1,
+		"unverified": 2,
+		"rejected":   3,
+	}
 )
 
 type SubmitMediaInput struct {
@@ -23,16 +43,16 @@ type SubmitMediaInput struct {
 
 type SubmitInput struct {
 	ClientRequestID uuid.UUID
-	DeviceID      uuid.UUID
-	Longitude     float64
-	Latitude      float64
-	GPSAccuracyM  *float64
-	CapturedAt    *time.Time
-	Severity      int
-	HasCasualty   bool
-	CasualtyCount int
-	Note          *string
-	Media         []SubmitMediaInput
+	DeviceID        uuid.UUID
+	Longitude       float64
+	Latitude        float64
+	GPSAccuracyM    *float64
+	CapturedAt      *time.Time
+	Severity        int
+	HasCasualty     bool
+	CasualtyCount   int
+	Note            *string
+	Media           []SubmitMediaInput
 }
 
 type SubmitResult struct {
@@ -41,34 +61,49 @@ type SubmitResult struct {
 	IsNewIssue   bool
 }
 
+type ReportRepositoryConfig struct {
+	DuplicateRadiusM float64
+}
+
 type ReportRepository interface {
 	SubmitReport(ctx context.Context, input SubmitInput) (*SubmitResult, error)
 	FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error)
 }
 
 type reportRepository struct {
-	db *pgxpool.Pool
+	db               *pgxpool.Pool
+	duplicateRadiusM float64
 }
 
-func NewReportRepository(db *pgxpool.Pool) ReportRepository {
-	return &reportRepository{db: db}
+func NewReportRepository(db *pgxpool.Pool, cfg ReportRepositoryConfig) ReportRepository {
+	radius := cfg.DuplicateRadiusM
+	if radius <= 0 {
+		radius = defaultDuplicateRadiusM
+	}
+	return &reportRepository{
+		db:               db,
+		duplicateRadiusM: radius,
+	}
 }
 
 // SubmitReport runs the full submit flow inside a single transaction:
-// resolve region → find nearest open issue → create/update issue → create submission → insert media.
+// resolve region → find duplicate candidate issue → create/update issue → create submission → insert media.
 func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) (*SubmitResult, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after Commit
+	log.Printf("[REPORT] submit_tx_start device=%s lat=%.6f lon=%.6f radius_m=%.1f",
+		input.DeviceID, input.Latitude, input.Longitude, r.duplicateRadiusM,
+	)
 
 	regionID, err := resolveRegionID(ctx, tx, input.Longitude, input.Latitude)
 	if err != nil {
 		return nil, err
 	}
 
-	existingIssueID, err := findNearestOpenIssue(ctx, tx, input.Longitude, input.Latitude)
+	candidate, err := findDuplicateCandidate(ctx, tx, input.Longitude, input.Latitude, r.duplicateRadiusM)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +111,19 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	var issueID uuid.UUID
 	isNew := false
 
-	if existingIssueID != nil {
-		issueID = *existingIssueID
+	if candidate != nil {
+		issueID = candidate.IssueID
+		log.Printf(
+			"[REPORT] duplicate_merge_selected issue=%s distance_m=%.2f status=%s verification=%s",
+			candidate.IssueID, candidate.DistanceM, candidate.Status, candidate.VerificationStatus,
+		)
 	} else {
 		issueID = uuid.New()
 		if err := createIssue(ctx, tx, issueID, regionID, input); err != nil {
 			return nil, err
 		}
 		isNew = true
+		log.Printf("[REPORT] duplicate_merge_miss_new_issue issue=%s", issueID)
 	}
 
 	submissionID := uuid.New()
@@ -97,7 +137,7 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	}
 
 	if !isNew {
-		if err := updateIssueCounters(ctx, tx, issueID, input); err != nil {
+		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, input); err != nil {
 			return nil, err
 		}
 	}
@@ -132,38 +172,72 @@ func resolveRegionID(ctx context.Context, tx pgx.Tx, lon, lat float64) (*int64, 
 	return &id, nil
 }
 
-// findNearestOpenIssue looks for an existing open issue within 10 meters of the given point.
-func findNearestOpenIssue(ctx context.Context, tx pgx.Tx, lon, lat float64) (*uuid.UUID, error) {
-	var id uuid.UUID
-	err := tx.QueryRow(ctx, `
-		SELECT id FROM issues
-		WHERE status = 'open'
-		  AND is_hidden = FALSE
-		  AND ST_DWithin(
-		        public_location,
-		        ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-		        10
-		      )
-		ORDER BY ST_Distance(
-		    public_location,
-		    ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+type duplicateCandidate struct {
+	IssueID            uuid.UUID
+	Status             string
+	VerificationStatus string
+	LastSeenAt         time.Time
+	SeverityCurrent    int
+	DistanceM          float64
+}
+
+func findDuplicateCandidate(ctx context.Context, tx pgx.Tx, lon, lat, radiusM float64) (*duplicateCandidate, error) {
+	rows, err := tx.Query(ctx, `
+		WITH input_point AS (
+			SELECT ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography AS point
 		)
-		LIMIT 1
-	`, lon, lat).Scan(&id)
+		SELECT i.id,
+		       i.status,
+		       i.verification_status,
+		       i.last_seen_at,
+		       i.severity_current,
+		       ST_Distance(i.public_location, input_point.point) AS distance_m
+		FROM issues i
+		CROSS JOIN input_point
+		WHERE i.is_hidden = FALSE
+		  AND i.status IN ('open', 'verified', 'in_progress')
+		  AND ST_DWithin(i.public_location, input_point.point, $3)
+		ORDER BY distance_m ASC, i.last_seen_at DESC
+		LIMIT $4
+	`, lon, lat, radiusM, duplicateCandidateQueryCap)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return &id, nil
+	defer rows.Close()
+
+	candidates := make([]duplicateCandidate, 0)
+	for rows.Next() {
+		var candidate duplicateCandidate
+		if err := rows.Scan(
+			&candidate.IssueID,
+			&candidate.Status,
+			&candidate.VerificationStatus,
+			&candidate.LastSeenAt,
+			&candidate.SeverityCurrent,
+			&candidate.DistanceM,
+		); err != nil {
+			return nil, err
+		}
+		candidates = append(candidates, candidate)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(candidates) == 0 {
+		log.Printf("[REPORT] duplicate_candidate_none radius_m=%.1f", radiusM)
+		return nil, nil
+	}
+
+	best := pickBestDuplicateCandidate(candidates)
+
+	log.Printf(
+		"[REPORT] duplicate_candidate_found issue=%s candidates=%d distance_m=%.2f radius_m=%.1f",
+		best.IssueID, len(candidates), best.DistanceM, radiusM,
+	)
+	return &best, nil
 }
 
 func createIssue(ctx context.Context, tx pgx.Tx, id uuid.UUID, regionID *int64, input SubmitInput) error {
-	casualtyCount := 0
-	if input.HasCasualty {
-		casualtyCount = input.CasualtyCount
-	}
 	_, err := tx.Exec(ctx, `
 		INSERT INTO issues (
 			id, status, severity_current, severity_max,
@@ -177,7 +251,7 @@ func createIssue(ctx context.Context, tx pgx.Tx, id uuid.UUID, regionID *int64, 
 			NOW(), NOW()
 		)
 	`, id, input.Severity, input.Longitude, input.Latitude,
-		regionID, len(input.Media), casualtyCount,
+		regionID, len(input.Media), incomingCasualtyCount(input),
 	)
 	return err
 }
@@ -197,7 +271,7 @@ func createSubmission(ctx context.Context, tx pgx.Tx, id, clientReqID, issueID u
 	`, id, issueID, clientReqID, input.DeviceID,
 		input.Longitude, input.Latitude,
 		regionID, input.GPSAccuracyM, input.CapturedAt,
-		input.Severity, input.HasCasualty, input.CasualtyCount, input.Note,
+		input.Severity, input.HasCasualty, incomingCasualtyCount(input), input.Note,
 	)
 	return err
 }
@@ -219,24 +293,74 @@ func createSubmissionMedia(ctx context.Context, tx pgx.Tx, submissionID uuid.UUI
 	return nil
 }
 
-// updateIssueCounters updates an existing issue when a new submission is added.
-func updateIssueCounters(ctx context.Context, tx pgx.Tx, issueID uuid.UUID, input SubmitInput) error {
-	casualtyCount := 0
-	if input.HasCasualty {
-		casualtyCount = input.CasualtyCount
-	}
+// updateIssueAggregatesOnMerge updates issue aggregate fields after attaching a new submission.
+func updateIssueAggregatesOnMerge(ctx context.Context, tx pgx.Tx, issueID uuid.UUID, input SubmitInput) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE issues SET
 			last_seen_at     = NOW(),
 			submission_count = submission_count + 1,
 			photo_count      = photo_count + $1,
-			casualty_count   = casualty_count + $2,
+			casualty_count   = GREATEST(casualty_count, $2),
 			severity_current = GREATEST(severity_current, $3),
 			severity_max     = GREATEST(severity_max, $3),
 			updated_at       = NOW()
 		WHERE id = $4
-	`, len(input.Media), casualtyCount, input.Severity, issueID)
+	`, len(input.Media), incomingCasualtyCount(input), input.Severity, issueID)
 	return err
+}
+
+func incomingCasualtyCount(input SubmitInput) int {
+	if !input.HasCasualty {
+		return 0
+	}
+	return input.CasualtyCount
+}
+
+func pickBestDuplicateCandidate(candidates []duplicateCandidate) duplicateCandidate {
+	best := candidates[0]
+	for i := 1; i < len(candidates); i++ {
+		if isBetterDuplicateCandidate(candidates[i], best) {
+			best = candidates[i]
+		}
+	}
+	return best
+}
+
+func isBetterDuplicateCandidate(next, current duplicateCandidate) bool {
+	if next.DistanceM != current.DistanceM {
+		return next.DistanceM < current.DistanceM
+	}
+	nextStatusRank := rankDuplicateStatus(next.Status)
+	currentStatusRank := rankDuplicateStatus(current.Status)
+	if nextStatusRank != currentStatusRank {
+		return nextStatusRank < currentStatusRank
+	}
+	nextVerificationRank := rankDuplicateVerification(next.VerificationStatus)
+	currentVerificationRank := rankDuplicateVerification(current.VerificationStatus)
+	if nextVerificationRank != currentVerificationRank {
+		return nextVerificationRank < currentVerificationRank
+	}
+	if !next.LastSeenAt.Equal(current.LastSeenAt) {
+		return next.LastSeenAt.After(current.LastSeenAt)
+	}
+	if next.SeverityCurrent != current.SeverityCurrent {
+		return next.SeverityCurrent > current.SeverityCurrent
+	}
+	return next.IssueID.String() < current.IssueID.String()
+}
+
+func rankDuplicateStatus(status string) int {
+	if rank, ok := duplicateStatusPriority[status]; ok {
+		return rank
+	}
+	return 99
+}
+
+func rankDuplicateVerification(status string) int {
+	if rank, ok := duplicateVerificationPriority[status]; ok {
+		return rank
+	}
+	return 99
 }
 
 func (r *reportRepository) FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error) {

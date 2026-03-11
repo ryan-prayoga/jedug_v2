@@ -27,6 +27,7 @@
 - `POST /api/v1/uploads/presign`
 - `POST /api/v1/uploads/file/*`
 - `POST /api/v1/reports`
+- `GET /api/v1/location/label?latitude={lat}&longitude={lng}`
 - `GET /api/v1/issues`
 - `GET /api/v1/issues/:id`
 - `POST /api/v1/issues/:id/flag`
@@ -65,11 +66,18 @@
   - idempotency via `client_request_id`
 - Repository `ReportRepository` (transactional):
   - resolve region district
-  - cari issue `open` terdekat dalam 10m
-  - create issue baru jika tidak ada
+  - duplicate detection issue aktif publik (`open|verified|in_progress`, `is_hidden=false`) dalam radius configurable (default 30m)
+  - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
+  - create issue baru jika tidak ada kandidat relevan
   - create `issue_submissions`
   - create `submission_media`
-  - update issue counters
+  - saat merge update aggregate issue:
+    - `last_seen_at = NOW()`
+    - `submission_count += 1`
+    - `photo_count += jumlah media submission`
+    - `casualty_count = GREATEST(existing, incoming)` (hindari overcount duplicate)
+    - `severity_current = GREATEST(existing, incoming)`
+    - `severity_max = GREATEST(existing, incoming)`
 
 ### Issue Listing + Detail
 
@@ -89,6 +97,16 @@
   - recent submissions membawa `casualty_count` dan `public_note` additive agar UI tidak perlu menampilkan note mentah
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
+
+### Location Label Resolve (UX `/lapor`)
+
+- `LocationHandler.ResolveLabel` menerima query `latitude` + `longitude`.
+- `LocationService` memanggil repository untuk lookup wilayah internal dari tabel `regions`.
+- Repository memilih polygon wilayah terkecil yang menutupi titik (`ST_Covers` + `ORDER BY ST_Area ASC LIMIT 1`) agar label lebih manusiawi.
+- Response selalu aman untuk UX:
+  - jika ketemu: kirim `label`, `region_name`, `region_level`, parent chain.
+  - jika tidak ketemu: field label bernilai `null`, tanpa memblok submit report.
+- Endpoint ini **hanya** untuk konfirmasi UX lokasi, bukan pengganti source of truth geospatial issue/submission.
 
 ### Moderation
 

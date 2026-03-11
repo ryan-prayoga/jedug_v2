@@ -39,7 +39,7 @@ Dependency flow: `handler -> service -> repository/storage`.
 
 - Lokasi issue/submission disimpan sebagai `GEOGRAPHY(POINT,4326)`.
 - Query map menggunakan bbox + PostGIS spatial operators.
-- Grouping report ke issue existing dilakukan dengan radius 10 meter.
+- Smart merge report ke issue existing memakai `ST_DWithin` radius meter (default 30m, configurable), hanya untuk issue aktif publik.
 
 ## Flow Kritis Antar Sistem
 
@@ -49,7 +49,7 @@ Dependency flow: `handler -> service -> repository/storage`.
 2. Upload file ke R2/local endpoint sesuai `upload_mode`.
 3. Frontend submit report dengan `object_key`.
 4. Backend validasi device/trust/cooldown.
-5. Backend create issue baru atau attach ke issue terdekat.
+5. Backend pilih issue aktif terdekat (distance-first + tie-break recency/severity) atau create issue baru.
 6. Backend insert issue submission + submission media.
 
 ### B) Public Issue Listing (Map)

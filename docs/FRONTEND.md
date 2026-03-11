@@ -32,7 +32,8 @@
 
 - `IssueMap.svelte`
   - inisialisasi MapLibre
-  - marker severity-based
+  - marker publik via `GeoJSON source + layers`
+  - marker clustering (cluster circle + count + unclustered marker)
   - emit bbox on `moveend`
   - auto geolocation center sekali saat load
 - `IssueBottomSheet.svelte`
@@ -51,11 +52,19 @@
 - `issues/+page.svelte` memanggil `fetchIssuesByBBox`.
 - Debounce default 300ms.
 - BBox sama (rounded 5 desimal) di-skip untuk mengurangi fetch redundant.
-- Marker click memilih issue -> tampilkan bottom sheet.
+- Marker map publik dirender sebagai layer:
+  - cluster circles
+  - cluster count labels
+  - unclustered hit-area + dot marker severity-based
+  - selected marker glow/core layer
+- Klik cluster melakukan zoom/focus ke area cluster (`getClusterExpansionZoom` + `easeTo`).
+- Klik marker individual memilih issue -> tampilkan bottom sheet.
+- Klik area peta kosong clear selected issue (dengan guard agar tidak bentrok saat klik cluster/marker).
 - Reset cache bbox saat user kembali dari list ke map untuk mencegah stuck loading pada viewport yang sama.
 - Empty state map hanya dirender setelah fetch viewport valid selesai agar tidak muncul false-empty saat map baru mount.
 - Error fetch viewport tidak langsung mengosongkan marker; state terakhir dipertahankan untuk menghindari flicker.
 - Empty state map menggunakan info badge top-left (tanpa popup tengah) agar tidak menutupi area peta.
+- Jika setup cluster gagal, komponen fallback ke layer marker individual (tanpa cluster) agar map tetap usable.
 
 ## Detail Issue Publik (`/issues/[id]`)
 
@@ -100,16 +109,21 @@
 Di `/lapor`:
 
 1. Ambil lokasi (auto/fallback manual input).
-2. Compress image -> WebP.
-3. Request presign upload.
-4. Upload binary.
+2. Resolve label lokasi manusiawi via endpoint internal `GET /api/v1/location/label`.
+   - dipanggil saat lokasi berhasil didapat atau koordinat manual dipilih eksplisit
+   - ada cache in-memory berbasis koordinat ter-rounded untuk menghindari request berulang
+   - gagal resolve label tidak memblok submit (koordinat tetap dipakai)
+3. Compress image -> WebP.
+4. Request presign upload.
+5. Upload binary.
    - jika upload R2 gagal, fallback ke endpoint local `/api/v1/uploads/file/{object_key}`
-5. Submit report dengan metadata media + `client_request_id`.
+6. Submit report dengan metadata media + `client_request_id`.
 
 ## Integrasi API Client
 
 - `lib/api/client.ts`: base fetch helper + ApiError.
 - `lib/api/types.ts`: type contracts response backend.
+- `lib/api/location.ts`: helper resolve label lokasi `/lapor`.
 - Token storage:
   - anon token: `jedug_anon_token`
   - admin token: `jedug_admin_token`
