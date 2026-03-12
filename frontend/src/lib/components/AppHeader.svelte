@@ -6,6 +6,7 @@
 	<div class="nav-links">
 		<a href="/lapor" class="nav-link">Lapor</a>
 		<a href="/issues" class="nav-link">Peta</a>
+		<a href="/stats" class="nav-link">Statistik</a>
 	</div>
 </nav>
 
@@ -62,5 +63,15 @@
 	.nav-link:hover {
 		color: #E5484D;
 		background: #FEF2F2;
+	}
+
+	@media (max-width: 420px) {
+		.nav-links {
+			gap: 2px;
+		}
+		.nav-link {
+			padding: 6px 8px;
+			font-size: 13px;
+		}
 	}
 </style>

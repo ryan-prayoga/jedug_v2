@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,14 +34,32 @@ func (h *LocationHandler) ResolveLabel(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "longitude must be between -180 and 180")
 	}
 
+	log.Printf("[LOCATION_LABEL] request_received lat=%.6f lon=%.6f", latitude, longitude)
+
 	result, err := h.svc.ResolveLabel(c.Context(), longitude, latitude)
 	if err != nil {
 		return response.Error(c, fiber.StatusInternalServerError, "failed to resolve location label")
 	}
+
+	log.Printf(
+		"[LOCATION_LABEL] response_ready lat=%.6f lon=%.6f source=%s label=%q region_name=%q",
+		latitude,
+		longitude,
+		result.Source,
+		valueOrNilString(result.Label),
+		valueOrNilString(result.RegionName),
+	)
 
 	return response.OK(c, result)
 }
 
 func parseCoordinate(raw string) (float64, error) {
 	return strconv.ParseFloat(raw, 64)
+}
+
+func valueOrNilString(value *string) string {
+	if value == nil {
+		return "<nil>"
+	}
+	return *value
 }

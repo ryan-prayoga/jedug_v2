@@ -130,6 +130,12 @@
 			const res = await resolveLocationLabel(point.latitude, point.longitude);
 			if (requestId !== activeLocationLabelRequestId) return;
 
+			console.debug('[lapor] location-label response', {
+				latitude: point.latitude,
+				longitude: point.longitude,
+				payload: res.data ?? null
+			});
+
 			const data = res.data ?? null;
 			if (data) {
 				locationLabelCache.set(key, data);
@@ -137,6 +143,10 @@
 			locationLabel = data;
 		} catch {
 			if (requestId !== activeLocationLabelRequestId) return;
+			console.debug('[lapor] location-label error', {
+				latitude: point.latitude,
+				longitude: point.longitude
+			});
 			locationLabel = null;
 			locationLabelError = 'Nama wilayah belum tersedia. Koordinat tetap dipakai.';
 		} finally {
@@ -149,6 +159,26 @@
 	function handleFileChange(file: File) {
 		selectedFile = file;
 		error = null;
+	}
+
+	function locationPrimaryLabel(label: LocationLabelData): string {
+		const parts = label.label?.split(',').map((part) => part.trim()).filter(Boolean) ?? [];
+		if (parts.length === 0) {
+			return label.region_name || 'Lokasi terdeteksi';
+		}
+		return parts[0];
+	}
+
+	function locationSecondaryLabel(label: LocationLabelData): string {
+		const parts = label.label?.split(',').map((part) => part.trim()).filter(Boolean) ?? [];
+		if (parts.length > 1) {
+			return parts.slice(1).join(' - ');
+		}
+
+		const fromParents = [label.parent_name, label.grandparent_name].filter(
+			(value): value is string => Boolean(value && value.trim() !== '')
+		);
+		return fromParents.join(' - ');
 	}
 
 	async function applyManualLocation() {
@@ -308,7 +338,15 @@
 			{#if locationLabelLoading}
 				<div class="location-label location-label-loading">Mencari nama wilayah...</div>
 			{:else if locationLabel?.label}
-				<div class="location-label location-label-success">{locationLabel.label}</div>
+				<div class="location-label location-label-success">
+					<strong>{locationPrimaryLabel(locationLabel)}</strong>
+					{#if locationSecondaryLabel(locationLabel)}
+						<small>{locationSecondaryLabel(locationLabel)}</small>
+					{/if}
+				</div>
+				<div class="location-label location-label-muted">
+					Nama jalan akan dilengkapi otomatis saat laporan dikirim.
+				</div>
 			{:else if locationLabelError}
 				<div class="location-label location-label-warning">{locationLabelError}</div>
 			{:else}
@@ -541,7 +579,17 @@
 		background: #EFF6FF;
 		border: 1px solid #BFDBFE;
 		color: #1D4ED8;
-		font-weight: 600;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.location-label-success strong {
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.location-label-success small {
+		font-size: 12px;
+		color: #2563EB;
 	}
 	.location-label-warning {
 		background: #FFF7ED;

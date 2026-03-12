@@ -57,14 +57,20 @@ type SubmitReportResult struct {
 }
 
 type reportService struct {
-	deviceRepo repository.DeviceRepository
-	reportRepo repository.ReportRepository
+	deviceRepo         repository.DeviceRepository
+	reportRepo         repository.ReportRepository
+	locationNormalizer ReportLocationNormalizer
 }
 
-func NewReportService(deviceRepo repository.DeviceRepository, reportRepo repository.ReportRepository) ReportService {
+func NewReportService(
+	deviceRepo repository.DeviceRepository,
+	reportRepo repository.ReportRepository,
+	locationNormalizer ReportLocationNormalizer,
+) ReportService {
 	return &reportService{
-		deviceRepo: deviceRepo,
-		reportRepo: reportRepo,
+		deviceRepo:         deviceRepo,
+		reportRepo:         reportRepo,
+		locationNormalizer: locationNormalizer,
 	}
 }
 
@@ -123,6 +129,15 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		clientRequestID = uuid.New()
 	}
 
+	locationInfo := ReportLocationNormalization{
+		RoadName:   nil,
+		RegionName: nil,
+		CityName:   nil,
+	}
+	if s.locationNormalizer != nil {
+		locationInfo = s.locationNormalizer.NormalizeForReport(ctx, req.Longitude, req.Latitude)
+	}
+
 	mediaInputs := make([]repository.SubmitMediaInput, len(req.Media))
 	for i, m := range req.Media {
 		mediaInputs[i] = repository.SubmitMediaInput{
@@ -138,8 +153,15 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	}
 
 	log.Printf(
-		"[REPORT] submit_request device=%s severity=%d media=%d has_casualty=%t casualty_count=%d",
-		device.ID, req.Severity, len(req.Media), req.HasCasualty, req.CasualtyCount,
+		"[REPORT] submit_request device=%s severity=%d media=%d has_casualty=%t casualty_count=%d road=%v region=%v city=%v",
+		device.ID,
+		req.Severity,
+		len(req.Media),
+		req.HasCasualty,
+		req.CasualtyCount,
+		valueOrEmpty(locationInfo.RoadName),
+		valueOrEmpty(locationInfo.RegionName),
+		valueOrEmpty(locationInfo.CityName),
 	)
 
 	result, err := s.reportRepo.SubmitReport(ctx, repository.SubmitInput{
@@ -153,6 +175,7 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		HasCasualty:     req.HasCasualty,
 		CasualtyCount:   req.CasualtyCount,
 		Note:            req.Note,
+		RoadName:        locationInfo.RoadName,
 		Media:           mediaInputs,
 	})
 	if err != nil {
@@ -164,4 +187,11 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		SubmissionID: result.SubmissionID,
 		IsNewIssue:   result.IsNewIssue,
 	}, nil
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

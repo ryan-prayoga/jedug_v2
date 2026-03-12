@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,6 +32,8 @@ func NewLocationRepository(db *pgxpool.Pool) LocationRepository {
 // ResolveLabelByPoint picks the smallest polygon region that covers the point.
 // This allows UX label fallback even when exact district-level data is unavailable.
 func (r *locationRepository) ResolveLabelByPoint(ctx context.Context, longitude, latitude float64) (*LocationLabel, error) {
+	log.Printf("[LOCATION_LABEL] internal_query_start lon=%.6f lat=%.6f srid=4326", longitude, latitude)
+
 	query := `
 		WITH input_point AS (
 			SELECT ST_SetSRID(ST_MakePoint($1, $2), 4326) AS geom
@@ -63,10 +66,21 @@ func (r *locationRepository) ResolveLabelByPoint(ctx context.Context, longitude,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			log.Printf("[LOCATION_LABEL] internal_query_miss lon=%.6f lat=%.6f", longitude, latitude)
 			return nil, nil
 		}
+		log.Printf("[LOCATION_LABEL] internal_query_error lon=%.6f lat=%.6f err=%v", longitude, latitude, err)
 		return nil, err
 	}
+
+	log.Printf(
+		"[LOCATION_LABEL] internal_query_hit lon=%.6f lat=%.6f region_id=%d region_name=%q level=%q",
+		longitude,
+		latitude,
+		out.RegionID,
+		out.RegionName,
+		out.RegionLevel,
+	)
 
 	return &out, nil
 }
