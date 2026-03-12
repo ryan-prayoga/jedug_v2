@@ -9,6 +9,7 @@
 	<section class="actions" aria-label="Aksi utama">
 		<a href="/lapor" class="btn btn-primary">Laporkan Jalan Rusak</a>
 		<a href="/issues" class="btn btn-secondary">Lihat Peta Laporan</a>
+		<a href="/stats" class="btn btn-secondary">Statistik Jalan Rusak</a>
 	</section>
 
 	<section class="intro" aria-label="Ringkasan JEDUG">

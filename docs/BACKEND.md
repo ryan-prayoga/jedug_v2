@@ -31,6 +31,7 @@
 - `GET /api/v1/issues`
 - `GET /api/v1/issues/:id`
 - `POST /api/v1/issues/:id/flag`
+- `GET /api/v1/stats`
 
 ### Admin API
 
@@ -64,13 +65,21 @@
   - trust score minimal
   - cooldown submit 2 menit/device
   - idempotency via `client_request_id`
+  - normalisasi lokasi sekali per laporan:
+    - lookup region internal (`regions`) sebagai sumber utama label wilayah
+    - reverse geocoding ringan untuk melengkapi `road_name` jika kosong
+    - fallback `Kawasan sekitar lat,lng` jika label manusiawi tidak tersedia
+  - reverse geocoding memakai timeout + cache in-memory agar ringan, dan gagal geocode tidak memblok submit report
 - Repository `ReportRepository` (transactional):
-  - resolve region district
+  - resolve region internal terbaik (prioritas district, fallback smallest covering region)
   - duplicate detection issue aktif publik (`open|verified|in_progress`, `is_hidden=false`) dalam radius configurable (default 30m)
   - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
   - create issue baru jika tidak ada kandidat relevan
   - create `issue_submissions`
   - create `submission_media`
+  - saat create issue baru:
+    - isi `road_name` dari hasil normalisasi lokasi
+    - isi `region_id` dari lookup internal bila tersedia
   - saat merge update aggregate issue:
     - `last_seen_at = NOW()`
     - `submission_count += 1`
@@ -78,6 +87,8 @@
     - `casualty_count = GREATEST(existing, incoming)` (hindari overcount duplicate)
     - `severity_current = GREATEST(existing, incoming)`
     - `severity_max = GREATEST(existing, incoming)`
+    - isi `road_name` bila issue existing masih kosong (tanpa overwrite nilai valid)
+    - isi `region_id` bila issue existing masih `NULL` (tanpa overwrite nilai valid)
 
 ### Issue Listing + Detail
 
@@ -98,14 +109,64 @@
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
 
+### Public Stats Dashboard (`GET /api/v1/stats`)
+
+- `StatsService` memakai cache in-memory thread-safe (`sync.RWMutex`) dengan TTL 45 detik.
+- Jika query DB gagal sesaat, service fallback ke cache stale agar endpoint tetap responsif.
+- `StatsRepository` menjalankan query agregasi ringan berbasis tabel `issues` + join `regions`:
+  - global stats:
+    - `total_issues`
+    - `total_issues_this_week`
+    - `total_casualties`
+    - `total_photos`
+    - `total_reports`
+  - status stats:
+    - `open` dihitung sebagai issue unresolved (`open|verified|in_progress`)
+    - `fixed`
+    - `archived`
+  - time stats:
+    - `average_issue_age_days`
+    - `oldest_open_issue_age_days`
+    - metadata issue tertua unresolved (`oldest_open_issue_id`, lokasi, first seen) jika ada
+  - region leaderboard:
+    - top wilayah berdasarkan `issue_count`, `casualty_count`, `report_count`
+    - sumber wilayah dari join `regions` (fallback label: `Wilayah Tidak Diketahui`)
+  - top issues:
+    - issue dengan laporan terbanyak
+    - issue dengan korban terbanyak
+    - issue paling lama belum diperbaiki
+- Semua query stats hanya memakai data publik issue:
+  - `is_hidden = false`
+  - status `rejected` dan `merged` dikecualikan
+- Handler menambah header HTTP cache:
+  - `Cache-Control: public, max-age=30, stale-while-revalidate=30`
+
+### Backfill Lokasi Issue Lama (helper opsional)
+
+- Tersedia command helper:
+  - `go run ./cmd/backfill_issue_location --limit=200`
+- Tujuan:
+  - mengisi `road_name` issue lama yang kosong
+  - mengisi `region_id` issue lama yang masih `NULL`
+- Command menggunakan normalizer yang sama dengan flow submit report:
+  - lookup region internal + reverse geocoding ringan + fallback koordinat
+- Mode aman:
+  - `--dry-run` untuk preview tanpa update data.
+
 ### Location Label Resolve (UX `/lapor`)
 
 - `LocationHandler.ResolveLabel` menerima query `latitude` + `longitude`.
-- `LocationService` memanggil repository untuk lookup wilayah internal dari tabel `regions`.
+- `LocationService` memanggil repository untuk lookup wilayah internal dari tabel `regions`, lalu fallback ke reverse geocoding jika tidak ada match.
 - Repository memilih polygon wilayah terkecil yang menutupi titik (`ST_Covers` + `ORDER BY ST_Area ASC LIMIT 1`) agar label lebih manusiawi.
 - Response selalu aman untuk UX:
-  - jika ketemu: kirim `label`, `region_name`, `region_level`, parent chain.
-  - jika tidak ketemu: field label bernilai `null`, tanpa memblok submit report.
+  - jika internal region ketemu: kirim `label`, `region_name`, `region_level`, parent chain, `source=internal_regions`.
+  - jika internal region miss tapi reverse geocode berhasil: kirim label fallback manusiawi (`source=reverse_geocode`).
+  - jika semua sumber miss: field label bernilai `null`, `source=unresolved`, tanpa memblok submit report.
+- Debug log pipeline location label:
+  - request masuk + koordinat
+  - hasil query internal (`hit/miss/error`)
+  - status reverse geocode (`start/hit/error/empty`)
+  - response final yang dikirim handler
 - Endpoint ini **hanya** untuk konfirmasi UX lokasi, bukan pengganti source of truth geospatial issue/submission.
 
 ### Moderation

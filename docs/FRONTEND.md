@@ -19,6 +19,7 @@
 - `/lapor` submit report
 - `/issues` peta + list issue publik
 - `/issues/[id]` detail issue
+- `/stats` dashboard statistik agregasi issue publik
 - `/api/og/issues/[id]` dynamic Open Graph image generator (PNG 1200x630)
 
 ## Route Admin
@@ -93,6 +94,26 @@
   - fallback media gagal load
   - empty gallery
 
+## Public Stats Dashboard (`/stats`)
+
+- Halaman mobile-first untuk civic storytelling berbasis agregasi data issue publik.
+- Route melakukan fetch `GET /api/v1/stats` via `lib/api/stats.ts`.
+- Struktur section:
+  - Global Stats (card grid)
+  - Status Breakdown (card + progress bar)
+  - Time Stats (rata-rata umur issue + issue tertua unresolved)
+  - Region Leaderboard (list berurutan)
+  - Top Issue (card list dengan link ke `/issues/[id]`)
+- State wajib:
+  - loading
+  - error + retry
+  - empty
+- Halaman tetap memakai komponen state umum:
+  - `LoadingState`
+  - `ErrorState`
+  - `EmptyState`
+- Data sensitif tidak ditampilkan di UI stats karena endpoint hanya expose agregasi publik.
+
 ## Dynamic OG Image (`/api/og/issues/[id]`)
 
 - Endpoint server route SvelteKit (`+server.ts`) yang merender `image/png` ukuran `1200x630`.
@@ -118,12 +139,33 @@ Di `/lapor`:
 5. Upload binary.
    - jika upload R2 gagal, fallback ke endpoint local `/api/v1/uploads/file/{object_key}`
 6. Submit report dengan metadata media + `client_request_id`.
+   - backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).
+   - UI tetap menampilkan ini sebagai label UX, bukan input wajib user.
+
+## UX Lokasi di `/lapor`
+
+- Panel lokasi menampilkan:
+  - koordinat mentah (`lat, lon`) sebagai acuan utama
+  - label lokasi manusiawi (primary + secondary) dari endpoint `/api/v1/location/label` (internal region + reverse fallback)
+  - helper text bahwa nama jalan dilengkapi otomatis saat laporan dikirim
+- Bila label wilayah tidak tersedia:
+  - user tetap bisa submit report
+  - koordinat tetap dipakai penuh oleh backend.
+
+## Entry Point Statistik
+
+- Navigasi header publik sekarang menyediakan link:
+  - `Lapor`
+  - `Peta`
+  - `Statistik`
+- Homepage juga menyediakan CTA langsung ke `/stats` agar dashboard mudah ditemukan tanpa mengetik URL manual.
 
 ## Integrasi API Client
 
 - `lib/api/client.ts`: base fetch helper + ApiError.
 - `lib/api/types.ts`: type contracts response backend.
 - `lib/api/location.ts`: helper resolve label lokasi `/lapor`.
+- `lib/api/stats.ts`: helper fetch dashboard statistik publik `/stats`.
 - Token storage:
   - anon token: `jedug_anon_token`
   - admin token: `jedug_admin_token`

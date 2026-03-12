@@ -54,6 +54,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	// Wire up dependencies
 	deviceRepo := repository.NewDeviceRepository(db)
 	issueRepo := repository.NewIssueRepository(db)
+	statsRepo := repository.NewStatsRepository(db)
 	reportRepo := repository.NewReportRepository(db, repository.ReportRepositoryConfig{
 		DuplicateRadiusM: cfg.DuplicateRadiusM,
 	})
@@ -63,14 +64,24 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
-	reportSvc := service.NewReportService(deviceRepo, reportRepo)
+	statsSvc := service.NewStatsService(statsRepo)
+	reverseGeocoder := service.NewHTTPReverseGeocoder(
+		cfg.ReverseGeocodeEnabled,
+		cfg.ReverseGeocodeURL,
+		cfg.ReverseGeocodeUserAgent,
+		cfg.ReverseGeocodeTimeout,
+		cfg.ReverseGeocodeCacheTTL,
+	)
+	locationNormalizer := service.NewReportLocationNormalizer(locationRepo, reverseGeocoder)
+	reportSvc := service.NewReportService(deviceRepo, reportRepo, locationNormalizer)
 	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo)
 	flagSvc := service.NewFlagService(deviceRepo, flagRepo, adminRepo)
-	locationSvc := service.NewLocationService(locationRepo)
+	locationSvc := service.NewLocationService(locationRepo, reverseGeocoder)
 
 	healthHandler := handlers.NewHealthHandler(db)
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
+	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
 	adminHandler := handlers.NewAdminHandler(adminSvc, store)
@@ -106,6 +117,8 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issues.Get("/", issueHandler.List)
 	issues.Get("/:id", issueHandler.Get)
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
+
+	api.Get("/stats", statsHandler.Get)
 
 	// Admin routes
 	admin := api.Group("/admin")

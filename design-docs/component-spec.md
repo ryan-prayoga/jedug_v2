@@ -18,7 +18,7 @@ Dokumen ini bukan sumber utama token desain.
 - Sticky top, white bg, bottom border `#E2E8F0`
 - Logo: "JEDUG" in brand red `#E5484D`, Inter 700, 1.25rem
 - Sub-label: "Pantau Jalan Rusak" in `#64748B`, 11px, next to logo
-- Nav links: "Lapor" & "Peta", 14px, 500 weight, `#64748B`, hover `#E5484D`
+- Nav links: "Lapor", "Peta", "Statistik", 14px, 500 weight, `#64748B`, hover `#E5484D`
 - Padding: 12px 16px
 
 ## IssueMap
@@ -56,6 +56,8 @@ Dokumen ini bukan sumber utama token desain.
   - koordinat manual dipilih eksplisit
 - Jangan melakukan request berulang saat user sedang mengetik koordinat.
 - Jika lookup label gagal, submit tetap bisa lanjut dengan koordinat mentah.
+- UI menampilkan nama lokasi sebagai label manusiawi (primary + secondary line) dan bukan field editable.
+- Nama jalan di issue dilengkapi backend saat submit report (reverse geocode fallback), jadi panel lokasi cukup fokus ke konfirmasi koordinat + wilayah.
 
 ## IssueBottomSheet
 

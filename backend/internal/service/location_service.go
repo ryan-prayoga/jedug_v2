@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"strings"
 
 	"jedug_backend/internal/repository"
@@ -22,45 +23,97 @@ type LocationLabelResult struct {
 }
 
 type locationService struct {
-	repo repository.LocationRepository
+	repo            repository.LocationRepository
+	reverseGeocoder ReverseGeocoder
 }
 
-func NewLocationService(repo repository.LocationRepository) LocationService {
-	return &locationService{repo: repo}
+func NewLocationService(repo repository.LocationRepository, reverseGeocoder ReverseGeocoder) LocationService {
+	return &locationService{
+		repo:            repo,
+		reverseGeocoder: reverseGeocoder,
+	}
 }
 
 func (s *locationService) ResolveLabel(ctx context.Context, longitude, latitude float64) (*LocationLabelResult, error) {
+	log.Printf("[LOCATION_LABEL] resolve_start lat=%.6f lon=%.6f", latitude, longitude)
+
 	region, err := s.repo.ResolveLabelByPoint(ctx, longitude, latitude)
 	if err != nil {
+		log.Printf("[LOCATION_LABEL] resolve_internal_error lat=%.6f lon=%.6f err=%v", latitude, longitude, err)
 		return nil, err
 	}
-	if region == nil {
-		return &LocationLabelResult{
-			Label:           nil,
-			RegionID:        nil,
-			RegionName:      nil,
-			RegionLevel:     nil,
-			ParentName:      nil,
-			GrandparentName: nil,
+	if region != nil {
+		label := buildHumanLabel(region.RegionName, region.ParentName, region.GrandparentName)
+
+		regionID := region.RegionID
+		regionName := region.RegionName
+		regionLevel := region.RegionLevel
+
+		out := &LocationLabelResult{
+			Label:           label,
+			RegionID:        &regionID,
+			RegionName:      &regionName,
+			RegionLevel:     &regionLevel,
+			ParentName:      region.ParentName,
+			GrandparentName: region.GrandparentName,
 			Source:          "internal_regions",
-		}, nil
+		}
+		log.Printf(
+			"[LOCATION_LABEL] resolve_internal_hit lat=%.6f lon=%.6f region_id=%d region_name=%q label=%q",
+			latitude,
+			longitude,
+			regionID,
+			regionName,
+			valueOrNilString(out.Label),
+		)
+		return out, nil
 	}
 
-	label := buildHumanLabel(region.RegionName, region.ParentName, region.GrandparentName)
+	log.Printf("[LOCATION_LABEL] resolve_internal_miss lat=%.6f lon=%.6f", latitude, longitude)
 
-	regionID := region.RegionID
-	regionName := region.RegionName
-	regionLevel := region.RegionLevel
+	if s.reverseGeocoder != nil {
+		log.Printf("[LOCATION_LABEL] resolve_reverse_start lat=%.6f lon=%.6f", latitude, longitude)
+		reverse, reverseErr := s.reverseGeocoder.ReverseLookup(ctx, longitude, latitude)
+		if reverseErr != nil {
+			log.Printf("[LOCATION_LABEL] resolve_reverse_error lat=%.6f lon=%.6f err=%v", latitude, longitude, reverseErr)
+		} else if reverse != nil {
+			label := buildHumanLabelFromPtrs(reverse.RoadName, reverse.RegionName, reverse.CityName)
+			regionLevel := "fallback_reverse_geocode"
+			out := &LocationLabelResult{
+				Label:           label,
+				RegionID:        nil,
+				RegionName:      reverse.RegionName,
+				RegionLevel:     &regionLevel,
+				ParentName:      reverse.CityName,
+				GrandparentName: nil,
+				Source:          "reverse_geocode",
+			}
+			log.Printf(
+				"[LOCATION_LABEL] resolve_reverse_hit lat=%.6f lon=%.6f road=%q region=%q city=%q label=%q",
+				latitude,
+				longitude,
+				valueOrNilString(reverse.RoadName),
+				valueOrNilString(reverse.RegionName),
+				valueOrNilString(reverse.CityName),
+				valueOrNilString(out.Label),
+			)
+			return out, nil
+		} else {
+			log.Printf("[LOCATION_LABEL] resolve_reverse_empty lat=%.6f lon=%.6f", latitude, longitude)
+		}
+	}
 
-	return &LocationLabelResult{
-		Label:           label,
-		RegionID:        &regionID,
-		RegionName:      &regionName,
-		RegionLevel:     &regionLevel,
-		ParentName:      region.ParentName,
-		GrandparentName: region.GrandparentName,
-		Source:          "internal_regions",
-	}, nil
+	out := &LocationLabelResult{
+		Label:           nil,
+		RegionID:        nil,
+		RegionName:      nil,
+		RegionLevel:     nil,
+		ParentName:      nil,
+		GrandparentName: nil,
+		Source:          "unresolved",
+	}
+	log.Printf("[LOCATION_LABEL] resolve_end_unresolved lat=%.6f lon=%.6f", latitude, longitude)
+	return out, nil
 }
 
 func buildHumanLabel(primary string, parent, grandparent *string) *string {
@@ -94,4 +147,19 @@ func buildHumanLabel(primary string, parent, grandparent *string) *string {
 
 	label := strings.Join(parts, ", ")
 	return &label
+}
+
+func buildHumanLabelFromPtrs(primary, parent, grandparent *string) *string {
+	primaryValue := ""
+	if primary != nil {
+		primaryValue = *primary
+	}
+	return buildHumanLabel(primaryValue, parent, grandparent)
+}
+
+func valueOrNilString(value *string) string {
+	if value == nil {
+		return "<nil>"
+	}
+	return *value
 }

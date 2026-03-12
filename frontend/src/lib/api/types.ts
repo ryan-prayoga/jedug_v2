@@ -120,6 +120,60 @@ export interface IssueDetail extends Issue {
   recent_submissions: SubmissionSummary[];
 }
 
+// Public stats
+export interface PublicStatsGlobal {
+  total_issues: number;
+  total_issues_this_week: number;
+  total_casualties: number;
+  total_photos: number;
+  total_reports: number;
+}
+
+export interface PublicStatsStatus {
+  open: number;
+  fixed: number;
+  archived: number;
+}
+
+export interface PublicStatsTime {
+  average_issue_age_days: number;
+  oldest_open_issue_age_days: number;
+  oldest_open_issue_id?: string | null;
+  oldest_open_road_name?: string | null;
+  oldest_open_region_name?: string | null;
+  oldest_open_first_seen_at?: string | null;
+}
+
+export interface PublicStatsRegion {
+  region_name: string;
+  issue_count: number;
+  casualty_count: number;
+  report_count: number;
+}
+
+export interface PublicTopIssue {
+  category: string;
+  label: string;
+  metric_label: string;
+  metric_value: number;
+  issue_id: string;
+  status: string;
+  road_name?: string | null;
+  region_name?: string | null;
+  submission_count: number;
+  casualty_count: number;
+  age_days: number;
+}
+
+export interface PublicStats {
+  global: PublicStatsGlobal;
+  status: PublicStatsStatus;
+  time: PublicStatsTime;
+  regions: PublicStatsRegion[];
+  top_issues: PublicTopIssue[];
+  generated_at: string;
+}
+
 // Admin types
 export interface AdminLoginResponse {
   token: string;

@@ -52,6 +52,7 @@ type SubmitInput struct {
 	HasCasualty     bool
 	CasualtyCount   int
 	Note            *string
+	RoadName        *string
 	Media           []SubmitMediaInput
 }
 
@@ -98,7 +99,7 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		input.DeviceID, input.Latitude, input.Longitude, r.duplicateRadiusM,
 	)
 
-	regionID, err := resolveRegionID(ctx, tx, input.Longitude, input.Latitude)
+	regionID, err := resolveBestRegionID(ctx, tx, input.Longitude, input.Latitude)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +138,7 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	}
 
 	if !isNew {
-		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, input); err != nil {
+		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, regionID, input); err != nil {
 			return nil, err
 		}
 	}
@@ -153,14 +154,27 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	}, nil
 }
 
-// resolveRegionID finds the district-level region that contains the given point.
-// Returns nil (no error) if no matching region is found.
-func resolveRegionID(ctx context.Context, tx pgx.Tx, lon, lat float64) (*int64, error) {
+// resolveBestRegionID finds the most relevant internal region for the given point.
+// Prefer district-level region; if unavailable, fallback to smallest covering region.
+func resolveBestRegionID(ctx context.Context, tx pgx.Tx, lon, lat float64) (*int64, error) {
 	var id int64
 	err := tx.QueryRow(ctx, `
-		SELECT id FROM regions
-		WHERE level = 'district'
-		  AND ST_Covers(geom, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+		WITH input_point AS (
+			SELECT ST_SetSRID(ST_MakePoint($1, $2), 4326) AS geom
+		)
+		SELECT reg.id
+		FROM regions reg
+		CROSS JOIN input_point p
+		WHERE ST_Covers(reg.geom, p.geom)
+		ORDER BY
+			CASE
+				WHEN reg.level = 'district' THEN 0
+				WHEN reg.level = 'subdistrict' THEN 1
+				WHEN reg.level = 'city' THEN 2
+				WHEN reg.level = 'province' THEN 3
+				ELSE 4
+			END,
+			ST_Area(reg.geom::geography) ASC
 		LIMIT 1
 	`, lon, lat).Scan(&id)
 	if err != nil {
@@ -241,17 +255,17 @@ func createIssue(ctx context.Context, tx pgx.Tx, id uuid.UUID, regionID *int64, 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO issues (
 			id, status, severity_current, severity_max,
-			public_location, region_id,
+			public_location, region_id, road_name,
 			submission_count, photo_count, casualty_count,
 			first_seen_at, last_seen_at
 		) VALUES (
 			$1, 'open', $2, $2,
 			ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
-			$5, 1, $6, $7,
+			$5, $6, 1, $7, $8,
 			NOW(), NOW()
 		)
 	`, id, input.Severity, input.Longitude, input.Latitude,
-		regionID, len(input.Media), incomingCasualtyCount(input),
+		regionID, input.RoadName, len(input.Media), incomingCasualtyCount(input),
 	)
 	return err
 }
@@ -294,7 +308,13 @@ func createSubmissionMedia(ctx context.Context, tx pgx.Tx, submissionID uuid.UUI
 }
 
 // updateIssueAggregatesOnMerge updates issue aggregate fields after attaching a new submission.
-func updateIssueAggregatesOnMerge(ctx context.Context, tx pgx.Tx, issueID uuid.UUID, input SubmitInput) error {
+func updateIssueAggregatesOnMerge(
+	ctx context.Context,
+	tx pgx.Tx,
+	issueID uuid.UUID,
+	regionID *int64,
+	input SubmitInput,
+) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE issues SET
 			last_seen_at     = NOW(),
@@ -303,9 +323,20 @@ func updateIssueAggregatesOnMerge(ctx context.Context, tx pgx.Tx, issueID uuid.U
 			casualty_count   = GREATEST(casualty_count, $2),
 			severity_current = GREATEST(severity_current, $3),
 			severity_max     = GREATEST(severity_max, $3),
+			road_name = CASE
+				WHEN (road_name IS NULL OR BTRIM(road_name) = '')
+				     AND $4 IS NOT NULL AND BTRIM($4) <> ''
+				THEN $4
+				ELSE road_name
+			END,
+			region_id = CASE
+				WHEN region_id IS NULL AND $5 IS NOT NULL
+				THEN $5
+				ELSE region_id
+			END,
 			updated_at       = NOW()
-		WHERE id = $4
-	`, len(input.Media), incomingCasualtyCount(input), input.Severity, issueID)
+		WHERE id = $6
+	`, len(input.Media), incomingCasualtyCount(input), input.Severity, input.RoadName, regionID, issueID)
 	return err
 }
 

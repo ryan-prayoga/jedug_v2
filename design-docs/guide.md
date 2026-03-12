@@ -100,6 +100,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Hero diperkuat dengan kicker/trust statement ringan + card treatment lembut
 - Hierarki teks diperjelas: brand title tegas, tagline lebih readable, intro lebih terstruktur
 - CTA utama/sekunder diselaraskan (radius 12px, min-height ~52px, shadow lembut)
+- Tambah CTA `Statistik Jalan Rusak` agar route `/stats` mudah ditemukan dari homepage.
 
 ### Peta & Daftar Laporan (`/issues`)
 
@@ -117,6 +118,27 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Marker individual tetap clickable dan tetap membuka bottom sheet ringkas
 - Jika setup clustering gagal, map fallback ke marker individual layer agar tetap usable
 
+### Statistik Publik (`/stats`)
+
+- Halaman harus mobile-first dan ringan (tanpa grafik berat) agar aman untuk perangkat low-end.
+- Hero section memakai brand red `#E5484D` sebagai accent untuk konteks civic storytelling.
+- Struktur konten tetap konsisten dan mudah di-scan:
+  1. Global stats card grid
+  2. Status breakdown card + bar sederhana
+  3. Time stats (rata-rata umur issue + issue tertua unresolved)
+  4. Region leaderboard list
+  5. Top issue cards
+- Top issue wajib menyediakan link cepat ke detail `/issues/{id}`.
+- State wajib:
+  - loading
+  - error + retry
+  - empty data
+- Spacing, border, radius, typography tetap mengikuti token utama:
+  - card radius 16/12px
+  - border `#E2E8F0`
+  - text primary `#0F172A`
+  - text secondary `#64748B`
+
 ### Form Lapor (`/lapor`)
 
 - Title 20px/700, section spacing 24px
@@ -126,6 +148,8 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Setelah koordinat tersedia, tampilkan label lokasi manusiawi dari lookup wilayah internal
 - Label lokasi hanya bersifat konfirmasi UX; koordinat mentah tetap ditampilkan dan tetap jadi acuan submit
 - Jika label gagal didapat, user tetap bisa submit report tanpa blocking
+- Panel lokasi menampilkan format label primary/secondary agar lebih mudah dibaca di mobile.
+- Tambahkan helper text bahwa nama jalan issue akan dilengkapi otomatis saat submit report.
 
 ### Detail Laporan (`/issues/[id]`)
 

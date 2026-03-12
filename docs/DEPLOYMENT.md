@@ -50,6 +50,12 @@ Konsekuensi:
 - `ADMIN_PASSWORD` (required)
 - `APP_PORT`, `CORS_ALLOW_ORIGINS`
 - `DUPLICATE_RADIUS_M` (optional, default `30`, satuan meter)
+- reverse geocode fallback (optional):
+  - `REVERSE_GEOCODE_ENABLED` (default `true`)
+  - `REVERSE_GEOCODE_URL` (default nominatim reverse endpoint)
+  - `REVERSE_GEOCODE_USER_AGENT`
+  - `REVERSE_GEOCODE_TIMEOUT_MS` (default `2000`)
+  - `REVERSE_GEOCODE_CACHE_TTL_SEC` (default `300`)
 - `STORAGE_DRIVER`, `STORAGE_PUBLIC_BASE_URL`, `UPLOAD_DIR`
 - R2 vars saat mode R2 aktif:
   - `R2_ACCESS_KEY_ID`
@@ -84,7 +90,7 @@ Konsekuensi:
 ## Known Mismatch
 
 - dokumentasi deployment infra masih tersebar antara workflow dan konfigurasi server manual.
-- `.env.example` backend belum mencantumkan semua required variable aktual (`ADMIN_PASSWORD`, vars R2).
+- konfigurasi endpoint reverse geocoder production (provider + policy quota) perlu dipastikan sesuai SLA operasional.
 
 ## Read This Next
 

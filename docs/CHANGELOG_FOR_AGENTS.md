@@ -25,6 +25,82 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-12 - Bugfix Location Label `/lapor` (internal region miss -> reverse fallback)
+
+- Scope:
+  - memperbaiki pipeline `GET /api/v1/location/label` agar tidak berhenti di lookup internal `regions` saja.
+  - menambahkan fallback reverse geocoding pada service label lokasi ketika region internal tidak ditemukan.
+  - menambah debug log end-to-end untuk audit koordinat masuk, hasil query geospatial, trigger reverse, dan response akhir.
+  - menambah fallback provider reverse geocode sekunder agar label tetap tersedia saat provider utama error.
+- Dampak area:
+  - `backend/internal/http/handlers/location.go`
+  - `backend/internal/repository/location_repository.go`
+  - `backend/internal/service/location_service.go`
+  - `backend/internal/service/location_service_test.go`
+  - `backend/internal/service/reverse_geocoder.go`
+  - `backend/internal/http/router.go`
+  - `frontend/src/routes/lapor/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - jika tabel `regions` kosong, source label lokasi akan bergantung pada reverse geocoding; jika semua provider reverse gagal, endpoint tetap return sukses dengan `source=unresolved` dan label `null`.
+
+## 2026-03-12 - Location Normalization saat Submit Report + Entry Point `/stats`
+
+- Scope:
+  - menambahkan normalisasi lokasi saat `POST /api/v1/reports` untuk memperkaya `road_name` dan `region` issue publik.
+  - menambahkan reverse geocoding ringan (timeout + cache in-memory) yang hanya dipanggil saat submit report.
+  - memastikan merge duplicate tidak overwrite data lokasi valid, hanya melengkapi field kosong.
+  - menambahkan helper command backfill issue lama yang masih kosong lokasi.
+  - menambahkan entry point UI menuju `/stats` di header dan homepage.
+- Dampak area:
+  - `backend/internal/config/config.go`
+  - `backend/internal/service/reverse_geocoder.go`
+  - `backend/internal/service/report_location_normalizer.go`
+  - `backend/internal/service/report_service.go`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/http/router.go`
+  - `backend/cmd/backfill_issue_location/main.go`
+  - `backend/.env.example`
+  - `frontend/src/lib/components/AppHeader.svelte`
+  - `frontend/src/routes/+page.svelte`
+  - `frontend/src/routes/lapor/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `docs/DEPLOYMENT.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - schema issue saat ini tidak punya kolom `region_name`/`city_name` fisik; nilai wilayah publik tetap diturunkan dari `region_id` + tabel `regions`.
+
+## 2026-03-12 - Public Stats Dashboard (`/stats`) + API Aggregation Endpoint
+
+- Scope:
+  - menambahkan endpoint publik baru `GET /api/v1/stats` untuk statistik agregasi issue.
+  - menambahkan in-memory cache ringan di backend (TTL 45 detik) agar query agregasi tidak menghantam DB setiap request.
+  - menambahkan halaman publik baru `/stats` (mobile-first) berisi global stats, status breakdown, time stats, region leaderboard, dan top issue.
+- Dampak area:
+  - `backend/internal/http/router.go`
+  - `backend/internal/http/handlers/stats.go`
+  - `backend/internal/service/stats_service.go`
+  - `backend/internal/service/stats_service_test.go`
+  - `backend/internal/repository/stats_repository.go`
+  - `backend/internal/domain/stats.go`
+  - `frontend/src/lib/api/stats.ts`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/routes/stats/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - backend aktif project ini tetap Go + Fiber; deskripsi eksternal yang menyebut backend Node tidak merefleksikan implementasi repo saat ini.
+
 ## 2026-03-10 - Map Marker Clustering + Location Label UX (`/lapor`)
 
 - Scope:
