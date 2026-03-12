@@ -34,6 +34,7 @@
 - `IssueMap.svelte`
   - inisialisasi MapLibre
   - marker publik via `GeoJSON source + layers`
+  - heatmap publik severity-aware via `GeoJSON source + heatmap/circle layers`
   - marker clustering (cluster circle + count + unclustered marker)
   - emit bbox on `moveend`
   - auto geolocation center sekali saat load
@@ -53,19 +54,34 @@
 - `issues/+page.svelte` memanggil `fetchIssuesByBBox`.
 - Debounce default 300ms.
 - BBox sama (rounded 5 desimal) di-skip untuk mengurangi fetch redundant.
-- Marker map publik dirender sebagai layer:
+- Route `/issues` sekarang punya mode visual tambahan:
+  - `Marker`
+  - `Heatmap`
+- Marker map publik dirender dari source ter-cluster:
   - cluster circles
   - cluster count labels
   - unclustered hit-area + dot marker severity-based
   - selected marker glow/core layer
+- Heatmap dirender dari source terpisah non-cluster agar density tetap stabil:
+  - `heatmap density`
+  - `heatmap point accent` pada zoom lebih dekat
+- Kedua mode memakai payload issue publik yang sama; update data dilakukan via `setData`, bukan re-add source/layer saat toggle.
 - Klik cluster melakukan zoom/focus ke area cluster (`getClusterExpansionZoom` + `easeTo`).
 - Klik marker individual memilih issue -> tampilkan bottom sheet.
+- Saat heatmap aktif, marker individual dan bottom sheet disembunyikan agar peta tetap bersih.
 - Klik area peta kosong clear selected issue (dengan guard agar tidak bentrok saat klik cluster/marker).
 - Reset cache bbox saat user kembali dari list ke map untuk mencegah stuck loading pada viewport yang sama.
 - Empty state map hanya dirender setelah fetch viewport valid selesai agar tidak muncul false-empty saat map baru mount.
 - Error fetch viewport tidak langsung mengosongkan marker; state terakhir dipertahankan untuk menghindari flicker.
 - Empty state map menggunakan info badge top-left (tanpa popup tengah) agar tidak menutupi area peta.
 - Jika setup cluster gagal, komponen fallback ke layer marker individual (tanpa cluster) agar map tetap usable.
+- Jika setup heatmap gagal, route otomatis fallback ke mode marker dan menampilkan notice non-blocking; map tidak dipaksa pindah ke list.
+- Formula weight heatmap saat ini:
+  - base severity: level 1 `0.18`, 2 `0.34`, 3 `0.58`, 4 `0.78`, 5+ `0.92`
+  - bonus casualty: `+0.06` per korban sampai 3
+  - bonus submission: `+0.02` per laporan tambahan sampai 4 laporan tambahan
+  - status multiplier: `0.45` untuk `fixed/archived`, `1` untuk issue aktif
+  - final weight di-clamp ke `0.08..1.00`
 
 ## Detail Issue Publik (`/issues/[id]`)
 

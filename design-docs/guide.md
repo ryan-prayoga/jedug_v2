@@ -43,11 +43,13 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Nav link hover: `#FEF2F2` bg tint, padding `6px 12px`
 - Sub-label hidden di viewport < 360px
 
-### IssueMap (Marker)
+### IssueMap (Marker + Heatmap)
 
 - Severity colors: Ringan `#F6C453`, Sedang `#F97316`, Berat `#DC2626`
 - Touch target 36px, dot sizes 14/16/20px
 - Selected: `scale(1.5)` + red glow; Fixed: opacity `0.45`
+- Heatmap mode memakai ramp kuning -> oranye -> merah tua agar tetap terbaca di basemap light
+- Heatmap harus tetap clean, tidak neon, dan menunjukkan pola area tanpa menggantikan marker mode
 
 ### IssueBottomSheet
 
@@ -111,11 +113,17 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Guard state transisi list ↔ map untuk menghindari false-empty/flicker saat map remount
 - Empty state map hanya tampil setelah fetch viewport valid, bukan saat map baru mount
 - Bottom sheet mobile mendukung swipe-down close dengan threshold + snap-back
+- Tambahkan segmented toggle `Marker` / `Heatmap` yang tetap nyaman di mobile
 - Marker map publik menggunakan clustering:
   - zoom out: marker bergabung ke cluster yang menampilkan count
   - zoom in: cluster pecah otomatis ke marker individual
   - klik cluster: map auto zoom/focus ke area cluster
 - Marker individual tetap clickable dan tetap membuka bottom sheet ringkas
+- Heatmap mode:
+  - menyembunyikan marker individual dan cluster agar peta tidak penuh
+  - memakai weight severity-aware dengan bonus korban dan bonus kecil jumlah laporan
+  - menampilkan legend intensitas ringkas agar user cepat paham arti warna
+- Jika heatmap gagal load, UI harus fallback ke marker mode dan tetap mempertahankan peta aktif
 - Jika setup clustering gagal, map fallback ke marker individual layer agar tetap usable
 
 ### Statistik Publik (`/stats`)

@@ -4,21 +4,26 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type { Issue } from '$lib/api/types';
 	import type { BBox } from '$lib/utils/bbox';
+	import { getIssueHeatWeight, type MapVisualMode } from '$lib/utils/issue-heatmap';
 
 	let {
 		issues = [],
 		selectedIssue = null,
+		visualMode = 'marker',
 		onbboxchange,
 		onissueselect,
 		onmaperror,
-		onmapready
+		onmapready,
+		onvisualmodefallback
 	}: {
 		issues: Issue[];
 		selectedIssue: Issue | null;
+		visualMode: MapVisualMode;
 		onbboxchange: (bbox: BBox) => void;
 		onissueselect: (issue: Issue | null) => void;
 		onmaperror?: (error: string) => void;
 		onmapready?: () => void;
+		onvisualmodefallback?: (mode: MapVisualMode, message: string) => void;
 	} = $props();
 
 	type IssueFeature = {
@@ -31,6 +36,9 @@
 			id: string;
 			status: string;
 			severity_current: number;
+			casualty_count: number;
+			submission_count: number;
+			heat_weight: number;
 		};
 	};
 
@@ -44,6 +52,7 @@
 	let mapReady = $state(false);
 	let didAutoCenter = false;
 	let clusteringEnabled = $state(true);
+	let heatmapAvailable = $state(true);
 	let issueByID = new Map<string, Issue>();
 
 	const DEFAULT_CENTER: [number, number] = [110.4, -7.0];
@@ -51,12 +60,15 @@
 	const USER_ZOOM = 15;
 
 	const ISSUE_SOURCE_ID = 'jedug-issues-source';
+	const HEATMAP_SOURCE_ID = 'jedug-heatmap-source';
 	const CLUSTER_CIRCLE_LAYER_ID = 'jedug-cluster-circles';
 	const CLUSTER_COUNT_LAYER_ID = 'jedug-cluster-counts';
 	const UNCLUSTERED_HIT_LAYER_ID = 'jedug-unclustered-hit';
 	const UNCLUSTERED_BASE_LAYER_ID = 'jedug-unclustered-markers';
 	const SELECTED_GLOW_LAYER_ID = 'jedug-selected-glow';
 	const SELECTED_CORE_LAYER_ID = 'jedug-selected-core';
+	const HEATMAP_DENSITY_LAYER_ID = 'jedug-heatmap-density';
+	const HEATMAP_POINT_LAYER_ID = 'jedug-heatmap-points';
 
 	const EMPTY_FEATURE_COLLECTION: IssueFeatureCollection = {
 		type: 'FeatureCollection',
@@ -136,6 +148,20 @@
 		15
 	];
 
+	const heatmapWeightExpression: any = ['coalesce', ['to-number', ['get', 'heat_weight']], 0.1];
+
+	const heatmapPointColorExpression: any = [
+		'interpolate',
+		['linear'],
+		heatmapWeightExpression,
+		0.1,
+		'rgba(246, 196, 83, 0.24)',
+		0.55,
+		'rgba(249, 115, 22, 0.34)',
+		1,
+		'rgba(229, 72, 77, 0.48)'
+	];
+
 	function buildFeatureCollection(issueList: Issue[]): IssueFeatureCollection {
 		const features: IssueFeature[] = [];
 		const issueMap = new Map<string, Issue>();
@@ -154,7 +180,10 @@
 				properties: {
 					id: issue.id,
 					status: issue.status,
-					severity_current: issue.severity_current
+					severity_current: issue.severity_current,
+					casualty_count: issue.casualty_count,
+					submission_count: issue.submission_count,
+					heat_weight: getIssueHeatWeight(issue)
 				}
 			});
 		}
@@ -166,17 +195,38 @@
 		};
 	}
 
-	function getIssueSource(): maplibregl.GeoJSONSource | null {
+	function markerLayerIDs(): string[] {
+		return [
+			CLUSTER_CIRCLE_LAYER_ID,
+			CLUSTER_COUNT_LAYER_ID,
+			UNCLUSTERED_HIT_LAYER_ID,
+			UNCLUSTERED_BASE_LAYER_ID,
+			SELECTED_GLOW_LAYER_ID,
+			SELECTED_CORE_LAYER_ID
+		];
+	}
+
+	function heatmapLayerIDs(): string[] {
+		return [HEATMAP_DENSITY_LAYER_ID, HEATMAP_POINT_LAYER_ID];
+	}
+
+	function getSource(sourceID: string): maplibregl.GeoJSONSource | null {
 		if (!map) return null;
-		const source = map.getSource(ISSUE_SOURCE_ID);
+		const source = map.getSource(sourceID);
 		if (!source) return null;
 		return source as maplibregl.GeoJSONSource;
 	}
 
-	function setIssueSourceData(issueList: Issue[]) {
-		const source = getIssueSource();
+	function setSourceData(sourceID: string, featureCollection: IssueFeatureCollection) {
+		const source = getSource(sourceID);
 		if (!source) return;
-		source.setData(buildFeatureCollection(issueList) as any);
+		source.setData(featureCollection as any);
+	}
+
+	function setIssueSourceData(issueList: Issue[]) {
+		const featureCollection = buildFeatureCollection(issueList);
+		setSourceData(ISSUE_SOURCE_ID, featureCollection);
+		setSourceData(HEATMAP_SOURCE_ID, featureCollection);
 	}
 
 	function unclusteredFilter(): any {
@@ -197,29 +247,32 @@
 		return ['all', base, ['==', ['get', 'id'], selectedID]];
 	}
 
-	function removeIssueLayersAndSource() {
+	function removeLayerGroup(layerIDs: string[]) {
 		if (!map) return;
-
-		const layerIDs = [
-			SELECTED_CORE_LAYER_ID,
-			SELECTED_GLOW_LAYER_ID,
-			UNCLUSTERED_BASE_LAYER_ID,
-			UNCLUSTERED_HIT_LAYER_ID,
-			CLUSTER_COUNT_LAYER_ID,
-			CLUSTER_CIRCLE_LAYER_ID
-		];
 		for (const layerID of layerIDs) {
 			if (map.getLayer(layerID)) {
 				map.removeLayer(layerID);
 			}
 		}
+	}
 
+	function removeMarkerLayersAndSource() {
+		if (!map) return;
+		removeLayerGroup(markerLayerIDs());
 		if (map.getSource(ISSUE_SOURCE_ID)) {
 			map.removeSource(ISSUE_SOURCE_ID);
 		}
 	}
 
-	function addIssueLayers(enableClustering: boolean) {
+	function removeHeatmapLayersAndSource() {
+		if (!map) return;
+		removeLayerGroup(heatmapLayerIDs());
+		if (map.getSource(HEATMAP_SOURCE_ID)) {
+			map.removeSource(HEATMAP_SOURCE_ID);
+		}
+	}
+
+	function addMarkerLayers(enableClustering: boolean) {
 		if (!map) return;
 
 		map.addSource(ISSUE_SOURCE_ID, {
@@ -317,6 +370,75 @@
 		});
 	}
 
+	function addHeatmapLayers() {
+		if (!map) return;
+
+		map.addSource(HEATMAP_SOURCE_ID, {
+			type: 'geojson',
+			data: EMPTY_FEATURE_COLLECTION as any
+		});
+
+		map.addLayer({
+			id: HEATMAP_DENSITY_LAYER_ID,
+			type: 'heatmap',
+			source: HEATMAP_SOURCE_ID,
+			maxzoom: 15,
+			paint: {
+				'heatmap-weight': heatmapWeightExpression,
+				'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 4, 0.55, 8, 0.9, 12, 1.35, 15, 1.7],
+				'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 4, 18, 8, 28, 12, 40, 15, 54],
+				'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.72, 10, 0.88, 15, 0.52],
+				'heatmap-color': [
+					'interpolate',
+					['linear'],
+					['heatmap-density'],
+					0,
+					'rgba(246, 196, 83, 0)',
+					0.14,
+					'rgba(246, 196, 83, 0.34)',
+					0.4,
+					'rgba(249, 115, 22, 0.56)',
+					0.72,
+					'rgba(229, 72, 77, 0.82)',
+					1,
+					'rgba(153, 27, 27, 0.94)'
+				]
+			}
+		} as any);
+
+		map.addLayer({
+			id: HEATMAP_POINT_LAYER_ID,
+			type: 'circle',
+			source: HEATMAP_SOURCE_ID,
+			minzoom: 11,
+			paint: {
+				'circle-color': heatmapPointColorExpression,
+				'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 4, 13, 6, 15, 9],
+				'circle-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0, 12, 0.26, 15, 0.42],
+				'circle-stroke-color': 'rgba(255, 255, 255, 0.55)',
+				'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 11, 0, 13, 0.8, 15, 1.2]
+			}
+		} as any);
+	}
+
+	function setLayerVisibility(layerIDs: string[], visible: boolean) {
+		if (!map) return;
+		for (const layerID of layerIDs) {
+			if (!map.getLayer(layerID)) continue;
+			map.setLayoutProperty(layerID, 'visibility', visible ? 'visible' : 'none');
+		}
+	}
+
+	function updateVisualMode(mode: MapVisualMode) {
+		if (!map) return;
+		const showHeatmap = mode === 'heatmap' && heatmapAvailable;
+		setLayerVisibility(heatmapLayerIDs(), showHeatmap);
+		setLayerVisibility(markerLayerIDs(), !showHeatmap);
+		if (showHeatmap) {
+			clearPointerCursor();
+		}
+	}
+
 	function updateSelectedLayer(selectedID: string | null) {
 		if (!map) return;
 		if (!map.getSource(ISSUE_SOURCE_ID)) return;
@@ -343,13 +465,14 @@
 	}
 
 	function handleIssueClick(event: MapLayerMouseEvent) {
+		if (visualMode !== 'marker') return;
 		const issue = resolveIssueFromEvent(event);
 		if (!issue) return;
 		onissueselect(issue);
 	}
 
 	function handleClusterClick(event: MapLayerMouseEvent) {
-		if (!map || !clusteringEnabled) return;
+		if (!map || !clusteringEnabled || visualMode !== 'marker') return;
 		const feature = event.features?.[0];
 		if (!feature) return;
 
@@ -367,7 +490,7 @@
 		if (!geometry || geometry.type !== 'Point') return;
 		const [longitude, latitude] = geometry.coordinates as [number, number];
 
-		const source = getIssueSource();
+		const source = getSource(ISSUE_SOURCE_ID);
 		if (!source) return;
 
 		void source
@@ -385,7 +508,8 @@
 			});
 	}
 
-	function interactiveLayerIDs(): string[] {
+	function interactiveLayerIDs(mode: MapVisualMode): string[] {
+		if (mode !== 'marker') return [];
 		const layerIDs = [UNCLUSTERED_HIT_LAYER_ID, SELECTED_CORE_LAYER_ID];
 		if (clusteringEnabled) {
 			layerIDs.unshift(CLUSTER_CIRCLE_LAYER_ID, CLUSTER_COUNT_LAYER_ID);
@@ -395,13 +519,14 @@
 
 	function isInteractiveFeatureClick(event: maplibregl.MapMouseEvent): boolean {
 		if (!map) return false;
-		const activeLayers = interactiveLayerIDs().filter((layerID) => Boolean(map?.getLayer(layerID)));
+		const activeLayers = interactiveLayerIDs(visualMode).filter((layerID) => Boolean(map?.getLayer(layerID)));
 		if (activeLayers.length === 0) return false;
 		return map.queryRenderedFeatures(event.point, { layers: activeLayers }).length > 0;
 	}
 
 	function setPointerCursor() {
 		if (!map) return;
+		if (visualMode !== 'marker') return;
 		map.getCanvas().style.cursor = 'pointer';
 	}
 
@@ -444,21 +569,33 @@
 	function setupIssueRendering(): boolean {
 		if (!map) return false;
 
-		removeIssueLayersAndSource();
+		removeMarkerLayersAndSource();
+		removeHeatmapLayersAndSource();
+
+		heatmapAvailable = true;
 		try {
-			addIssueLayers(true);
+			addHeatmapLayers();
+		} catch (heatmapError) {
+			heatmapAvailable = false;
+			console.error('[IssueMap] heatmap setup failed, keeping marker mode available', heatmapError);
+		}
+
+		try {
+			addMarkerLayers(true);
 			clusteringEnabled = true;
 			registerLayerInteractions();
+			updateVisualMode(visualMode);
 			return true;
 		} catch (clusterError) {
 			console.error('[IssueMap] clustering setup failed, falling back to unclustered markers', clusterError);
 		}
 
-		removeIssueLayersAndSource();
+		removeMarkerLayersAndSource();
 		try {
-			addIssueLayers(false);
+			addMarkerLayers(false);
 			clusteringEnabled = false;
 			registerLayerInteractions();
+			updateVisualMode(visualMode);
 			return true;
 		} catch (fallbackError) {
 			onmaperror?.(fallbackError instanceof Error ? fallbackError.message : 'Peta gagal menyiapkan marker');
@@ -469,12 +606,7 @@
 	function emitBBox() {
 		if (!map) return;
 		const bounds = map.getBounds();
-		const bbox: BBox = [
-			bounds.getWest(),
-			bounds.getSouth(),
-			bounds.getEast(),
-			bounds.getNorth()
-		];
+		const bbox: BBox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
 		onbboxchange(bbox);
 	}
 
@@ -508,10 +640,22 @@
 
 	$effect(() => {
 		const ready = mapReady;
-		const selected = selectedIssue;
+		const mode = visualMode;
+		if (!ready) return;
+		if (mode === 'heatmap' && !heatmapAvailable) {
+			onvisualmodefallback?.('marker', 'Heatmap gagal dimuat di perangkat ini. Mode marker tetap aktif.');
+			return;
+		}
+		updateVisualMode(mode);
+	});
 
-		updateSelectedLayer(selected?.id ?? null);
-		if (!ready || !map || !selected) return;
+	$effect(() => {
+		const ready = mapReady;
+		const selected = selectedIssue;
+		const mode = visualMode;
+
+		updateSelectedLayer(mode === 'marker' ? selected?.id ?? null : null);
+		if (!ready || !map || !selected || mode !== 'marker') return;
 
 		map.flyTo({
 			center: [selected.longitude, selected.latitude],
@@ -530,14 +674,8 @@
 				attributionControl: false
 			});
 
-			map.addControl(
-				new maplibregl.AttributionControl({ compact: true }),
-				'bottom-right'
-			);
-			map.addControl(
-				new maplibregl.NavigationControl({ showCompass: false }),
-				'top-right'
-			);
+			map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+			map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 			map.addControl(
 				new maplibregl.GeolocateControl({
 					positionOptions: { enableHighAccuracy: true },
@@ -554,7 +692,8 @@
 				mapReady = true;
 				onmapready?.();
 				setIssueSourceData(issues);
-				updateSelectedLayer(selectedIssue?.id ?? null);
+				updateSelectedLayer(visualMode === 'marker' ? selectedIssue?.id ?? null : null);
+				updateVisualMode(visualMode);
 				emitBBox();
 				tryAutoCenter();
 			});

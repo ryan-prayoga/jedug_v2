@@ -23,7 +23,7 @@ Catatan penting:
 
 ## Marker Behavior
 
-- marker publik dirender dari satu `GeoJSON source`:
+- marker publik dirender dari satu `GeoJSON source` ter-cluster:
   - `cluster circles`
   - `cluster count labels`
   - `unclustered hit-area`
@@ -41,6 +41,50 @@ Catatan penting:
 - fallback safety:
   - jika setup clustering gagal, map fallback ke layer marker individual tanpa cluster
   - flow klik marker + bottom sheet tetap berjalan
+
+## Heatmap Behavior
+
+- `/issues` sekarang punya toggle mode visual:
+  - `Marker`
+  - `Heatmap`
+- heatmap memakai `GeoJSON source` terpisah non-cluster agar densitas tidak berubah oleh cluster aggregation.
+- layer heatmap saat ini:
+  - `heatmap density` untuk sebaran area
+  - `circle accent` halus pada zoom dekat agar pusat titik tetap terasa tanpa memenuhi peta
+- toggle marker ↔ heatmap dilakukan dengan `visibility` layer, bukan add/remove layer per interaksi, supaya perpindahan mode tidak flicker.
+- saat heatmap aktif:
+  - cluster/marker/selected state disembunyikan
+  - bottom sheet ditutup
+  - info badge tetap aktif dan legend kecil ditampilkan di atas CTA bawah
+- jika setup heatmap gagal:
+  - komponen tetap mempertahankan marker mode
+  - parent route menerima fallback event dan menampilkan notice non-blocking
+
+## Heatmap Weight Formula
+
+Heatmap publik saat ini tidak memakai density mentah. Bobot titik dihitung ringan di frontend dari payload issue publik:
+
+- base severity:
+  - severity 1 -> `0.18`
+  - severity 2 -> `0.34`
+  - severity 3 -> `0.58`
+  - severity 4 -> `0.78`
+  - severity 5+ -> `0.92`
+- casualty bonus:
+  - `+0.06` per korban, capped di 3 korban
+- submission bonus:
+  - `+0.02` per laporan tambahan, capped di 4 laporan tambahan
+- status multiplier:
+  - `open/in_progress/verified`: `1.0`
+  - `fixed/archived`: `0.45`
+- final weight di-clamp ke rentang `0.08..1.00`
+
+Tujuan formula ini:
+
+- issue ringan tetap terlihat, tetapi tidak mengalahkan issue berat
+- adanya korban langsung menaikkan intensitas visual
+- banyak laporan memberi pengaruh kecil tanpa membuat duplicate-heavy area terlalu dominan
+- issue historis yang sudah fixed tetap punya jejak lemah, tetapi tidak dibaca setara hotspot aktif
 
 ## Bottom Sheet (Ringkasan Issue)
 
@@ -90,6 +134,7 @@ Di halaman `/lapor`:
 - fallback ke mode list sudah ada saat map gagal.
 - transisi list ↔ map memakai guard untuk mencegah false-empty/flicker saat mount ulang map.
 - status jumlah titik + "tidak ada laporan" ditampilkan via badge info top-left, bukan popup tengah.
+- heatmap severity-aware ditambahkan sebagai mode visual tambahan tanpa perubahan kontrak endpoint publik.
 
 ## Known Mismatch
 
