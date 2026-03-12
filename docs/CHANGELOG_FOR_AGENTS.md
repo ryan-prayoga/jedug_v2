@@ -25,6 +25,28 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-12 - Public Map Heatmap / Severity Visualization
+
+- Scope:
+  - menambahkan mode visual `Heatmap` pada halaman publik `/issues` tanpa mengubah endpoint backend.
+  - mempertahankan mode `Marker` + clustering yang sudah live sebagai mode default dan stable.
+  - menambahkan formula weight ringan berbasis `severity_current`, `casualty_count`, `submission_count`, dan penurunan bobot untuk status `fixed/archived`.
+  - mengelola marker source dan heatmap source via `setData` + toggle `visibility` agar perpindahan mode stabil dan tidak add/remove layer berulang saat user klik toggle.
+  - menambahkan fallback non-blocking: bila heatmap gagal dimuat, UI kembali ke marker mode dan peta tetap usable.
+- Dampak area:
+  - `frontend/src/lib/components/IssueMap.svelte`
+  - `frontend/src/routes/issues/+page.svelte`
+  - `frontend/src/lib/utils/issue-heatmap.ts`
+- File docs yang diupdate:
+  - `docs/FRONTEND.md`
+  - `docs/MAP_AND_LOCATION.md`
+  - `design-docs/design-system.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tidak ada mismatch kontrak API; heatmap seluruhnya dibangun dari field issue publik yang sudah tersedia.
+
 ## 2026-03-12 - Bugfix Location Label `/lapor` (internal region miss -> reverse fallback)
 
 - Scope:

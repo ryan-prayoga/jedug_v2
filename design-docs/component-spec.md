@@ -29,13 +29,25 @@ Dokumen ini bukan sumber utama token desain.
 - Map info badge: top-left, pill, menampilkan `{n} titik` + status area (ada/tidak ada laporan)
 - Empty state map tidak menggunakan popup tengah; informasi "tidak ada laporan" ditampilkan di info badge
 - Error overlay: top full-width, red bg
+- Harus punya toggle visual mode:
+  - `Marker`
+  - `Heatmap`
 - Marker publik memakai layer stack:
   - cluster circles
   - cluster count
   - unclustered hit-area
   - unclustered marker dot
   - selected glow/core
+- Heatmap publik memakai:
+  - density heat layer
+  - subtle point accent di zoom lebih dekat
+- Toggle mode harus stabil, tanpa flicker add/remove source berulang
 - Klik cluster harus zoom/focus ke area cluster
+- Saat heatmap aktif:
+  - marker individual dan cluster disembunyikan
+  - bottom sheet tidak muncul
+  - tampilkan legend intensitas ringkas yang tetap aman di mobile
+- Jika setup heatmap gagal, fallback otomatis ke marker mode tanpa menjatuhkan map ke mode list
 - Jika setup cluster gagal, fallback ke unclustered marker layer (tanpa memutus flow map)
 
 ## Marker

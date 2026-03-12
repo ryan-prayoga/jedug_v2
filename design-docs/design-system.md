@@ -35,6 +35,15 @@ Dokumen ini bukan tempat utama untuk behavior detail tiap komponen atau flow hal
 | 2     | Sedang | `#F97316` | Marker, badge |
 | 3+    | Berat  | `#DC2626` | Marker, badge |
 
+### Heatmap
+
+| Level  | Color                  | Usage                    |
+| ------ | ---------------------- | ------------------------ |
+| Low    | `rgba(246,196,83,0.34)` | Outer heat / low density |
+| Medium | `rgba(249,115,22,0.56)` | Mid intensity            |
+| High   | `rgba(229,72,77,0.82)`  | High intensity           |
+| Peak   | `rgba(153,27,27,0.94)`  | Peak hotspot center      |
+
 ### Status
 
 | Status   | Label         | Hex       | Usage                      |
