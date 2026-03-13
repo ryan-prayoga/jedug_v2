@@ -35,13 +35,13 @@ jobs:
             go mod tidy
             mkdir -p bin
             go build -o bin/jedug-api ./cmd/api
-            "$PM2_BIN" restart jedug-api --update-env
+            "$PM2_BIN" restart jedug-backend --update-env
 
             echo "Build frontend"
             cd ../frontend
             npm ci
             npm run build
-            "$PM2_BIN" restart jedug-web --update-env
+            "$PM2_BIN" restart jedug-frontend --update-env
 
             "$PM2_BIN" save
 
