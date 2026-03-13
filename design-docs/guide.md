@@ -217,3 +217,5 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - `design-docs/design-system.md`
 - `design-docs/component-spec.md`
 - `docs/DESIGN_INDEX.md`
+
+TEST DEPLOY
