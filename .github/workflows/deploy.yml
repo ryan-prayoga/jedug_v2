@@ -20,10 +20,10 @@ jobs:
           script: |
             set -e
 
-            export PATH="/home/ryandotcodotid/.nvm/versions/node/v24.14.0/bin:$PATH"
-            PM2_BIN="/home/ryandotcodotid/.nvm/versions/node/v24.14.0/bin/pm2"
+            export PATH="/home/ubuntu/.nvm/versions/node/v24.14.0/bin:$PATH"
+            PM2_BIN="/home/ubuntu/.nvm/versions/node/v24.14.0/bin/pm2"
 
-            cd /home/ryandotcodotid/projects/jedug_v2
+            cd /home/ubuntu/projects/jedug_v2
 
             echo "Pull latest code"
             git remote -v
