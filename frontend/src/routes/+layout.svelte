@@ -34,7 +34,6 @@
 
 			ready = true;
 		} catch (e) {
-			console.error('[layout] bootstrap init failed', e);
 			initError = 'Inisialisasi perangkat belum selesai. Mohon tunggu sebentar lalu muat ulang halaman.';
 			ready = true;
 		}
