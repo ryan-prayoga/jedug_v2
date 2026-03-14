@@ -257,40 +257,35 @@
 		issueID: string,
 		currentFollowerID: string
 	): Promise<FollowStateSnapshot> {
+		try {
+			const statusResult = await getIssueFollowStatus(issueID, currentFollowerID);
+			const statusData = statusResult.data;
 
-		const [statusResult, countResult] = await Promise.allSettled([
-			getIssueFollowStatus(issueID, currentFollowerID),
-			getIssueFollowerCount(issueID)
-		]);
-
-		let hadSuccess = false;
-		let nextFollowing = false;
-		let nextFollowersCount = 0;
-
-		if (statusResult.status === 'fulfilled' && statusResult.value.data) {
-			nextFollowing = statusResult.value.data.following;
-			nextFollowersCount = statusResult.value.data.followers_count;
-			hadSuccess = true;
+			if (statusData) {
+				return {
+					following: statusData.following,
+					followersCount: statusData.followers_count,
+					errorMessage: null
+				};
+			}
+		} catch {
+			// handled by count fallback below
 		}
 
-		if (countResult.status === 'fulfilled' && countResult.value.data) {
-			nextFollowersCount = countResult.value.data.followers_count;
-			hadSuccess = true;
-		}
-
-		if (!hadSuccess) {
+		try {
+			const countResult = await getIssueFollowerCount(issueID);
+			return {
+				following: false,
+				followersCount: countResult.data?.followers_count ?? 0,
+				errorMessage: 'Status mengikuti belum tersedia. Kamu masih bisa coba ikuti laporan ini.'
+			};
+		} catch {
 			return {
 				following: false,
 				followersCount: 0,
 				errorMessage: 'Belum bisa memuat status mengikuti saat ini.'
 			};
 		}
-
-		return {
-			following: nextFollowing,
-			followersCount: nextFollowersCount,
-			errorMessage: null
-		};
 	}
 
 	async function handleFollowToggle() {

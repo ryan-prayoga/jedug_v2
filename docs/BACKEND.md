@@ -128,9 +128,15 @@
   - `DELETE /api/v1/issues/:id/follow`
   - `GET /api/v1/issues/:id/followers/count`
   - `GET /api/v1/issues/:id/follow-status?follower_id=...`
+- Alias kompatibilitas yang juga dilayani agar caller lama/tidak sinkron tidak jatuh ke 404:
+  - `POST /api/v1/issues/:id/followers`
+  - `DELETE /api/v1/issues/:id/followers`
+  - `GET /api/v1/issues/:id/count`
+  - `GET /api/v1/issues/:id/follow/status?follower_id=...`
 - Handler memvalidasi:
   - `issue_id` harus UUID valid
   - `follower_id` harus UUID valid dan non-nil
+  - `DELETE` / `POST` menerima `follower_id` dari body, dan fallback query param untuk kompatibilitas client/proxy yang tidak mengirim body DELETE dengan stabil
 - Service memastikan issue target masih issue publik (`FindByID`), sehingga hidden/rejected/merged tidak bisa di-follow dari endpoint publik.
 - Repository menggunakan:
   - `INSERT ... ON CONFLICT (issue_id, follower_id) DO NOTHING` agar follow idempotent dan conflict-safe

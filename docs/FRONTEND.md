@@ -128,11 +128,16 @@
   - fetch follower count: `GET /api/v1/issues/:id/followers/count`
   - follow: `POST /api/v1/issues/:id/follow`
   - unfollow: `DELETE /api/v1/issues/:id/follow`
+- Untuk bugfix kompatibilitas, helper frontend follow sekarang memiliki fallback 404 terarah ke alias backend lama/alternatif:
+  - status fallback: `/api/v1/issues/:id/follow/status`
+  - count fallback: `/api/v1/issues/:id/count`
+  - follow/unfollow fallback: `/api/v1/issues/:id/followers`
 - UX requirements yang sudah diimplementasikan:
   - disable button saat request berlangsung
   - error copy manusiawi tanpa reload penuh
   - follower count langsung ter-update setelah follow/unfollow berhasil
   - state tetap additive; SSR detail issue tetap berjalan seperti sebelumnya
+  - initial load follow tidak lagi menembak dua endpoint sekaligus tanpa alasan; status diprioritaskan dulu, count dipakai sebagai fallback ringan
 
 ## Public Stats Dashboard (`/stats`)
 
