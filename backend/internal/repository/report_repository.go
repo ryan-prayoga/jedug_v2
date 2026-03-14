@@ -149,70 +149,99 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		}
 	}
 
-	incomingPhotos := len(input.Media)
-	incomingCasualty := incomingCasualtyCount(input)
-
-	if isNew {
-		if err := createIssueEvent(ctx, tx, issueID, "issue_created", map[string]any{
-			"submission_id":  submissionID,
-			"severity":       input.Severity,
-			"photo_count":    incomingPhotos,
-			"casualty_count": incomingCasualty,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
-	if incomingPhotos > 0 {
-		if err := createIssueEvent(ctx, tx, issueID, "photo_added", map[string]any{
-			"submission_id": submissionID,
-			"photo_count":   incomingPhotos,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
-	if !isNew && previousState != nil && input.Severity > previousState.SeverityCurrent {
-		if err := createIssueEvent(ctx, tx, issueID, "severity_changed", map[string]any{
-			"submission_id": submissionID,
-			"from":          previousState.SeverityCurrent,
-			"to":            input.Severity,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
-	if incomingCasualty > 0 {
-		shouldLogCasualty := isNew
-		if !isNew && previousState != nil && incomingCasualty > previousState.CasualtyCount {
-			shouldLogCasualty = true
-		}
-
-		if shouldLogCasualty {
-			fromCasualty := 0
-			if previousState != nil {
-				fromCasualty = previousState.CasualtyCount
-			}
-
-			if err := createIssueEvent(ctx, tx, issueID, "casualty_reported", map[string]any{
-				"submission_id": submissionID,
-				"from":          fromCasualty,
-				"to":            incomingCasualty,
-			}); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
+	// Timeline events are secondary audit data — inserted after the main commit
+	// using the pool directly so a missing/failing issue_events table never aborts
+	// the report submission. Errors are only logged.
+	r.insertTimelineEvents(ctx, issueID, submissionID, isNew, previousState, input)
 
 	return &SubmitResult{
 		IssueID:      issueID,
 		SubmissionID: submissionID,
 		IsNewIssue:   isNew,
 	}, nil
+}
+
+// insertTimelineEvents records audit events for a completed submission.
+// Non-fatal: all errors are logged and swallowed so the caller's success path
+// is never affected by a missing or temporarily broken issue_events table.
+func (r *reportRepository) insertTimelineEvents(
+	ctx context.Context,
+	issueID uuid.UUID,
+	submissionID uuid.UUID,
+	isNew bool,
+	previousState *issueAggregateState,
+	input SubmitInput,
+) {
+	incomingPhotos := len(input.Media)
+	incomingCasualty := incomingCasualtyCount(input)
+
+	type event struct {
+		eventType string
+		data      map[string]any
+	}
+
+	var events []event
+
+	if isNew {
+		events = append(events, event{"issue_created", map[string]any{
+			"submission_id":  submissionID,
+			"severity":       input.Severity,
+			"photo_count":    incomingPhotos,
+			"casualty_count": incomingCasualty,
+		}})
+	}
+
+	if incomingPhotos > 0 {
+		events = append(events, event{"photo_added", map[string]any{
+			"submission_id": submissionID,
+			"photo_count":   incomingPhotos,
+		}})
+	}
+
+	if !isNew && previousState != nil && input.Severity > previousState.SeverityCurrent {
+		events = append(events, event{"severity_changed", map[string]any{
+			"submission_id": submissionID,
+			"from":          previousState.SeverityCurrent,
+			"to":            input.Severity,
+		}})
+	}
+
+	if incomingCasualty > 0 {
+		shouldLog := isNew
+		if !isNew && previousState != nil && incomingCasualty > previousState.CasualtyCount {
+			shouldLog = true
+		}
+		if shouldLog {
+			fromCasualty := 0
+			if previousState != nil {
+				fromCasualty = previousState.CasualtyCount
+			}
+			events = append(events, event{"casualty_reported", map[string]any{
+				"submission_id": submissionID,
+				"from":          fromCasualty,
+				"to":            incomingCasualty,
+			}})
+		}
+	}
+
+	for _, ev := range events {
+		payload, marshalErr := json.Marshal(ev.data)
+		if marshalErr != nil {
+			log.Printf("[REPORT] timeline_event_marshal_error issue=%s type=%s error=%v", issueID, ev.eventType, marshalErr)
+			continue
+		}
+		_, execErr := r.db.Exec(ctx, `
+			INSERT INTO issue_events (issue_id, event_type, event_data)
+			VALUES ($1, $2, $3::jsonb)
+		`, issueID, ev.eventType, payload)
+		if execErr != nil {
+			log.Printf("[REPORT] timeline_event_insert_error issue=%s type=%s error=%v", issueID, ev.eventType, execErr)
+		}
+	}
 }
 
 // resolveBestRegionID finds the most relevant internal region for the given point.
@@ -425,19 +454,6 @@ func getIssueAggregateState(ctx context.Context, tx pgx.Tx, issueID uuid.UUID) (
 		return nil, err
 	}
 	return &state, nil
-}
-
-func createIssueEvent(ctx context.Context, tx pgx.Tx, issueID uuid.UUID, eventType string, eventData map[string]any) error {
-	payload, err := json.Marshal(eventData)
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec(ctx, `
-		INSERT INTO issue_events (issue_id, event_type, event_data)
-		VALUES ($1, $2, $3::jsonb)
-	`, issueID, eventType, payload)
-	return err
 }
 
 func pickBestDuplicateCandidate(candidates []duplicateCandidate) duplicateCandidate {

@@ -25,6 +25,27 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Submit Report 500 Fix: issue_events Migration + Non-Fatal Event Inserts
+
+- Akar masalah:
+  - Tabel `issue_events` belum pernah dibuat di database (migrations/ kosong).
+  - `createIssueEvent()` dipanggil *di dalam* transaction utama submit report.
+  - Query INSERT ke tabel yang tidak ada melempar DB error, menyebabkan seluruh TX rollback.
+  - Handler menangkap error ini sebagai generic 500 "failed to submit report".
+- Perbaikan:
+  1. Membuat file migrasi `backend/migrations/202603140001_create_issue_events.sql` — wajib dijalankan di production dengan `psql $DATABASE_URL -f migrations/202603140001_create_issue_events.sql`.
+  2. Memindahkan seluruh `createIssueEvent` calls keluar dari TX utama ke method baru `insertTimelineEvents()` yang berjalan setelah `tx.Commit()` menggunakan `r.db` (pool langsung).
+  3. Event insert kini non-fatal: error hanya di-log (`[REPORT] timeline_event_insert_error`), tidak pernah membatalkan atau mengembalikan error ke caller.
+  4. Menghapus fungsi `createIssueEvent(ctx, tx, ...)` yang kini menjadi dead code.
+- Dampak area:
+  - `backend/migrations/202603140001_create_issue_events.sql` (baru — WAJIB RUN DI PROD)
+  - `backend/internal/repository/report_repository.go`
+- File docs yang diupdate:
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Action yang wajib dilakukan setelah deploy:
+  - Jalankan migration di production database sebelum atau sesaat setelah deploy binary baru.
+  - Monitor log `[REPORT] timeline_event_insert_error` untuk memastikan events mulai tercatat setelah migration dijalankan.
+
 ## 2026-03-14 - Submit Report Error Handling Overhaul
 
 - Scope:
