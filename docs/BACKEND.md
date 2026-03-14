@@ -156,7 +156,15 @@
 - Endpoint notifikasi in-app publik:
   - `GET /api/v1/notifications?follower_id=...&limit=50`
   - `PATCH /api/v1/notifications/:id/read?follower_id=...`
+  - `GET /api/v1/notifications/stream?follower_id=...` — **SSE stream** (text/event-stream)
 - Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri.
+- **SSE Hub** (`internal/sse/hub.go`):
+  - Singleton `sse.Default` dipakai oleh dispatcher dan endpoint stream.
+  - `DispatchNotificationsForEvent` kini memakai `RETURNING` untuk mendapat follower IDs yang baru di-insert, lalu memanggil `sse.Default.Push(followerID, msg)` untuk setiap row.
+  - Setiap SSE connection di-buffer (channel 16 slot, non-blocking drop).
+  - Koneksi di-cleanup otomatis saat client disconnect (Flush error) via `defer done()`.
+  - Ping/heartbeat dikirim setiap 30 detik untuk menjaga koneksi dan mendeteksi putus.
+  - Format event: `event: notification\ndata: {id,issue_id,event_id,type,title,message,created_at}\n\n`
 - Event dibuat otomatis saat:
   - issue baru dibuat (`issue_created`)
   - submission membawa foto (`photo_added`)

@@ -25,6 +25,36 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - Realtime In-App Notifications via SSE
+
+- Scope: SSE backend hub + endpoint + frontend EventSource client dengan exponential-backoff reconnect.
+
+### Backend
+
+1. **`internal/sse/hub.go`** (baru): `Hub` struct dengan `Subscribe(followerID) (ch, done)` dan `Push(followerID, msg)`. `sse.Default` adalah singleton global. Thread-safe (RWMutex). Buffer per-connection 16 slot, non-blocking drop.
+2. **`notification_repository.go`**: `DispatchNotificationsForEvent` diubah dari `db.Exec` → `db.Query` dengan `RETURNING id, issue_id, follower_id, type, title, message, created_at`. Setiap row yang baru di-insert dipush ke `sse.Default.Push(followerID, sseMsg)` dengan format `event: notification\ndata: {...}\n\n`.
+3. **`notification_handler.go`**: Tambah handler `Stream` untuk SSE (`GET /api/v1/notifications/stream`). Menggunakan `fasthttp.StreamWriter` + `bufio.Writer`. Heartbeat ping setiap 30 detik. Disconnect detection via Flush error. Header `X-Accel-Buffering: no` untuk nginx.
+4. **`router.go`**: Route `api.Get("/notifications/stream", notifHandler.Stream)` ditambahkan sebelum route `:id/read`.
+
+### Frontend
+
+5. **`stores/notifications.ts`**: Tambah SSE client module-level (`_connectSSE`, `_disconnectSSE`). SSE dibuka setelah `refresh()` berhasil fetch initial state. Event `notification` di-prepend ke items (deduplication by id). Reconnect dengan exponential backoff (1s → 30s cap, max 10 attempt). EventSource tidak akan dibuka di SSR (`typeof EventSource === 'undefined'` guard). `notificationsState.disconnect` tersedia untuk cleanup eksplisit jika diperlukan.
+
+### Nginx
+
+6. Blok `location /api/v1/notifications/stream` dengan `proxy_buffering off`, `proxy_read_timeout 3600s`, `proxy_http_version 1.1` wajib ditambahkan di nginx server. Lihat `docs/DEPLOYMENT.md` untuk config lengkap.
+
+### CI/CD
+
+7. Tidak ada perubahan workflow deploy yang diperlukan. Nginx config diapply manual sekali di VPS.
+
+### Doc Updates
+
+- `docs/BACKEND.md`: endpoint SSE + hub description
+- `docs/DEPLOYMENT.md`: blok nginx SSE config + guidance CI/CD
+
+---
+
 ## 2026-03-15 - In-App Notification UI + Mark-as-Read Endpoint
 
 - Scope: menyelesaikan alur notifikasi in-app end-to-end di frontend, plus endpoint mark-as-read minimal di backend.
