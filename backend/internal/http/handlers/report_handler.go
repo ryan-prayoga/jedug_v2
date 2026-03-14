@@ -110,6 +110,9 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 			log.Printf("[ANTISPAM] low_trust_submit ip=%s", c.IP())
 			return response.ErrorWithCode(c, fiber.StatusForbidden, "LOW_TRUST", "Akun tidak diizinkan mengirim laporan saat ini.")
 		}
+		if errors.Is(err, service.ErrMediaPersist) {
+			return response.ErrorWithCode(c, fiber.StatusInternalServerError, "MEDIA_PERSIST_FAILED", "failed to persist submission media")
+		}
 		log.Printf("[REPORT] submit_internal_error ip=%s error=%v", c.IP(), err)
 		return response.ErrorWithCode(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "failed to submit report")
 	}

@@ -19,6 +19,8 @@ const (
 )
 
 var (
+	ErrSubmissionMediaPersistFailed = errors.New("submission media persist failed")
+
 	duplicateStatusPriority = map[string]int{
 		"open":        0,
 		"verified":    1,
@@ -416,7 +418,7 @@ func createSubmissionMedia(ctx context.Context, tx pgx.Tx, submissionID uuid.UUI
 			m.Width, m.Height, m.SHA256, m.SortOrder, m.IsPrimary,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: %v", ErrSubmissionMediaPersistFailed, err)
 		}
 	}
 	return nil
