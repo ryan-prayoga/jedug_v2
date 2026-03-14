@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"time"
@@ -111,9 +112,14 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 
 	var issueID uuid.UUID
 	isNew := false
+	var previousState *issueAggregateState
 
 	if candidate != nil {
 		issueID = candidate.IssueID
+		previousState, err = getIssueAggregateState(ctx, tx, issueID)
+		if err != nil {
+			return nil, err
+		}
 		log.Printf(
 			"[REPORT] duplicate_merge_selected issue=%s distance_m=%.2f status=%s verification=%s",
 			candidate.IssueID, candidate.DistanceM, candidate.Status, candidate.VerificationStatus,
@@ -140,6 +146,61 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	if !isNew {
 		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, regionID, input); err != nil {
 			return nil, err
+		}
+	}
+
+	incomingPhotos := len(input.Media)
+	incomingCasualty := incomingCasualtyCount(input)
+
+	if isNew {
+		if err := createIssueEvent(ctx, tx, issueID, "issue_created", map[string]any{
+			"submission_id":  submissionID,
+			"severity":       input.Severity,
+			"photo_count":    incomingPhotos,
+			"casualty_count": incomingCasualty,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if incomingPhotos > 0 {
+		if err := createIssueEvent(ctx, tx, issueID, "photo_added", map[string]any{
+			"submission_id": submissionID,
+			"photo_count":   incomingPhotos,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if !isNew && previousState != nil && input.Severity > previousState.SeverityCurrent {
+		if err := createIssueEvent(ctx, tx, issueID, "severity_changed", map[string]any{
+			"submission_id": submissionID,
+			"from":          previousState.SeverityCurrent,
+			"to":            input.Severity,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if incomingCasualty > 0 {
+		shouldLogCasualty := isNew
+		if !isNew && previousState != nil && incomingCasualty > previousState.CasualtyCount {
+			shouldLogCasualty = true
+		}
+
+		if shouldLogCasualty {
+			fromCasualty := 0
+			if previousState != nil {
+				fromCasualty = previousState.CasualtyCount
+			}
+
+			if err := createIssueEvent(ctx, tx, issueID, "casualty_reported", map[string]any{
+				"submission_id": submissionID,
+				"from":          fromCasualty,
+				"to":            incomingCasualty,
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -345,6 +406,38 @@ func incomingCasualtyCount(input SubmitInput) int {
 		return 0
 	}
 	return input.CasualtyCount
+}
+
+type issueAggregateState struct {
+	SeverityCurrent int
+	CasualtyCount   int
+}
+
+func getIssueAggregateState(ctx context.Context, tx pgx.Tx, issueID uuid.UUID) (*issueAggregateState, error) {
+	var state issueAggregateState
+	err := tx.QueryRow(ctx, `
+		SELECT severity_current, casualty_count
+		FROM issues
+		WHERE id = $1
+		FOR UPDATE
+	`, issueID).Scan(&state.SeverityCurrent, &state.CasualtyCount)
+	if err != nil {
+		return nil, err
+	}
+	return &state, nil
+}
+
+func createIssueEvent(ctx context.Context, tx pgx.Tx, issueID uuid.UUID, eventType string, eventData map[string]any) error {
+	payload, err := json.Marshal(eventData)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO issue_events (issue_id, event_type, event_data)
+		VALUES ($1, $2, $3::jsonb)
+	`, issueID, eventType, payload)
+	return err
 }
 
 func pickBestDuplicateCandidate(candidates []duplicateCandidate) duplicateCandidate {

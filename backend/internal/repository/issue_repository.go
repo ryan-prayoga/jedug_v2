@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -23,6 +25,7 @@ type IssueRepository interface {
 	List(ctx context.Context, limit, offset int, status *string, severity *int, bbox *BBoxFilter) ([]*domain.Issue, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.Issue, error)
 	FindByIDWithDetail(ctx context.Context, id uuid.UUID) (*domain.IssueDetail, error)
+	ListTimeline(ctx context.Context, id uuid.UUID, limit, offset int) ([]*domain.IssueTimelineEvent, error)
 }
 
 type issueRepository struct {
@@ -256,4 +259,49 @@ func normalizePublicNote(note *string, maxLength int) *string {
 	}
 
 	return &normalized
+}
+
+func (r *issueRepository) ListTimeline(ctx context.Context, id uuid.UUID, limit, offset int) ([]*domain.IssueTimelineEvent, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT ie.event_type, ie.created_at, ie.event_data
+		FROM issue_events ie
+		JOIN issues i ON i.id = ie.issue_id
+		WHERE ie.issue_id = $1
+		  AND i.is_hidden = FALSE
+		  AND i.status NOT IN ('rejected', 'merged')
+		ORDER BY ie.created_at DESC, ie.id DESC
+		LIMIT $2 OFFSET $3
+	`, id, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := make([]*domain.IssueTimelineEvent, 0)
+	for rows.Next() {
+		var (
+			eventType string
+			createdAt time.Time
+			dataRaw   []byte
+		)
+
+		if err := rows.Scan(&eventType, &createdAt, &dataRaw); err != nil {
+			return nil, err
+		}
+
+		data := map[string]any{}
+		if len(dataRaw) > 0 {
+			if err := json.Unmarshal(dataRaw, &data); err != nil {
+				return nil, err
+			}
+		}
+
+		events = append(events, &domain.IssueTimelineEvent{
+			Type:      eventType,
+			CreatedAt: createdAt,
+			Data:      data,
+		})
+	}
+
+	return events, rows.Err()
 }

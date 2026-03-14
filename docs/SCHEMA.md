@@ -107,6 +107,16 @@ Dokumen ini disusun dari:
 - Business meaning: audit trail lifecycle issue.
 - Rawan salah paham: tabel tersedia di schema, tetapi saat ini belum diisi oleh service moderasi aktif.
 
+### `issue_events`
+
+- Fungsi: timeline publik riwayat perkembangan issue untuk transparansi.
+- Relasi: FK ke `issues` (`ON DELETE CASCADE`).
+- Kolom penting: `event_type`, `event_data (JSONB)`, `created_at`.
+- Business meaning: jejak event publik lintas lifecycle laporan (pembuatan issue, foto, severity, korban, status).
+- Rawan salah paham:
+  - `event_data` fleksibel berbasis JSON; shape data bisa berbeda antar `event_type`.
+  - timeline publik diurutkan `created_at DESC`, bukan urutan submission id.
+
 ### `moderation_actions`
 
 - Fungsi: audit log tindakan moderasi admin/system.
@@ -195,8 +205,15 @@ Dokumen ini disusun dari:
 ## Current Implementation
 
 - Query backend paling banyak memakai tabel:
-  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `moderation_actions`
+  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `moderation_actions`, `issue_events`
 - sebagian tabel schema sudah ada namun belum dipakai penuh (users/oauth/sessions/reactions/submission_flags/daily_stats/history).
+
+## Migration SQL di Repo
+
+- Timeline issue events sekarang memiliki migration versioned di repo:
+  - `backend/migrations/202603140001_create_issue_events.sql`
+- Index performa yang dipakai timeline:
+  - `idx_issue_events_issue_id_created_at (issue_id, created_at DESC, id DESC)`
 
 ## Known Mismatch dan Verifikasi Manual
 

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
 	import { ApiError } from '$lib/api/client';
-	import { getIssue } from '$lib/api/issues';
-	import type { IssueDetail } from '$lib/api/types';
+	import { getIssue, getIssueTimeline } from '$lib/api/issues';
+	import type { IssueDetail, IssueTimelineEvent } from '$lib/api/types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import IssueGallery from '$lib/components/IssueGallery.svelte';
@@ -43,6 +43,15 @@
 	const ogImageUrl = (() => data.seo.og_image_url)();
 
 	const seo = $derived(buildIssueDetailSeo(issue, { canonicalUrl, ogImageUrl }));
+	const timelinePageSize = 100;
+	let timelineEvents = $state<IssueTimelineEvent[]>([]);
+	let timelineLoading = $state(false);
+	let timelineLoadingMore = $state(false);
+	let timelineError = $state<string | null>(null);
+	let timelineOffset = $state(0);
+	let timelineHasMore = $state(false);
+	let timelineIssueID = $state<string | null>(null);
+
 	const locationLabel = $derived(issue ? getIssueLocationLabel(issue) : '-');
 	const locationContext = $derived(issue ? getIssueRegionOrCoordinates(issue) : '-');
 	const coordinatesLabel = $derived(
@@ -88,6 +97,119 @@
 		return `https://www.google.com/maps?q=${issue.latitude},${issue.longitude}`;
 	});
 
+	function resetTimelineState() {
+		timelineEvents = [];
+		timelineOffset = 0;
+		timelineHasMore = false;
+		timelineError = null;
+		timelineLoading = false;
+		timelineLoadingMore = false;
+	}
+
+	function readNumberFromData(data: Record<string, unknown>, key: string): number | null {
+		const value = data[key];
+		return typeof value === 'number' ? value : null;
+	}
+
+	function readStringFromData(data: Record<string, unknown>, key: string): string | null {
+		const value = data[key];
+		return typeof value === 'string' ? value : null;
+	}
+
+	function getTimelineEventTitle(event: IssueTimelineEvent): string {
+		switch (event.type) {
+			case 'issue_created':
+				return 'Laporan pertama dibuat';
+			case 'photo_added':
+				return 'Foto tambahan ditambahkan';
+			case 'severity_changed':
+				return 'Severity diperbarui';
+			case 'casualty_reported':
+				return 'Korban dilaporkan';
+			case 'status_updated': {
+				const toStatus = readStringFromData(event.data, 'to_status');
+				if (!toStatus) return 'Status issue diperbarui';
+				return `Status diperbarui: ${getStatusLabel(toStatus)}`;
+			}
+			default:
+				return 'Aktivitas issue diperbarui';
+		}
+	}
+
+	function getTimelineEventMeta(event: IssueTimelineEvent): string | null {
+		switch (event.type) {
+			case 'photo_added': {
+				const photoCount = readNumberFromData(event.data, 'photo_count');
+				if (!photoCount || photoCount <= 0) return null;
+				return `${photoCount} foto ditambahkan.`;
+			}
+			case 'severity_changed': {
+				const from = readNumberFromData(event.data, 'from');
+				const to = readNumberFromData(event.data, 'to');
+				if (from == null || to == null) return null;
+				return `${getSeverityLabel(from)} → ${getSeverityLabel(to)}.`;
+			}
+			case 'casualty_reported': {
+				const to = readNumberFromData(event.data, 'to');
+				if (to == null) return null;
+				return `Jumlah korban terlapor: ${to}.`;
+			}
+			case 'status_updated': {
+				const fromStatus = readStringFromData(event.data, 'from_status');
+				const toStatus = readStringFromData(event.data, 'to_status');
+				if (!fromStatus || !toStatus) return null;
+				return `${getStatusLabel(fromStatus)} → ${getStatusLabel(toStatus)}.`;
+			}
+			default:
+				return null;
+		}
+	}
+
+	async function fetchTimeline(issueID: string, append: boolean) {
+		if (append) {
+			timelineLoadingMore = true;
+		} else {
+			timelineLoading = true;
+			timelineError = null;
+		}
+
+		const requestOffset = append ? timelineOffset : 0;
+
+		try {
+			const result = await getIssueTimeline(issueID, {
+				limit: timelinePageSize,
+				offset: requestOffset
+			});
+
+			if (timelineIssueID !== issueID) return;
+
+			const incoming = result.data || [];
+			timelineEvents = append ? [...timelineEvents, ...incoming] : incoming;
+			timelineOffset = requestOffset + incoming.length;
+			timelineHasMore = incoming.length === timelinePageSize;
+		} catch (err) {
+			if (timelineIssueID !== issueID) return;
+			timelineError =
+				err instanceof Error ? err.message : 'Gagal memuat riwayat laporan issue saat ini.';
+		} finally {
+			if (timelineIssueID === issueID) {
+				timelineLoading = false;
+				timelineLoadingMore = false;
+			}
+		}
+	}
+
+	async function loadInitialTimeline(issueID: string) {
+		timelineIssueID = issueID;
+		resetTimelineState();
+		await fetchTimeline(issueID, false);
+	}
+
+	async function loadMoreTimeline() {
+		if (!issue || timelineLoadingMore || !timelineHasMore) return;
+		await fetchTimeline(issue.id, true);
+	}
+
 	function markMediaFailed(mediaID: string) {
 		const next = new Set(failedMediaIDs);
 		next.add(mediaID);
@@ -117,15 +239,20 @@
 			if (!result.data) {
 				notFound = true;
 				issue = null;
+				resetTimelineState();
+				timelineIssueID = null;
 				return;
 			}
 
 			issue = result.data;
 			failedMediaIDs = new Set();
+			timelineIssueID = null;
 		} catch (err) {
 			if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
 				notFound = true;
 				issue = null;
+				resetTimelineState();
+				timelineIssueID = null;
 				return;
 			}
 
@@ -146,6 +273,18 @@
 			closePreview();
 		}
 	}
+
+	$effect(() => {
+		const issueID = issue?.id;
+		if (!issueID) {
+			resetTimelineState();
+			timelineIssueID = null;
+			return;
+		}
+		if (timelineIssueID === issueID) return;
+
+		void loadInitialTimeline(issueID);
+	});
 </script>
 
 <svelte:head>
@@ -340,6 +479,54 @@
 						</div>
 					</section>
 				{/if}
+
+				<section class="detail-card">
+					<div class="section-header">
+						<div>
+							<h2>Riwayat Laporan</h2>
+							<p>Jejak perkembangan issue untuk transparansi publik.</p>
+						</div>
+					</div>
+
+					{#if timelineLoading}
+						<p class="timeline-state">Memuat riwayat laporan...</p>
+					{:else if timelineError}
+						<div class="timeline-state timeline-state-error">
+							<p>{timelineError}</p>
+							<button type="button" class="timeline-button" onclick={() => issue && loadInitialTimeline(issue.id)}>
+								Coba lagi
+							</button>
+						</div>
+					{:else if timelineEvents.length === 0}
+						<p class="timeline-state">Belum ada riwayat event untuk issue ini.</p>
+					{:else}
+						<ol class="issue-timeline" aria-label="Riwayat laporan issue">
+							{#each timelineEvents as event, index (`${event.created_at}-${event.type}-${index}`)}
+								<li class="timeline-event">
+									<div class="timeline-dot" aria-hidden="true"></div>
+									<div class="timeline-content">
+										<p class="timeline-date">{formatDate(event.created_at)}</p>
+										<p class="timeline-title">{getTimelineEventTitle(event)}</p>
+										{#if getTimelineEventMeta(event)}
+											<p class="timeline-meta">{getTimelineEventMeta(event)}</p>
+										{/if}
+									</div>
+								</li>
+							{/each}
+						</ol>
+
+						{#if timelineHasMore}
+							<button
+								type="button"
+								class="timeline-button"
+								disabled={timelineLoadingMore}
+								onclick={loadMoreTimeline}
+							>
+								{timelineLoadingMore ? 'Memuat...' : 'Muat event lebih lama'}
+							</button>
+						{/if}
+					{/if}
+				</section>
 			</div>
 
 			<div class="aside-column">
@@ -536,6 +723,100 @@
 		margin-top: 16px;
 		display: grid;
 		gap: 10px;
+	}
+
+	.timeline-state {
+		margin-top: 16px;
+		font-size: 13px;
+		line-height: 1.5;
+		color: #475569;
+	}
+
+	.timeline-state-error {
+		display: grid;
+		gap: 10px;
+	}
+
+	.issue-timeline {
+		margin: 16px 0 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 0;
+	}
+
+	.timeline-event {
+		position: relative;
+		display: grid;
+		grid-template-columns: 20px minmax(0, 1fr);
+		column-gap: 12px;
+		padding-bottom: 14px;
+	}
+
+	.timeline-event:last-child {
+		padding-bottom: 0;
+	}
+
+	.timeline-event:not(:last-child)::after {
+		content: '';
+		position: absolute;
+		left: 9px;
+		top: 12px;
+		bottom: -2px;
+		width: 2px;
+		background: #e2e8f0;
+	}
+
+	.timeline-dot {
+		width: 10px;
+		height: 10px;
+		margin-top: 3px;
+		border-radius: 999px;
+		background: #e5484d;
+		box-shadow: 0 0 0 3px #ffe4e6;
+	}
+
+	.timeline-content {
+		padding: 0 0 0 2px;
+	}
+
+	.timeline-date {
+		margin: 0;
+		font-size: 12px;
+		font-weight: 700;
+		color: #64748b;
+	}
+
+	.timeline-title {
+		margin: 5px 0 0;
+		font-size: 14px;
+		font-weight: 700;
+		line-height: 1.5;
+		color: #0f172a;
+	}
+
+	.timeline-meta {
+		margin: 6px 0 0;
+		font-size: 12px;
+		line-height: 1.5;
+		color: #64748b;
+	}
+
+	.timeline-button {
+		margin-top: 14px;
+		border: 1px solid #fecdd3;
+		background: #fff1f2;
+		color: #9f1239;
+		font-size: 13px;
+		font-weight: 700;
+		border-radius: 10px;
+		padding: 9px 12px;
+		cursor: pointer;
+	}
+
+	.timeline-button:disabled {
+		opacity: 0.7;
+		cursor: default;
 	}
 
 	.timeline-item {

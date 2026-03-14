@@ -95,6 +95,7 @@
   - meta issue (severity/status/verification/lokasi/first seen/last seen)
   - metrik ringkas (laporan/foto/korban/reaksi/update terakhir)
   - galeri media publik sederhana + preview lightbox
+  - timeline vertikal `Riwayat Laporan` (event terbaru di atas)
   - detail tambahan + `public_note` ringkas + aktivitas terbaru yang memakai `recent_submissions[].public_note`
   - CTA share + social links + open external map
 - Komponen route dipisah agar maintainable:
@@ -109,6 +110,7 @@
   - error
   - fallback media gagal load
   - empty gallery
+  - loading/error/empty/pagination untuk timeline issue (`GET /api/v1/issues/:id/timeline`)
 
 ## Public Stats Dashboard (`/stats`)
 
@@ -182,6 +184,7 @@ Di `/lapor`:
 - `lib/api/types.ts`: type contracts response backend.
 - `lib/api/location.ts`: helper resolve label lokasi `/lapor`.
 - `lib/api/stats.ts`: helper fetch dashboard statistik publik `/stats`.
+- `lib/api/issues.ts`: helper fetch timeline issue publik (`getIssueTimeline`).
 - Token storage:
   - anon token: `jedug_anon_token`
   - admin token: `jedug_admin_token`

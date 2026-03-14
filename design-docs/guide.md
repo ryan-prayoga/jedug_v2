@@ -180,6 +180,11 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - loading retry
   - fallback media rusak
   - empty gallery
+- Tambahkan section `Riwayat Laporan` sebagai timeline vertikal mobile-first:
+  - event terbaru di atas
+  - marker visual sederhana (`●` + garis vertikal)
+  - event minimal: issue dibuat, foto ditambah, severity berubah, korban dilaporkan, status issue berubah
+  - jika event > 100, gunakan pagination bertahap (`Muat event lebih lama`)
 - Catatan publik di issue detail tidak boleh memakai note mentah bila sudah ada `public_note` yang lebih aman dan ringkas dari API.
 - Visual tetap mengikuti token:
   - severity colors (kuning-oranye-merah)

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -201,8 +202,44 @@ func (r *adminRepository) UpdateIssueHidden(ctx context.Context, id uuid.UUID, i
 }
 
 func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, status string) error {
-	_, err := r.db.Exec(ctx, `UPDATE issues SET status = $1, updated_at = NOW() WHERE id = $2`, status, id)
-	return err
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+
+	var previousStatus string
+	err = tx.QueryRow(ctx, `SELECT status FROM issues WHERE id = $1 FOR UPDATE`, id).Scan(&previousStatus)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE issues SET status = $1, updated_at = NOW() WHERE id = $2`, status, id); err != nil {
+		return err
+	}
+
+	if previousStatus != status {
+		payload, err := json.Marshal(map[string]any{
+			"from_status": previousStatus,
+			"to_status":   status,
+			"source":      "admin",
+		})
+		if err != nil {
+			return err
+		}
+
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO issue_events (issue_id, event_type, event_data)
+			VALUES ($1, 'status_updated', $2::jsonb)
+		`, id, payload); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *adminRepository) BanDevice(ctx context.Context, id uuid.UUID, reason *string) error {

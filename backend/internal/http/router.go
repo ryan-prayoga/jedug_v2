@@ -115,6 +115,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 
 	issues := api.Group("/issues")
 	issues.Get("/", issueHandler.List)
+	issues.Get("/:id/timeline", issueHandler.Timeline)
 	issues.Get("/:id", issueHandler.Get)
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
 
