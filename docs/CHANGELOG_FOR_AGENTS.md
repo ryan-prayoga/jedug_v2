@@ -25,6 +25,27 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Submit Report 500 Fix: Missing submission_media table
+
+- Akar masalah terkonfirmasi dari log produksi:
+  - `ERROR: relation "submission_media" does not exist (SQLSTATE 42P01)` saat step `create_media`.
+- Bukti konsistensi kode:
+  - write path: `backend/internal/repository/report_repository.go` melakukan `INSERT INTO submission_media`.
+  - read path: `backend/internal/repository/issue_repository.go` dan `admin_repository.go` juga query `submission_media`.
+  - docs schema: `docs/SCHEMA.md` mendefinisikan `submission_media` sebagai tabel inti.
+  - migrations repo: kosong, tidak ada `CREATE TABLE submission_media`.
+- Perbaikan:
+  1. Tambah migration `backend/migrations/202603140002_create_submission_media.sql`.
+  2. Tambah sentinel error repository `ErrSubmissionMediaPersistFailed` saat insert media gagal.
+  3. Mapping service error ke `ErrMediaPersist`.
+  4. Handler return error terstruktur:
+     - HTTP 500
+     - `error_code: MEDIA_PERSIST_FAILED`
+     - `message: failed to persist submission media`
+- Action deploy wajib:
+  - Jalankan: `psql "$DATABASE_URL" -f migrations/202603140002_create_submission_media.sql`
+  - Verifikasi tidak ada lagi log `relation "submission_media" does not exist` saat submit report.
+
 ## 2026-03-14 - Submit Report 500: Structured error_code + Per-Step Logging + Migration File
 
 - Scope: production incident debugging akhir end-to-end pada POST /api/v1/reports.

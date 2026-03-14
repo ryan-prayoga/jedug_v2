@@ -14,6 +14,7 @@ var (
 	ErrDeviceBanned  = errors.New("device is banned")
 	ErrCooldown      = errors.New("submission cooldown active")
 	ErrLowTrustScore = errors.New("device trust score too low")
+	ErrMediaPersist  = errors.New("failed to persist submission media")
 )
 
 const (
@@ -181,6 +182,9 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	if err != nil {
 		log.Printf("[REPORT] repo_submit_failed device=%s severity=%d error=%v",
 			device.ID, req.Severity, err)
+		if errors.Is(err, repository.ErrSubmissionMediaPersistFailed) {
+			return nil, ErrMediaPersist
+		}
 		return nil, err
 	}
 
