@@ -69,8 +69,8 @@ Dependency flow: `handler -> service -> repository/storage`.
 ## Infra & Operasional
 
 - Workflow deploy tunggal di `.github/workflows/deploy.yml`.
-- Build backend binary + build frontend bundle di VPS.
-- Restart service pakai PM2 process `jedug-api` dan `jedug-web`.
+- Deploy backend/frontend di VPS via `gas build` non-interactive.
+- Runtime PM2 aktif memakai process `jedug-backend` dan `jedug-frontend`.
 
 ## Current Implementation
 
