@@ -102,6 +102,7 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 			log.Printf("[ANTISPAM] low_trust_submit ip=%s", c.IP())
 			return response.Error(c, fiber.StatusForbidden, "Akun tidak diizinkan mengirim laporan saat ini.")
 		}
+		log.Printf("[REPORT] submit_internal_error ip=%s error=%v", c.IP(), err)
 		return response.Error(c, fiber.StatusInternalServerError, "failed to submit report")
 	}
 
