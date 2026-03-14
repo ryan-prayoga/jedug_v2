@@ -1,12 +1,51 @@
+<script lang="ts">
+	import { page } from '$app/stores';
+
+	const pathname = $derived($page.url.pathname);
+
+	function isLaporActive(path: string): boolean {
+		return path === '/lapor' || path.startsWith('/lapor/');
+	}
+
+	function isPetaActive(path: string): boolean {
+		return path === '/issues' || path.startsWith('/issues/');
+	}
+
+	function isStatsActive(path: string): boolean {
+		return path === '/stats' || path.startsWith('/stats/');
+	}
+</script>
+
 <nav class="app-header">
 	<a href="/" class="logo-group">
 		<span class="logo-text">JEDUG</span>
 		<span class="logo-sub">Pantau Jalan Rusak</span>
 	</a>
 	<div class="nav-links">
-		<a href="/lapor" class="nav-link">Lapor</a>
-		<a href="/issues" class="nav-link">Peta</a>
-		<a href="/stats" class="nav-link">Statistik</a>
+		<a
+			href="/lapor"
+			class="nav-link"
+			class:active={isLaporActive(pathname)}
+			aria-current={isLaporActive(pathname) ? 'page' : undefined}
+		>
+			Lapor
+		</a>
+		<a
+			href="/issues"
+			class="nav-link"
+			class:active={isPetaActive(pathname)}
+			aria-current={isPetaActive(pathname) ? 'page' : undefined}
+		>
+			Peta
+		</a>
+		<a
+			href="/stats"
+			class="nav-link"
+			class:active={isStatsActive(pathname)}
+			aria-current={isStatsActive(pathname) ? 'page' : undefined}
+		>
+			Statistik
+		</a>
 	</div>
 </nav>
 
@@ -63,6 +102,11 @@
 	.nav-link:hover {
 		color: #E5484D;
 		background: #FEF2F2;
+	}
+	.nav-link.active {
+		color: #B42318;
+		background: #FEE4E2;
+		font-weight: 700;
 	}
 
 	@media (max-width: 420px) {

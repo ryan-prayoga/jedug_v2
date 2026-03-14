@@ -68,6 +68,8 @@
 - Kedua mode memakai payload issue publik yang sama; update data dilakukan via `setData`, bukan re-add source/layer saat toggle.
 - Klik cluster melakukan zoom/focus ke area cluster (`getClusterExpansionZoom` + `easeTo`).
 - Klik marker individual memilih issue -> tampilkan bottom sheet.
+- First load map sekarang memicu geolocate sekali otomatis via kontrol geolocate MapLibre agar blue-dot lokasi user langsung muncul ketika izin lokasi tersedia.
+- Geolocate tetap tidak memaksa recenter berulang; tombol geolocate manual tetap dipakai untuk retry.
 - Saat heatmap aktif, marker individual dan bottom sheet disembunyikan agar peta tetap bersih.
 - Klik area peta kosong clear selected issue (dengan guard agar tidak bentrok saat klik cluster/marker).
 - Reset cache bbox saat user kembali dari list ke map untuk mencegah stuck loading pada viewport yang sama.
@@ -160,6 +162,13 @@ Di `/lapor`:
    - backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).
    - UI tetap menampilkan ini sebagai label UX, bukan input wajib user.
 
+Hardening UX submit report:
+
+- sebelum submit, route `/lapor` selalu memastikan bootstrap device anonim selesai (`ensureDeviceBootstrap`)
+- bootstrap memakai guard promise bersama + retry ringan untuk mencegah race condition antar inisialisasi layout dan submit
+- bila backend mengembalikan indikasi token bootstrap tidak valid (`device not found; bootstrap first`), frontend melakukan refresh bootstrap sekali lalu retry submit otomatis
+- pesan error ke user dipoles agar manusiawi (tidak menampilkan error backend mentah)
+
 ## UX Lokasi di `/lapor`
 
 - Panel lokasi menampilkan:
@@ -177,6 +186,11 @@ Di `/lapor`:
   - `Peta`
   - `Statistik`
 - Homepage juga menyediakan CTA langsung ke `/stats` agar dashboard mudah ditemukan tanpa mengetik URL manual.
+
+## Active State Header
+
+- `AppHeader` sekarang memakai route/pathname sebagai source of truth active state.
+- Tab `Lapor`, `Peta`, `Statistik` langsung aktif benar pada initial render, refresh, dan navigasi client-side.
 
 ## Integrasi API Client
 

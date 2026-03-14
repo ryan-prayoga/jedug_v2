@@ -3,6 +3,7 @@
 	import ImagePicker from '$lib/components/ImagePicker.svelte';
 	import LoadingState from '$lib/components/LoadingState.svelte';
 	import { getAnonToken, isConsentGiven } from '$lib/utils/storage';
+	import { ensureDeviceBootstrap, isBootstrapMissingError } from '$lib/utils/device-init';
 	import { getLocation, type GeoResult } from '$lib/utils/geolocation';
 	import { compressImage } from '$lib/utils/image';
 	import { resolveLocationLabel } from '$lib/api/location';
@@ -43,6 +44,7 @@
 	let error = $state<string | null>(null);
 	const locationLabelCache = new Map<string, LocationLabelData>();
 	let activeLocationLabelRequestId = 0;
+	let bootstrapInitializing = $state(true);
 
 	const stepLabels: Record<Step, string> = {
 		idle: '',
@@ -65,6 +67,14 @@
 	// Get location on mount
 	import { onMount } from 'svelte';
 	onMount(async () => {
+		try {
+			await ensureDeviceBootstrap({ retry: 1 });
+		} catch (e) {
+			console.error('[lapor] bootstrap init failed on mount', e);
+		} finally {
+			bootstrapInitializing = false;
+		}
+
 		await loadLocation();
 	});
 
@@ -224,9 +234,12 @@
 			return;
 		}
 
-		const token = getAnonToken();
-		if (!token) {
-			error = 'Token tidak tersedia. Coba refresh halaman.';
+		let token: string;
+		try {
+			token = await ensureDeviceBootstrap({ retry: 1 });
+		} catch (bootstrapErr) {
+			console.error('[lapor] bootstrap ensure failed before submit', bootstrapErr);
+			error = 'Perangkat belum siap untuk mengirim laporan. Coba muat ulang halaman.';
 			return;
 		}
 
@@ -273,7 +286,7 @@
 
 			// Step 4: Submit report
 			currentStep = 'submitting';
-			const reportRes = await submitReport({
+			const payload = {
 				client_request_id: clientRequestId,
 				anon_token: token,
 				latitude: location.latitude,
@@ -295,7 +308,23 @@
 						is_primary: true
 					}
 				]
-			});
+			};
+
+			let reportRes;
+			try {
+				reportRes = await submitReport(payload);
+			} catch (submitErr) {
+				if (!isBootstrapMissingError(submitErr)) {
+					throw submitErr;
+				}
+
+				console.warn('[lapor] bootstrap token mismatch detected, refreshing bootstrap once');
+				token = await ensureDeviceBootstrap({ forceRefresh: true, retry: 1 });
+				reportRes = await submitReport({
+					...payload,
+					anon_token: token
+				});
+			}
 
 			if (!reportRes.data) throw new Error('Gagal mengirim laporan');
 
@@ -310,6 +339,8 @@
 				error = e.message || 'Terlalu banyak permintaan. Coba lagi nanti.';
 			} else if (e instanceof ApiError && e.status === 403) {
 				error = e.message || 'Akun tidak diizinkan mengirim laporan saat ini.';
+			} else if (isBootstrapMissingError(e)) {
+				error = 'Inisialisasi pelaporan belum selesai. Mohon tunggu sebentar lalu coba lagi.';
 			} else {
 				error = e instanceof Error ? e.message : 'Terjadi kesalahan';
 			}
@@ -483,7 +514,7 @@
 	<button
 		class="submit-btn"
 		onclick={handleSubmit}
-		disabled={submitting || !selectedFile || locationLoading}
+		disabled={submitting || bootstrapInitializing || !selectedFile || locationLoading}
 	>
 		{#if submitting}
 			Mengirim...

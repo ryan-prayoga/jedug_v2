@@ -125,6 +125,8 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - menampilkan legend intensitas ringkas agar user cepat paham arti warna
 - Jika heatmap gagal load, UI harus fallback ke marker mode dan tetap mempertahankan peta aktif
 - Jika setup clustering gagal, map fallback ke marker individual layer agar tetap usable
+- Saat halaman peta dibuka, geolocate dipicu otomatis sekali pada first load untuk memunculkan blue dot lokasi user jika izin lokasi tersedia.
+- Tombol geolocate manual tetap tersedia sebagai retry; map tidak boleh recenter terus-menerus setelah user berinteraksi.
 
 ### Statistik Publik (`/stats`)
 
@@ -158,6 +160,13 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Jika label gagal didapat, user tetap bisa submit report tanpa blocking
 - Panel lokasi menampilkan format label primary/secondary agar lebih mudah dibaca di mobile.
 - Tambahkan helper text bahwa nama jalan issue akan dilengkapi otomatis saat submit report.
+- Submit report harus selalu melewati guard bootstrap device anonim sebelum request report dikirim.
+- Jika bootstrap belum siap/gagal, user mendapat copy error manusiawi (bukan pesan backend mentah).
+
+### Header Navigasi Global
+
+- Active state tab `Lapor`, `Peta`, `Statistik` harus langsung sinkron dengan route saat initial render, refresh, dan navigasi client-side.
+- Source of truth active state adalah pathname route, bukan state lokal berbasis click.
 
 ### Detail Laporan (`/issues/[id]`)
 

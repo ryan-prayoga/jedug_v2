@@ -25,6 +25,25 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Core UX Bugfixes (Lapor Bootstrap, Blue Dot Map, Active Navbar)
+
+- Scope:
+  - memperbaiki race condition bootstrap device anonim yang menyebabkan submit report gagal dengan pesan `device not found; bootstrap first`.
+  - menambahkan guard bootstrap eksplisit pada `/lapor` + retry ringan + retry submit otomatis sekali saat token bootstrap mismatch.
+  - memperbaiki UX map agar geolocate dipicu otomatis sekali pada first load (blue dot langsung tampil jika izin lokasi tersedia) tanpa recenter berulang.
+  - memperbaiki active state navbar agar langsung sinkron dengan route pada initial render/refresh, bukan click-only.
+- Dampak area:
+  - `frontend/src/lib/utils/device-init.ts`
+  - `frontend/src/routes/+layout.svelte`
+  - `frontend/src/routes/lapor/+page.svelte`
+  - `frontend/src/lib/components/IssueMap.svelte`
+  - `frontend/src/lib/components/AppHeader.svelte`
+- File docs yang diupdate:
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tidak ada mismatch kontrak API; perbaikan fokus ke sequencing/bootstrap guard, geolocate initialization, dan route-driven UI state.
+
 ## 2026-03-14 - Issue Timeline / Riwayat Perkembangan Issue
 
 - Scope:
