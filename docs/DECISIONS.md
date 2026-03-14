@@ -75,6 +75,17 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - metadata `title/description/og/twitter/canonical` dapat di-generate server-side tanpa merombak flow map publik yang sudah live.
   - implementasi route detail perlu menjaga fallback state client (error/not-found/retry) agar UX tetap stabil saat API bermasalah.
 
+## 2026-03-14 - Anonymous Issue Follow via Browser-Scoped UUID
+
+- Keputusan:
+  - fitur follow issue MVP memakai `follower_id` UUID yang di-generate dan disimpan di browser, bukan auth/login baru.
+- Konteks:
+  - user perlu mengikuti perkembangan issue publik dengan friksi serendah mungkin dan tanpa mengganggu flow anonim yang sudah live.
+- Konsekuensi:
+  - satu browser/device anonim dianggap satu follower untuk issue tertentu.
+  - backend wajib memvalidasi UUID dan memakai unique constraint `(issue_id, follower_id)` agar follow idempotent dan tidak mudah spam.
+  - tabel `issue_followers` bisa menjadi pondasi lookup subscriber dan notifikasi di step berikutnya tanpa mengubah kontrak publik yang sudah ada.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.

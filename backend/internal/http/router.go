@@ -54,6 +54,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	// Wire up dependencies
 	deviceRepo := repository.NewDeviceRepository(db)
 	issueRepo := repository.NewIssueRepository(db)
+	issueFollowRepo := repository.NewIssueFollowRepository(db)
 	statsRepo := repository.NewStatsRepository(db)
 	reportRepo := repository.NewReportRepository(db, repository.ReportRepositoryConfig{
 		DuplicateRadiusM: cfg.DuplicateRadiusM,
@@ -64,6 +65,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
+	issueFollowSvc := service.NewIssueFollowService(issueRepo, issueFollowRepo)
 	statsSvc := service.NewStatsService(statsRepo)
 	reverseGeocoder := service.NewHTTPReverseGeocoder(
 		cfg.ReverseGeocodeEnabled,
@@ -81,6 +83,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	healthHandler := handlers.NewHealthHandler(db)
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
+	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc)
 	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
@@ -94,6 +97,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	rlPresign := middleware.RateLimit(20, 1*time.Minute)
 	rlReport := middleware.RateLimit(5, 1*time.Minute)
 	rlFlag := middleware.RateLimit(10, 1*time.Minute)
+	rlFollow := middleware.RateLimit(30, 1*time.Minute)
 
 	// Routes
 	api := app.Group("/api/v1")
@@ -116,6 +120,10 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issues := api.Group("/issues")
 	issues.Get("/", issueHandler.List)
 	issues.Get("/:id/timeline", issueHandler.Timeline)
+	issues.Post("/:id/follow", rlFollow, issueFollowHandler.Follow)
+	issues.Delete("/:id/follow", rlFollow, issueFollowHandler.Unfollow)
+	issues.Get("/:id/followers/count", issueFollowHandler.Count)
+	issues.Get("/:id/follow-status", issueFollowHandler.Status)
 	issues.Get("/:id", issueHandler.Get)
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
 

@@ -194,6 +194,11 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - marker visual sederhana (`●` + garis vertikal)
   - event minimal: issue dibuat, foto ditambah, severity berubah, korban dilaporkan, status issue berubah
   - jika event > 100, gunakan pagination bertahap (`Muat event lebih lama`)
+- Tambahkan card `Ikuti Perkembangan` sebagai CTA follow issue anonim:
+  - tampil tanpa login penuh
+  - follower count terlihat jelas
+  - tombol toggle follow/unfollow inline tanpa reload halaman
+  - helper text menjelaskan bahwa browser anonim ini menjadi identitas follow sementara
 - Catatan publik di issue detail tidak boleh memakai note mentah bila sudah ada `public_note` yang lebih aman dan ringkas dari API.
 - Visual tetap mengikuti token:
   - severity colors (kuning-oranye-merah)

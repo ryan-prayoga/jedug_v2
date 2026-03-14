@@ -125,6 +125,26 @@ Dokumen ini bukan sumber utama token desain.
   - update terakhir
 - Card korban boleh diberi state alert ringan jika `casualty_count > 0`
 
+## IssueFollowCard
+
+- Ditempatkan di detail issue publik dekat metrik utama agar CTA follow cepat terlihat.
+- Isi minimum:
+  - judul `Ikuti Perkembangan`
+  - follower count (`X orang mengikuti laporan ini`)
+  - tombol toggle `Ikuti laporan ini` / `Berhenti mengikuti`
+  - helper text anonim-friendly
+  - error state ringan bila request gagal
+- Tombol:
+  - full width
+  - min-height 48px
+  - default state memakai brand red `#E5484D`
+  - state following memakai tinted surface `#FFF1F2` + border `#FECDD3`
+  - disabled opacity turun, tidak boleh terlihat broken
+- Loading state:
+  - tombol disable saat request berlangsung
+  - label tombol berubah menjadi state progres
+- Copy UX harus menegaskan bahwa satu browser/device anonim dihitung sebagai satu follower.
+
 ## IssueGallery
 
 - Grid sederhana, tidak memakai carousel
