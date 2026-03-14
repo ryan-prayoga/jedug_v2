@@ -1,5 +1,11 @@
-import { apiGet } from "./client";
-import type { Issue, IssueDetail, IssueTimelineEvent } from "./types";
+import { apiDelete, apiGet, apiPost } from "./client";
+import type {
+  Issue,
+  IssueDetail,
+  IssueFollowState,
+  IssueFollowersCount,
+  IssueTimelineEvent,
+} from "./types";
 
 export interface ListIssuesParams {
   limit?: number;
@@ -22,6 +28,34 @@ export async function listIssues(params?: ListIssuesParams) {
 
 export async function getIssue(id: string) {
   return apiGet<IssueDetail>(`/api/v1/issues/${encodeURIComponent(id)}`);
+}
+
+export async function followIssue(id: string, followerId: string) {
+  return apiPost<IssueFollowState>(
+    `/api/v1/issues/${encodeURIComponent(id)}/follow`,
+    { follower_id: followerId },
+  );
+}
+
+export async function unfollowIssue(id: string, followerId: string) {
+  return apiDelete<IssueFollowState>(
+    `/api/v1/issues/${encodeURIComponent(id)}/follow`,
+    { follower_id: followerId },
+  );
+}
+
+export async function getIssueFollowerCount(id: string) {
+  return apiGet<IssueFollowersCount>(
+    `/api/v1/issues/${encodeURIComponent(id)}/followers/count`,
+  );
+}
+
+export async function getIssueFollowStatus(id: string, followerId: string) {
+  const query = new URLSearchParams({ follower_id: followerId });
+
+  return apiGet<IssueFollowState>(
+    `/api/v1/issues/${encodeURIComponent(id)}/follow-status?${query.toString()}`,
+  );
 }
 
 export interface IssueTimelineParams {

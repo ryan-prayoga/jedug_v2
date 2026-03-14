@@ -120,6 +120,15 @@ export interface IssueDetail extends Issue {
   recent_submissions: SubmissionSummary[];
 }
 
+export interface IssueFollowState {
+  following: boolean;
+  followers_count: number;
+}
+
+export interface IssueFollowersCount {
+  followers_count: number;
+}
+
 export interface IssueTimelineEvent {
   type: string;
   created_at: string;

@@ -25,6 +25,36 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Follow Issue / Subscribe Update MVP
+
+- Scope:
+  - menambahkan fitur follow issue anonim di detail issue publik tanpa login penuh.
+  - menambahkan tabel `issue_followers` beserta endpoint follow/unfollow/count/status.
+  - menambahkan card UI `Ikuti Perkembangan` di `/issues/[id]` dengan follower count, loading state, dan error copy manusiawi.
+- Dampak area:
+  - `backend/migrations/202603140003_create_issue_followers.sql`
+  - `backend/internal/domain/issue_follow.go`
+  - `backend/internal/repository/issue_follow_repository.go`
+  - `backend/internal/service/issue_follow_service.go`
+  - `backend/internal/service/issue_follow_service_test.go`
+  - `backend/internal/http/handlers/issue_follow_handler.go`
+  - `backend/internal/http/router.go`
+  - `frontend/src/lib/api/client.ts`
+  - `frontend/src/lib/api/issues.ts`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/lib/utils/storage.ts`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/SCHEMA.md`
+  - `docs/FRONTEND.md`
+  - `docs/DECISIONS.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - `follower_id` untuk follow issue berbeda dari `anon_token/device` submit report; ini sengaja dipisah agar MVP subscribe tetap ringan dan tidak mengikat flow bootstrap device yang sudah live.
+
 ## 2026-03-14 - Post-bugfix cleanup: trim noisy debug logs
 
 - Scope:

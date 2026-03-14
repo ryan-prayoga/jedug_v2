@@ -117,6 +117,20 @@ Dokumen ini disusun dari:
   - `event_data` fleksibel berbasis JSON; shape data bisa berbeda antar `event_type`.
   - timeline publik diurutkan `created_at DESC`, bukan urutan submission id.
 
+### `issue_followers`
+
+- Fungsi: menyimpan subscriber anonim per issue sebagai fondasi notifikasi/update issue.
+- Relasi: FK ke `issues` (`ON DELETE CASCADE`).
+- Kolom penting: `issue_id`, `follower_id`, `created_at`.
+- Constraint/index penting:
+  - unique `(issue_id, follower_id)` untuk mencegah follow ganda dari browser/device yang sama
+  - index `issue_id` untuk query count follower per issue
+  - index `follower_id` untuk lookup daftar issue yang diikuti di langkah berikutnya
+- Business meaning: satu browser/device anonim = satu follower ringan tanpa login penuh.
+- Rawan salah paham:
+  - `follower_id` bukan device token backend; ini identity anonim client-side khusus fitur subscribe.
+  - count follower sebaiknya dihitung dari tabel ini langsung sampai nanti benar-benar perlu cache/denormalisasi.
+
 ### `moderation_actions`
 
 - Fungsi: audit log tindakan moderasi admin/system.
@@ -205,7 +219,7 @@ Dokumen ini disusun dari:
 ## Current Implementation
 
 - Query backend paling banyak memakai tabel:
-  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `moderation_actions`, `issue_events`
+  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`
 - sebagian tabel schema sudah ada namun belum dipakai penuh (users/oauth/sessions/reactions/submission_flags/daily_stats/history).
 
 ## Migration SQL di Repo

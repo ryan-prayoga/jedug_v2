@@ -113,6 +113,26 @@
   - fallback media gagal load
   - empty gallery
   - loading/error/empty/pagination untuk timeline issue (`GET /api/v1/issues/:id/timeline`)
+  - loading/error/following state untuk follow issue anonim (`POST/DELETE /api/v1/issues/:id/follow`)
+
+## Follow Issue Anonim (`/issues/[id]`)
+
+- Halaman detail issue menampilkan card `Ikuti Perkembangan` tanpa menambah login flow baru.
+- Identity follower dikelola client-side via localStorage key:
+  - `jedug_issue_follower_id`
+- Strategy identity:
+  - bila belum ada follower id, browser generate UUID via `crypto.randomUUID()` (fallback generator ringan)
+  - UUID disimpan stabil per browser/device anonim
+- Route detail melakukan:
+  - fetch follow status: `GET /api/v1/issues/:id/follow-status?follower_id=...`
+  - fetch follower count: `GET /api/v1/issues/:id/followers/count`
+  - follow: `POST /api/v1/issues/:id/follow`
+  - unfollow: `DELETE /api/v1/issues/:id/follow`
+- UX requirements yang sudah diimplementasikan:
+  - disable button saat request berlangsung
+  - error copy manusiawi tanpa reload penuh
+  - follower count langsung ter-update setelah follow/unfollow berhasil
+  - state tetap additive; SSR detail issue tetap berjalan seperti sebelumnya
 
 ## Public Stats Dashboard (`/stats`)
 
@@ -201,6 +221,7 @@ Hardening UX submit report:
 - `lib/api/issues.ts`: helper fetch timeline issue publik (`getIssueTimeline`).
 - Token storage:
   - anon token: `jedug_anon_token`
+  - issue follower id: `jedug_issue_follower_id`
   - admin token: `jedug_admin_token`
 
 ## Area Sensitif Jangan Dirusak

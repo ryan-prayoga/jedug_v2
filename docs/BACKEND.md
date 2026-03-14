@@ -31,6 +31,10 @@
 - `GET /api/v1/issues`
 - `GET /api/v1/issues/:id`
 - `GET /api/v1/issues/:id/timeline`
+- `POST /api/v1/issues/:id/follow`
+- `DELETE /api/v1/issues/:id/follow`
+- `GET /api/v1/issues/:id/followers/count`
+- `GET /api/v1/issues/:id/follow-status?follower_id=...`
 - `POST /api/v1/issues/:id/flag`
 - `GET /api/v1/stats`
 
@@ -114,6 +118,29 @@
   - urut event terbaru di atas (`created_at DESC, id DESC`)
   - default/maximum `limit` dijaga di 100 untuk menjaga payload tetap ringan
   - support pagination lewat query `limit` + `offset`
+
+### Follow Issue / Subscribe Update
+
+- Tabel follower anonim: `issue_followers`.
+- Identity follower memakai `follower_id` UUID dari browser (tanpa login).
+- Endpoint publik additive:
+  - `POST /api/v1/issues/:id/follow`
+  - `DELETE /api/v1/issues/:id/follow`
+  - `GET /api/v1/issues/:id/followers/count`
+  - `GET /api/v1/issues/:id/follow-status?follower_id=...`
+- Handler memvalidasi:
+  - `issue_id` harus UUID valid
+  - `follower_id` harus UUID valid dan non-nil
+- Service memastikan issue target masih issue publik (`FindByID`), sehingga hidden/rejected/merged tidak bisa di-follow dari endpoint publik.
+- Repository menggunakan:
+  - `INSERT ... ON CONFLICT (issue_id, follower_id) DO NOTHING` agar follow idempotent dan conflict-safe
+  - `DELETE ... WHERE issue_id = $1 AND follower_id = $2` agar unfollow aman walau record belum ada
+  - `COUNT(*)` per issue agar follower count akurat tanpa cache/denormalisasi dulu
+- Rate limit tambahan:
+  - follow/unfollow: `30/min` per-IP
+- Response tetap konsisten memakai wrapper `response.OK(...)` dengan payload utama:
+  - `following`
+  - `followers_count`
 
 ### Issue Timeline Event Logging
 

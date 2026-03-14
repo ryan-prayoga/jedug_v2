@@ -1,6 +1,9 @@
 const TOKEN_KEY = "jedug_anon_token";
 const CONSENT_KEY = "jedug_terms_accepted";
 const ADMIN_TOKEN_KEY = "jedug_admin_token";
+const ISSUE_FOLLOWER_ID_KEY = "jedug_issue_follower_id";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function getAnonToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -31,4 +34,43 @@ export function setAdminToken(token: string): void {
 
 export function clearAdminToken(): void {
   localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+export function getIssueFollowerId(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const followerId = localStorage.getItem(ISSUE_FOLLOWER_ID_KEY);
+  if (!followerId || !UUID_PATTERN.test(followerId)) {
+    return null;
+  }
+
+  return followerId;
+}
+
+export function getOrCreateIssueFollowerId(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const existing = getIssueFollowerId();
+  if (existing) {
+    return existing;
+  }
+
+  const followerId = generateBrowserUUID();
+  localStorage.setItem(ISSUE_FOLLOWER_ID_KEY, followerId);
+  return followerId;
+}
+
+function generateBrowserUUID(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }

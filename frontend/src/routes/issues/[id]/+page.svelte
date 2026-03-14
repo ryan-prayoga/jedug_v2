@@ -1,7 +1,15 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { navigating } from '$app/state';
 	import { ApiError } from '$lib/api/client';
-	import { getIssue, getIssueTimeline } from '$lib/api/issues';
+	import {
+		followIssue,
+		getIssue,
+		getIssueFollowStatus,
+		getIssueFollowerCount,
+		getIssueTimeline,
+		unfollowIssue
+	} from '$lib/api/issues';
 	import type { IssueDetail, IssueTimelineEvent } from '$lib/api/types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
@@ -11,6 +19,7 @@
 	import LoadingState from '$lib/components/LoadingState.svelte';
 	import ShareActions from '$lib/components/ShareActions.svelte';
 	import { formatDate, relativeTime } from '$lib/utils/date';
+	import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
 	import {
 		buildIssueDetailSeo,
 		formatCoordinates,
@@ -51,6 +60,12 @@
 	let timelineOffset = $state(0);
 	let timelineHasMore = $state(false);
 	let timelineIssueID = $state<string | null>(null);
+	let followerID = $state<string | null>(null);
+	let followLoading = $state(false);
+	let followMutating = $state(false);
+	let followErrorMessage = $state<string | null>(null);
+	let isFollowing = $state(false);
+	let followersCount = $state(0);
 
 	const locationLabel = $derived(issue ? getIssueLocationLabel(issue) : '-');
 	const locationContext = $derived(issue ? getIssueRegionOrCoordinates(issue) : '-');
@@ -70,6 +85,24 @@
 	const issueSnapshot = $derived(issue ? getIssueSnapshot(issue) : '');
 	const publicNote = $derived(issue ? getPublicIssueNote(issue) : null);
 	const isRouteNavigating = $derived(navigating.to?.route?.id === '/issues/[id]');
+	const followButtonLabel = $derived.by(() => {
+		if (followMutating) {
+			return isFollowing ? 'Memproses berhenti mengikuti...' : 'Memproses mengikuti...';
+		}
+
+		if (followLoading && !followerID) {
+			return 'Menyiapkan...';
+		}
+
+		return isFollowing ? 'Berhenti mengikuti' : 'Ikuti laporan ini';
+	});
+	const followerCountLabel = $derived.by(() => {
+		if (followersCount === 1) {
+			return '1 orang mengikuti laporan ini';
+		}
+
+		return `${followersCount} orang mengikuti laporan ini`;
+	});
 
 	const visibleMedia = $derived.by(() => {
 		if (!issue) return [];
@@ -205,6 +238,85 @@
 		await fetchTimeline(issueID, false);
 	}
 
+	function resetFollowState() {
+		followerID = null;
+		followLoading = false;
+		followMutating = false;
+		followErrorMessage = null;
+		isFollowing = false;
+		followersCount = 0;
+	}
+
+	type FollowStateSnapshot = {
+		following: boolean;
+		followersCount: number;
+		errorMessage: string | null;
+	};
+
+	async function loadFollowState(
+		issueID: string,
+		currentFollowerID: string
+	): Promise<FollowStateSnapshot> {
+
+		const [statusResult, countResult] = await Promise.allSettled([
+			getIssueFollowStatus(issueID, currentFollowerID),
+			getIssueFollowerCount(issueID)
+		]);
+
+		let hadSuccess = false;
+		let nextFollowing = false;
+		let nextFollowersCount = 0;
+
+		if (statusResult.status === 'fulfilled' && statusResult.value.data) {
+			nextFollowing = statusResult.value.data.following;
+			nextFollowersCount = statusResult.value.data.followers_count;
+			hadSuccess = true;
+		}
+
+		if (countResult.status === 'fulfilled' && countResult.value.data) {
+			nextFollowersCount = countResult.value.data.followers_count;
+			hadSuccess = true;
+		}
+
+		if (!hadSuccess) {
+			return {
+				following: false,
+				followersCount: 0,
+				errorMessage: 'Belum bisa memuat status mengikuti saat ini.'
+			};
+		}
+
+		return {
+			following: nextFollowing,
+			followersCount: nextFollowersCount,
+			errorMessage: null
+		};
+	}
+
+	async function handleFollowToggle() {
+		if (!issue || !followerID || followMutating || followLoading) return;
+
+		followMutating = true;
+		followErrorMessage = null;
+
+		try {
+			const result = isFollowing
+				? await unfollowIssue(issue.id, followerID)
+				: await followIssue(issue.id, followerID);
+
+			if (result.data) {
+				isFollowing = result.data.following;
+				followersCount = result.data.followers_count;
+			}
+		} catch {
+			followErrorMessage = isFollowing
+				? 'Belum bisa berhenti mengikuti. Coba lagi.'
+				: 'Belum bisa mengikuti laporan ini. Coba lagi.';
+		} finally {
+			followMutating = false;
+		}
+	}
+
 	async function loadMoreTimeline() {
 		if (!issue || timelineLoadingMore || !timelineHasMore) return;
 		await fetchTimeline(issue.id, true);
@@ -284,6 +396,42 @@
 		if (timelineIssueID === issueID) return;
 
 		void loadInitialTimeline(issueID);
+	});
+
+	$effect(() => {
+		const issueID = issue?.id;
+		if (!browser || !issueID) {
+			resetFollowState();
+			return;
+		}
+
+		const currentFollowerID = getOrCreateIssueFollowerId();
+		followerID = currentFollowerID;
+
+		if (!currentFollowerID) {
+			followErrorMessage = 'Identitas anonim belum siap. Muat ulang halaman lalu coba lagi.';
+			followLoading = false;
+			return;
+		}
+
+		followLoading = true;
+		followErrorMessage = null;
+
+		let cancelled = false;
+
+		void (async () => {
+			const snapshot = await loadFollowState(issueID, currentFollowerID);
+			if (cancelled) return;
+
+			isFollowing = snapshot.following;
+			followersCount = snapshot.followersCount;
+			followErrorMessage = snapshot.errorMessage;
+			followLoading = false;
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 </script>
 
@@ -365,6 +513,46 @@
 			reactionCount={issue.reaction_count}
 			updatedAt={issue.updated_at}
 		/>
+
+		<section class="detail-card follow-card" aria-live="polite">
+			<div class="section-header">
+				<div>
+					<h2>Ikuti Perkembangan</h2>
+					<p>Simpan issue ini di browser anonim kamu untuk memantau update berikutnya.</p>
+				</div>
+				<span>{followersCount}</span>
+			</div>
+
+			<p class="follow-count">
+				{#if followLoading && followersCount === 0}
+					Memuat jumlah pengikut...
+				{:else}
+					{followerCountLabel}
+				{/if}
+			</p>
+
+			<button
+				type="button"
+				class:is-following={isFollowing}
+				class="follow-button"
+				disabled={followLoading || followMutating || !followerID}
+				onclick={handleFollowToggle}
+			>
+				{followButtonLabel}
+			</button>
+
+			<p class="follow-helper">
+				{#if isFollowing}
+					Issue ini sudah tersimpan di browser ini. Nanti bisa jadi dasar notifikasi update.
+				{:else}
+					Belum perlu login penuh. Satu browser/device anonim dihitung sebagai satu pengikut.
+				{/if}
+			</p>
+
+			{#if followErrorMessage}
+				<p class="follow-error">{followErrorMessage}</p>
+			{/if}
+		</section>
 
 		<IssueGallery
 			media={visibleMedia}
@@ -627,6 +815,76 @@
 		border-radius: 16px;
 		padding: 16px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+	}
+
+	.follow-card {
+		gap: 12px;
+	}
+
+	.follow-count {
+		margin: 16px 0 0;
+		font-size: 14px;
+		font-weight: 700;
+		color: #0f172a;
+	}
+
+	.follow-button {
+		margin-top: 14px;
+		width: 100%;
+		min-height: 48px;
+		border: 0;
+		border-radius: 12px;
+		background: #e5484d;
+		color: #fff;
+		font-size: 15px;
+		font-weight: 700;
+		cursor: pointer;
+		transition:
+			transform 0.16s ease,
+			box-shadow 0.16s ease,
+			opacity 0.16s ease,
+			background 0.16s ease;
+		box-shadow: 0 10px 24px rgba(229, 72, 77, 0.18);
+	}
+
+	.follow-button:hover:enabled {
+		transform: translateY(-1px);
+		box-shadow: 0 14px 28px rgba(229, 72, 77, 0.22);
+	}
+
+	.follow-button:active:enabled {
+		transform: scale(0.98);
+	}
+
+	.follow-button:disabled {
+		opacity: 0.6;
+		cursor: default;
+		box-shadow: none;
+	}
+
+	.follow-button.is-following {
+		background: #fff1f2;
+		color: #9f1239;
+		border: 1px solid #fecdd3;
+		box-shadow: none;
+	}
+
+	.follow-helper {
+		margin: 10px 0 0;
+		font-size: 13px;
+		line-height: 1.6;
+		color: #64748b;
+	}
+
+	.follow-error {
+		margin: 8px 0 0;
+		padding: 10px 12px;
+		border-radius: 12px;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		font-size: 13px;
+		font-weight: 600;
+		color: #b91c1c;
 	}
 
 	h2 {
