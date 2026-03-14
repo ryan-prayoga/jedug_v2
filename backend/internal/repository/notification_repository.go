@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"jedug_backend/internal/domain"
+	"jedug_backend/internal/sse"
 )
 
 // notificationMessages maps event_type → [title, message] shown to followers.
@@ -24,20 +27,66 @@ func notifTitleMessage(eventType string) (string, string) {
 	return "Ada Pembaruan Laporan", "Ada pembaruan pada laporan yang kamu ikuti."
 }
 
+// ssePayload is the JSON shape sent in SSE notification events.
+type ssePayload struct {
+	ID        string    `json:"id"`
+	IssueID   string    `json:"issue_id"`
+	EventID   int64     `json:"event_id"`
+	Type      string    `json:"type"`
+	Title     string    `json:"title"`
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // DispatchNotificationsForEvent inserts a notification row for every follower of
 // issueID, linked to the given eventID. It is idempotent via the unique constraint
-// (event_id, follower_id). Callers must treat a non-nil error as non-fatal and log it.
+// (event_id, follower_id). After each successful insert it pushes a realtime SSE
+// event to the follower via sse.Default. Callers must treat a non-nil error as
+// non-fatal and log it.
 // eventID is int64 because issue_events.id is BIGSERIAL in the production schema.
 func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueID uuid.UUID, eventID int64, eventType string) error {
 	title, message := notifTitleMessage(eventType)
-	_, err := db.Exec(ctx, `
+	rows, err := db.Query(ctx, `
 		INSERT INTO notifications (id, issue_id, follower_id, event_id, type, title, message)
 		SELECT gen_random_uuid(), $1, follower_id, $2, $3, $4, $5
 		FROM issue_followers
 		WHERE issue_id = $1
 		ON CONFLICT (event_id, follower_id) DO NOTHING
+		RETURNING id, issue_id, follower_id, type, title, message, created_at
 	`, issueID, eventID, eventType, title, message)
-	return err
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			notifID    uuid.UUID
+			issID      uuid.UUID
+			followerID uuid.UUID
+			notifType  string
+			notifTitle string
+			notifMsg   string
+			createdAt  time.Time
+		)
+		if scanErr := rows.Scan(&notifID, &issID, &followerID, &notifType, &notifTitle, &notifMsg, &createdAt); scanErr != nil {
+			continue
+		}
+		payload, jsonErr := json.Marshal(ssePayload{
+			ID:        notifID.String(),
+			IssueID:   issID.String(),
+			EventID:   eventID,
+			Type:      notifType,
+			Title:     notifTitle,
+			Message:   notifMsg,
+			CreatedAt: createdAt,
+		})
+		if jsonErr != nil {
+			continue
+		}
+		sse.Default.Push(followerID.String(), "event: notification\ndata: "+string(payload)+"\n\n")
+	}
+	return rows.Err()
 }
 
 // NotificationRepository reads notification data for a given follower.

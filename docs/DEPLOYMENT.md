@@ -73,6 +73,64 @@ Konsekuensi:
 - reverse proxy rules harus divalidasi manual di server
 - perubahan domain/SSL/routing tidak ter-track lewat git repo aplikasi
 
+## Nginx — SSE Configuration
+
+Endpoint `GET /api/v1/notifications/stream` memerlukan konfigurasi nginx khusus agar proxy buffering tidak memblokir SSE frames.
+
+Tambahkan blok `location` berikut **di dalam** blok `server` nginx, sebelum atau menggantikan blok `/api/` yang lebih umum:
+
+```nginx
+# SSE: realtime notification stream
+location /api/v1/notifications/stream {
+    proxy_pass         http://127.0.0.1:5000;
+    proxy_http_version 1.1;
+
+    # Wajib untuk SSE — matikan buffering agar data langsung dikirim ke client
+    proxy_buffering    off;
+    proxy_cache        off;
+
+    # Timeout panjang agar koneksi SSE tidak diputus nginx
+    proxy_read_timeout  3600s;
+    proxy_send_timeout  3600s;
+
+    # Header SSE standar
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Connection        '';
+
+    # Chunked transfer diperlukan untuk streaming
+    chunked_transfer_encoding on;
+}
+```
+
+> **Catatan**: Header `X-Accel-Buffering: no` juga di-set di response handler Go sebagai
+> safeguard tambahan, tapi konfigurasi nginx di atas tetap wajib.
+
+### Cara Apply Nginx Config
+
+1. Edit file nginx (biasanya `/etc/nginx/sites-available/jedug` atau `/etc/nginx/conf.d/jedug.conf`).
+2. Tambahkan blok SSE di atas (sebelum blok `location /api/` generik jika ada).
+3. Test: `sudo nginx -t`
+4. Reload: `sudo nginx -s reload`
+
+### CI/CD — Apakah Perlu Diubah?
+
+Workflow CI/CD saat ini (`deploy.yml`) sudah cukup untuk deploy code. Nginx config **tidak perlu diubah di CI/CD** karena:
+
+- Nginx config tidak disimpan di repo ini.
+- `nginx -s reload` dilakukan sekali manual setelah config baru diapply.
+- Perubahan SSE hanya memerlukan restart backend (`gas build` yang sudah ada sudah cukup).
+
+Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job deploy:
+
+```yaml
+- name: Reload nginx
+  run: |
+    ssh user@vps "sudo nginx -s reload"
+```
+
 ## Env Handling
 
 ### Backend env kritikal
