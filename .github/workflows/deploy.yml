@@ -17,32 +17,66 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          script_stop: true
           script: |
-            set -e
+            set -Eeuo pipefail
 
-            export PATH="/home/ubuntu/.nvm/versions/node/v24.14.0/bin:$PATH"
-            PM2_BIN="/home/ubuntu/.nvm/versions/node/v24.14.0/bin/pm2"
+            PROJECT_DIR="/home/ubuntu/projects/jedug_v2"
+            BACKEND_DIR="${PROJECT_DIR}/backend"
+            FRONTEND_DIR="${PROJECT_DIR}/frontend"
+            BACKEND_PM2="jedug-backend"
+            FRONTEND_PM2="jedug-frontend"
+            BACKEND_PORT="5000"
+            FRONTEND_PORT="5001"
 
-            cd /home/ubuntu/projects/jedug_v2
+            fail() {
+              echo "[DEPLOY][ERROR] $1" >&2
+              exit 1
+            }
 
-            echo "Pull latest code"
-            git remote -v
-            git fetch origin || (sleep 5 && git fetch origin)
-            git reset --hard origin/main
+            check_pm2_online() {
+              local process_name="$1"
+              local status_line
 
-            echo "Build backend"
-            cd backend
-            go mod tidy
-            mkdir -p bin
-            go build -o bin/jedug-api ./cmd/api
-            "$PM2_BIN" restart jedug-backend --update-env
+              status_line="$(pm2 jlist | node -e "const fs=require('fs'); const input=fs.readFileSync(0,'utf8'); const arr=JSON.parse(input||'[]'); const name=process.argv[1]; const p=arr.find(x=>x.name===name); if(!p){process.exit(2);} console.log(p.pm2_env?.status||'unknown');" "$process_name")" || fail "Proses PM2 '${process_name}' tidak ditemukan"
 
-            echo "Build frontend"
-            cd ../frontend
-            npm ci
-            npm run build
-            "$PM2_BIN" restart jedug-frontend --update-env
+              if [ "$status_line" != "online" ]; then
+                fail "Proses PM2 '${process_name}' tidak online (status=${status_line})"
+              fi
+            }
 
-            "$PM2_BIN" save
+            check_port_listen() {
+              local port="$1"
+              if ! ss -ltn | awk '{print $4}' | grep -E "(^|:)$port$" >/dev/null 2>&1; then
+                fail "Port ${port} tidak dalam kondisi LISTEN"
+              fi
+            }
 
-            echo "Deploy selesai"
+            echo "[DEPLOY] Masuk ke project directory"
+            cd "$PROJECT_DIR" || fail "Project directory tidak ditemukan: $PROJECT_DIR"
+
+            echo "[DEPLOY] Pull kode terbaru dari main"
+            git fetch --prune origin || fail "git fetch gagal"
+            git checkout main || fail "git checkout main gagal"
+            git reset --hard origin/main || fail "git reset origin/main gagal"
+
+            echo "[DEPLOY] Deploy backend via gas build (non-interactive)"
+            cd "$BACKEND_DIR" || fail "Backend directory tidak ditemukan: $BACKEND_DIR"
+            gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || fail "gas build backend gagal"
+
+            echo "[DEPLOY] Deploy frontend via gas build (non-interactive)"
+            cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
+            gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || fail "gas build frontend gagal"
+
+            echo "[DEPLOY] Verifikasi PM2 proses online"
+            check_pm2_online "$BACKEND_PM2"
+            check_pm2_online "$FRONTEND_PM2"
+
+            echo "[DEPLOY] Verifikasi port backend/frontend LISTEN"
+            check_port_listen "$BACKEND_PORT"
+            check_port_listen "$FRONTEND_PORT"
+
+            echo "[DEPLOY] Simpan process list PM2"
+            pm2 save || fail "pm2 save gagal"
+
+            echo "[DEPLOY] Sukses: backend + frontend online dan listening"
