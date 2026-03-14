@@ -49,8 +49,9 @@
 
 	let mapContainer: HTMLDivElement;
 	let map: maplibregl.Map | null = null;
+	let geolocateControl: maplibregl.GeolocateControl | null = null;
 	let mapReady = $state(false);
-	let didAutoCenter = false;
+	let didAutoGeolocate = false;
 	let clusteringEnabled = $state(true);
 	let heatmapAvailable = $state(true);
 	let issueByID = new Map<string, Issue>();
@@ -610,25 +611,12 @@
 		onbboxchange(bbox);
 	}
 
-	function tryAutoCenter() {
-		if (didAutoCenter || !map) return;
-		if (!navigator.geolocation) return;
+	function tryInitialGeolocate() {
+		if (didAutoGeolocate || !geolocateControl) return;
+		didAutoGeolocate = true;
 
-		navigator.geolocation.getCurrentPosition(
-			(pos) => {
-				if (didAutoCenter || !map) return;
-				didAutoCenter = true;
-				map.flyTo({
-					center: [pos.coords.longitude, pos.coords.latitude],
-					zoom: USER_ZOOM,
-					duration: 1200
-				});
-			},
-			() => {
-				didAutoCenter = true;
-			},
-			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-		);
+		// Trigger once at initial load so blue dot appears without manual click.
+		void geolocateControl.trigger();
 	}
 
 	$effect(() => {
@@ -676,13 +664,16 @@
 
 			map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 			map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-			map.addControl(
-				new maplibregl.GeolocateControl({
-					positionOptions: { enableHighAccuracy: true },
-					trackUserLocation: false
-				}),
-				'top-right'
-			);
+			geolocateControl = new maplibregl.GeolocateControl({
+				positionOptions: { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+				trackUserLocation: false,
+				showUserLocation: true,
+				fitBoundsOptions: {
+					maxZoom: USER_ZOOM,
+					duration: 1000
+				}
+			});
+			map.addControl(geolocateControl, 'top-right');
 
 			map.on('load', () => {
 				if (!setupIssueRendering()) {
@@ -695,7 +686,7 @@
 				updateSelectedLayer(visualMode === 'marker' ? selectedIssue?.id ?? null : null);
 				updateVisualMode(visualMode);
 				emitBBox();
-				tryAutoCenter();
+				tryInitialGeolocate();
 			});
 
 			map.on('moveend', emitBBox);
@@ -715,6 +706,7 @@
 			map.remove();
 			map = null;
 		}
+		geolocateControl = null;
 		issueByID.clear();
 	});
 </script>

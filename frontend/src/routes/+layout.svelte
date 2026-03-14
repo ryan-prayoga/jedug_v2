@@ -3,8 +3,9 @@
 	import { page } from '$app/stores';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ConsentSheet from '$lib/components/ConsentSheet.svelte';
-	import { getAnonToken, setAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
-	import { bootstrapDevice, recordConsent } from '$lib/api/device';
+	import { getAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
+	import { recordConsent } from '$lib/api/device';
+	import { ensureDeviceBootstrap } from '$lib/utils/device-init';
 
 	let { children } = $props();
 
@@ -25,16 +26,7 @@
 		}
 
 		try {
-			let token = getAnonToken();
-			if (!token) {
-				const res = await bootstrapDevice();
-				if (res.data) {
-					token = res.data.anon_token;
-					setAnonToken(token);
-				}
-			} else {
-				await bootstrapDevice(token).catch(() => {});
-			}
+			await ensureDeviceBootstrap({ retry: 1 });
 
 			if (!isConsentGiven()) {
 				showConsent = true;
@@ -42,7 +34,8 @@
 
 			ready = true;
 		} catch (e) {
-			initError = e instanceof Error ? e.message : 'Gagal menginisialisasi';
+			console.error('[layout] bootstrap init failed', e);
+			initError = 'Inisialisasi perangkat belum selesai. Mohon tunggu sebentar lalu muat ulang halaman.';
 			ready = true;
 		}
 	});
