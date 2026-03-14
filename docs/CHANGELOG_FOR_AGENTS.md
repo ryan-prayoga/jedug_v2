@@ -25,6 +25,51 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Submit Report 500: Structured error_code + Per-Step Logging + Migration File
+
+- Scope: production incident debugging akhir end-to-end pada POST /api/v1/reports.
+- Temuan:
+  - File migrasi `backend/migrations/202603140001_create_issue_events.sql` disebutkan di changelog
+    sebelumnya tetapi TIDAK ADA di repo (migrations/ kosong). File ini sekarang dibuat.
+  - Response error tidak memiliki `error_code` — frontend tidak bisa memisahkan jenis error.
+  - Repository tidak mem-wrap error dengan konteks, sehingga log server hanya menampilkan
+    error mentah dari pgx tanpa menandai step mana yang gagal.
+- Perbaikan:
+  1. Membuat `backend/migrations/202603140001_create_issue_events.sql` — WAJIB DIJALANKAN DI PROD.
+  2. Menambah `ErrorCode string` ke `response.Response` + helper `response.ErrorWithCode()`.
+  3. Mengubah semua error path di `report_handler.go` untuk menggunakan `ErrorWithCode` dengan
+     kode stabil: INVALID_PAYLOAD, PHOTO_REQUIRED, MEDIA_INVALID, LOCATION_NOT_READY,
+     DEVICE_NOT_READY, DEVICE_BANNED, RATE_LIMITED, LOW_TRUST, INTERNAL_ERROR.
+  4. Menambah fungsi `classifyValidationError()` di handler untuk memetakan pesan validasi
+     ke error_code yang tepat tanpa mengubah kontrak `validateReportBody`.
+  5. Menambah log entry/payload di awal handler + log detail di setiap titik error repository
+     (tx begin, resolve region, duplicate lookup, create issue, create submission, create media,
+     update aggregates, commit).
+  6. Mem-wrap setiap error repository dengan `fmt.Errorf("step: %w", err)` agar log server
+     menampilkan step yang gagal, misal: `error=create issue: ERROR: null value in column...`.
+  7. Menambah log di service layer saat `reportRepo.SubmitReport` gagal.
+- Error codes yang diperkenalkan:
+  - INVALID_PAYLOAD → 400 — payload tidak bisa di-parse atau field wajib tidak valid
+  - PHOTO_REQUIRED → 400 — tidak ada media dikirim
+  - MEDIA_INVALID → 400 — object_key / mime_type / size_bytes media tidak valid
+  - LOCATION_NOT_READY → 400 — latitude/longitude di luar range atau tidak ada
+  - DEVICE_NOT_READY → 401 — anon_token tidak ada atau device belum di-bootstrap
+  - DEVICE_BANNED → 403 — device di-ban
+  - RATE_LIMITED → 429 — cooldown submission aktif (termasuk retry_after: 120)
+  - LOW_TRUST → 403 — trust score device terlalu rendah
+  - INTERNAL_ERROR → 500 — DB error atau error tak terduga lainnya
+- Dampak area:
+  - `backend/migrations/202603140001_create_issue_events.sql` (baru — WAJIB RUN DI PROD)
+  - `backend/internal/http/response/response.go`
+  - `backend/internal/http/handlers/report_handler.go`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/service/report_service.go`
+- Action wajib setelah deploy:
+  - Jalankan migration: `psql "$DATABASE_URL" -f migrations/202603140001_create_issue_events.sql`
+  - Monitor log `[REPORT] submit_tx_committed` untuk konfirmasi submit berhasil end-to-end.
+  - Monitor log `[REPORT] submit_internal_error` — jika masih ada, error_code INTERNAL_ERROR
+    sekarang disertai konteks step (mis: `error=create issue: ...`) untuk diagnostik lebih cepat.
+
 ## 2026-03-14 - Submit Report 500 Fix: issue_events Migration + Non-Fatal Event Inserts
 
 - Akar masalah:
