@@ -27,7 +27,8 @@ func notifTitleMessage(eventType string) (string, string) {
 // DispatchNotificationsForEvent inserts a notification row for every follower of
 // issueID, linked to the given eventID. It is idempotent via the unique constraint
 // (event_id, follower_id). Callers must treat a non-nil error as non-fatal and log it.
-func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueID, eventID uuid.UUID, eventType string) error {
+// eventID is int64 because issue_events.id is BIGSERIAL in the production schema.
+func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueID uuid.UUID, eventID int64, eventType string) error {
 	title, message := notifTitleMessage(eventType)
 	_, err := db.Exec(ctx, `
 		INSERT INTO notifications (id, issue_id, follower_id, event_id, type, title, message)
