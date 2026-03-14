@@ -173,7 +173,7 @@ func (r *statsRepository) queryOldestOpenIssue(ctx context.Context) (*topIssueRo
 			i.id,
 			i.status,
 			i.road_name,
-			r.name AS region_name,
+			COALESCE(NULLIF(TRIM(r.name), ''), NULLIF(TRIM(sr.name), '')) AS region_name,
 			i.submission_count,
 			i.casualty_count,
 			FLOOR(
@@ -185,6 +185,15 @@ func (r *statsRepository) queryOldestOpenIssue(ctx context.Context) (*topIssueRo
 			COALESCE(i.first_seen_at, i.created_at) AS first_seen_at
 		FROM issues i
 		LEFT JOIN regions r ON r.id = i.region_id
+		LEFT JOIN LATERAL (
+			SELECT s.region_id
+			FROM issue_submissions s
+			WHERE s.issue_id = i.id
+			  AND s.region_id IS NOT NULL
+			ORDER BY s.reported_at DESC
+			LIMIT 1
+		) latest_sub ON TRUE
+		LEFT JOIN regions sr ON sr.id = latest_sub.region_id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
 		  AND i.status IN ('open', 'verified', 'in_progress')
@@ -201,7 +210,7 @@ func (r *statsRepository) queryTopIssueByReports(ctx context.Context) (*topIssue
 			i.id,
 			i.status,
 			i.road_name,
-			r.name AS region_name,
+			COALESCE(NULLIF(TRIM(r.name), ''), NULLIF(TRIM(sr.name), '')) AS region_name,
 			i.submission_count,
 			i.casualty_count,
 			FLOOR(
@@ -213,6 +222,15 @@ func (r *statsRepository) queryTopIssueByReports(ctx context.Context) (*topIssue
 			COALESCE(i.first_seen_at, i.created_at) AS first_seen_at
 		FROM issues i
 		LEFT JOIN regions r ON r.id = i.region_id
+		LEFT JOIN LATERAL (
+			SELECT s.region_id
+			FROM issue_submissions s
+			WHERE s.issue_id = i.id
+			  AND s.region_id IS NOT NULL
+			ORDER BY s.reported_at DESC
+			LIMIT 1
+		) latest_sub ON TRUE
+		LEFT JOIN regions sr ON sr.id = latest_sub.region_id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
 		ORDER BY i.submission_count DESC, i.casualty_count DESC, i.last_seen_at DESC
@@ -228,7 +246,7 @@ func (r *statsRepository) queryTopIssueByCasualties(ctx context.Context) (*topIs
 			i.id,
 			i.status,
 			i.road_name,
-			r.name AS region_name,
+			COALESCE(NULLIF(TRIM(r.name), ''), NULLIF(TRIM(sr.name), '')) AS region_name,
 			i.submission_count,
 			i.casualty_count,
 			FLOOR(
@@ -240,6 +258,15 @@ func (r *statsRepository) queryTopIssueByCasualties(ctx context.Context) (*topIs
 			COALESCE(i.first_seen_at, i.created_at) AS first_seen_at
 		FROM issues i
 		LEFT JOIN regions r ON r.id = i.region_id
+		LEFT JOIN LATERAL (
+			SELECT s.region_id
+			FROM issue_submissions s
+			WHERE s.issue_id = i.id
+			  AND s.region_id IS NOT NULL
+			ORDER BY s.reported_at DESC
+			LIMIT 1
+		) latest_sub ON TRUE
+		LEFT JOIN regions sr ON sr.id = latest_sub.region_id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
 		ORDER BY i.casualty_count DESC, i.submission_count DESC, i.last_seen_at DESC
@@ -274,12 +301,28 @@ func (r *statsRepository) queryTopIssueRow(ctx context.Context, query string, ar
 func (r *statsRepository) queryRegionLeaderboard(ctx context.Context, limit int) ([]*domain.PublicRegionStat, error) {
 	const query = `
 		SELECT
-			COALESCE(NULLIF(TRIM(r.name), ''), 'Wilayah Tidak Diketahui') AS region_name,
+			COALESCE(
+				NULLIF(TRIM(r.name), ''),
+				NULLIF(TRIM(sr.name), ''),
+				CASE
+					WHEN i.road_name IS NOT NULL AND NULLIF(TRIM(i.road_name), '') IS NOT NULL THEN CONCAT('Sekitar ', TRIM(i.road_name))
+					ELSE 'Area Lainnya'
+				END
+			) AS region_name,
 			COUNT(*)::bigint AS issue_count,
 			COALESCE(SUM(i.casualty_count), 0)::bigint AS casualty_count,
 			COALESCE(SUM(i.submission_count), 0)::bigint AS report_count
 		FROM issues i
 		LEFT JOIN regions r ON r.id = i.region_id
+		LEFT JOIN LATERAL (
+			SELECT s.region_id
+			FROM issue_submissions s
+			WHERE s.issue_id = i.id
+			  AND s.region_id IS NOT NULL
+			ORDER BY s.reported_at DESC
+			LIMIT 1
+		) latest_sub ON TRUE
+		LEFT JOIN regions sr ON sr.id = latest_sub.region_id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
 		GROUP BY 1
@@ -315,6 +358,17 @@ func buildTopIssue(
 	metricValue int64,
 	row *topIssueRow,
 ) *domain.PublicTopIssue {
+	regionName := row.RegionName
+	if regionName == nil || *regionName == "" {
+		if row.RoadName != nil && *row.RoadName != "" {
+			fallback := "Sekitar " + *row.RoadName
+			regionName = &fallback
+		} else {
+			fallback := "Area Lainnya"
+			regionName = &fallback
+		}
+	}
+
 	return &domain.PublicTopIssue{
 		Category:        category,
 		Label:           label,
@@ -323,7 +377,7 @@ func buildTopIssue(
 		IssueID:         row.ID,
 		Status:          row.Status,
 		RoadName:        row.RoadName,
-		RegionName:      row.RegionName,
+		RegionName:      regionName,
 		SubmissionCount: row.SubmissionCount,
 		CasualtyCount:   row.CasualtyCount,
 		AgeDays:         row.AgeDays,

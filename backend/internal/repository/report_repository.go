@@ -48,6 +48,7 @@ type SubmitMediaInput struct {
 type SubmitInput struct {
 	ClientRequestID uuid.UUID
 	DeviceID        uuid.UUID
+	ActorFollowerID *uuid.UUID
 	Longitude       float64
 	Latitude        float64
 	GPSAccuracyM    *float64
@@ -264,7 +265,7 @@ func (r *reportRepository) insertTimelineEvents(
 			log.Printf("[REPORT] timeline_event_insert_error issue=%s type=%s error=%v", issueID, ev.eventType, execErr)
 			continue
 		}
-		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, issueID, eventID, ev.eventType); dispatchErr != nil {
+		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, issueID, eventID, ev.eventType, input.ActorFollowerID); dispatchErr != nil {
 			log.Printf("[REPORT] notification_dispatch_error issue=%s event=%d error=%v", issueID, eventID, dispatchErr)
 		}
 	}

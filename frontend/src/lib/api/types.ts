@@ -42,6 +42,7 @@ export interface ReportMediaInput {
 
 export interface ReportInput {
   anon_token: string;
+  actor_follower_id?: string;
   client_request_id?: string;
   latitude: number;
   longitude: number;

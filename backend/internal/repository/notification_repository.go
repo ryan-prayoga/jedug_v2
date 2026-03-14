@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,20 +12,35 @@ import (
 	"jedug_backend/internal/sse"
 )
 
-// notificationMessages maps event_type → [title, message] shown to followers.
-var notificationMessages = map[string][2]string{
-	"issue_created":     {"Laporan Baru Dibuat", "Laporan jalan rusak baru telah dibuat di area ini."},
-	"photo_added":       {"Foto Baru Ditambahkan", "Foto baru ditambahkan ke laporan yang kamu ikuti."},
-	"severity_changed":  {"Tingkat Keparahan Berubah", "Tingkat keparahan laporan yang kamu ikuti telah berubah."},
-	"casualty_reported": {"Ada Korban Dilaporkan", "Ada korban yang dilaporkan pada laporan yang kamu ikuti."},
-	"status_updated":    {"Status Laporan Diperbarui", "Status laporan yang kamu ikuti telah diperbarui."},
+func compactIssueLocationLabel(roadName, regionName *string, issueID uuid.UUID) string {
+	if roadName != nil && strings.TrimSpace(*roadName) != "" {
+		return strings.TrimSpace(*roadName)
+	}
+	if regionName != nil && strings.TrimSpace(*regionName) != "" {
+		return strings.TrimSpace(*regionName)
+	}
+	shortID := issueID.String()
+	if len(shortID) >= 8 {
+		shortID = shortID[:8]
+	}
+	return "Issue #" + shortID
 }
 
-func notifTitleMessage(eventType string) (string, string) {
-	if msg, ok := notificationMessages[eventType]; ok {
-		return msg[0], msg[1]
+func notifTitleMessage(eventType, locationLabel string) (string, string) {
+	switch eventType {
+	case "issue_created":
+		return "Laporan Baru Dibuat", "Laporan baru terdeteksi di " + locationLabel + "."
+	case "photo_added":
+		return "Foto Baru Ditambahkan", "Foto baru ditambahkan pada laporan di " + locationLabel + "."
+	case "severity_changed":
+		return "Tingkat Keparahan Berubah", "Keparahan laporan di " + locationLabel + " berubah."
+	case "casualty_reported":
+		return "Ada Korban Dilaporkan", "Ada laporan korban pada issue di " + locationLabel + "."
+	case "status_updated":
+		return "Status Laporan Diperbarui", "Status laporan di " + locationLabel + " telah diperbarui."
+	default:
+		return "Ada Pembaruan Laporan", "Ada pembaruan pada laporan di " + locationLabel + "."
 	}
-	return "Ada Pembaruan Laporan", "Ada pembaruan pada laporan yang kamu ikuti."
 }
 
 // ssePayload is the JSON shape sent in SSE notification events.
@@ -44,16 +60,42 @@ type ssePayload struct {
 // event to the follower via sse.Default. Callers must treat a non-nil error as
 // non-fatal and log it.
 // eventID is int64 because issue_events.id is BIGSERIAL in the production schema.
-func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueID uuid.UUID, eventID int64, eventType string) error {
-	title, message := notifTitleMessage(eventType)
+func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueID uuid.UUID, eventID int64, eventType string, excludeFollowerID *uuid.UUID) error {
+	var (
+		roadName   *string
+		regionName *string
+	)
+	if queryErr := db.QueryRow(ctx, `
+		SELECT i.road_name,
+		       COALESCE(NULLIF(TRIM(r.name), ''), NULLIF(TRIM(sr.name), '')) AS region_name
+		FROM issues i
+		LEFT JOIN regions r ON r.id = i.region_id
+		LEFT JOIN LATERAL (
+			SELECT s.region_id
+			FROM issue_submissions s
+			WHERE s.issue_id = i.id
+			  AND s.region_id IS NOT NULL
+			ORDER BY s.reported_at DESC
+			LIMIT 1
+		) latest_sub ON TRUE
+		LEFT JOIN regions sr ON sr.id = latest_sub.region_id
+		WHERE i.id = $1
+	`, issueID).Scan(&roadName, &regionName); queryErr != nil {
+		roadName = nil
+		regionName = nil
+	}
+
+	locationLabel := compactIssueLocationLabel(roadName, regionName, issueID)
+	title, message := notifTitleMessage(eventType, locationLabel)
 	rows, err := db.Query(ctx, `
 		INSERT INTO notifications (id, issue_id, follower_id, event_id, type, title, message)
 		SELECT gen_random_uuid(), $1, follower_id, $2, $3, $4, $5
 		FROM issue_followers
 		WHERE issue_id = $1
+		  AND ($6::uuid IS NULL OR follower_id <> $6::uuid)
 		ON CONFLICT (event_id, follower_id) DO NOTHING
 		RETURNING id, issue_id, follower_id, type, title, message, created_at
-	`, issueID, eventID, eventType, title, message)
+	`, issueID, eventID, eventType, title, message, excludeFollowerID)
 	if err != nil {
 		return err
 	}
@@ -92,7 +134,7 @@ func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueI
 // NotificationRepository reads notification data for a given follower.
 type NotificationRepository interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
-	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) error
+	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error)
 }
 
 type notificationRepository struct {
@@ -130,12 +172,15 @@ func (r *notificationRepository) GetByFollowerID(ctx context.Context, followerID
 	return result, rows.Err()
 }
 
-func (r *notificationRepository) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `
+func (r *notificationRepository) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error) {
+	tag, err := r.db.Exec(ctx, `
 		UPDATE notifications
 		SET read_at = COALESCE(read_at, NOW())
 		WHERE id = $1
 		  AND follower_id = $2
 	`, notificationID, followerID)
-	return err
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
 }

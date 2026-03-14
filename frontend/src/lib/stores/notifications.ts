@@ -178,6 +178,7 @@ export const notificationsState = {
       await markNotificationRead(notificationID, followerID);
       state.update((prev) => ({
         ...prev,
+        error: null,
         items: prev.items.map((item) =>
           item.id === notificationID
             ? { ...item, read_at: item.read_at ?? new Date().toISOString() }
@@ -185,7 +186,12 @@ export const notificationsState = {
         ),
       }));
     } catch {
-      // keep UX non-blocking for now
+      state.update((prev) => ({
+        ...prev,
+        error: "Gagal sinkronisasi status dibaca. Coba lagi.",
+      }));
+      // Pull latest state so badge/list stays consistent with persisted DB state.
+      await this.refresh();
     }
   },
 

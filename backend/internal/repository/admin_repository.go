@@ -252,7 +252,7 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 	}
 
 	if statusChanged {
-		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, id, eventID, "status_updated"); dispatchErr != nil {
+		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, id, eventID, "status_updated", nil); dispatchErr != nil {
 			log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%d error=%v", id, eventID, dispatchErr)
 		}
 	}

@@ -29,6 +29,47 @@ Area yang selalu wajib update docs bila berubah:
 
 - Scope: SSE backend hub + endpoint + frontend EventSource client dengan exponential-backoff reconnect.
 
+## 2026-03-15 - Notification Business Rules + Stats Fallback Fixes
+
+- Scope: mencegah self-notify, memastikan read/unread persisten benar, memperbaiki fallback wilayah stats, dan memperjelas copy notifikasi.
+
+### Backend
+
+1. **Self-notify prevention**
+
+- `report` submit kini menerima `actor_follower_id` (opsional UUID).
+- `DispatchNotificationsForEvent` menambah parameter `excludeFollowerID *uuid.UUID`.
+- Query insert notifikasi men-skip follower actor: `AND ($6::uuid IS NULL OR follower_id <> $6::uuid)`.
+
+2. **Contextual notification copy**
+
+- Title/message builder di `notification_repository.go` kini menyertakan label lokasi issue.
+- Prioritas label: `road_name` → region issue → region submission terbaru → `Issue #<short-id>`.
+
+3. **Read/unread correctness**
+
+- `MarkAsRead` repository kini mengembalikan `(updated bool, err error)` memakai `RowsAffected()`.
+- `PATCH /notifications/:id/read` mengembalikan 404 jika row not found atau follower tidak cocok (tidak lagi sukses palsu).
+
+4. **Stats fallback lebih manusiawi**
+
+- Query leaderboard dan top issue kini fallback region dari `latest issue_submissions.region_id` jika `issues.region_id` kosong.
+- Fallback final jadi `Sekitar {road_name}` lalu `Area Lainnya` (mengurangi label `Wilayah Tidak Diketahui`).
+
+### Frontend
+
+5. `lapor/+page.svelte` mengirim `actor_follower_id` saat submit report agar backend bisa skip self-notify.
+6. `stores/notifications.ts` menambah error handling mark-read: jika gagal sinkron, tampilkan error ringan dan refresh list dari server agar unread badge tetap konsisten dengan DB.
+7. `lib/api/types.ts` menambah field `actor_follower_id` di `ReportInput`.
+
+### Doc Updates
+
+- `docs/BACKEND.md`
+- `docs/FRONTEND.md`
+- `docs/SCHEMA.md`
+
+---
+
 ### Backend
 
 1. **`internal/sse/hub.go`** (baru): `Hub` struct dengan `Subscribe(followerID) (ch, done)` dan `Push(followerID, msg)`. `sse.Default` adalah singleton global. Thread-safe (RWMutex). Buffer per-connection 16 slot, non-blocking drop.

@@ -152,12 +152,19 @@
 
 - Tabel event: `issue_events`.
 - Tabel notifikasi: `notifications` — di-populate otomatis oleh `DispatchNotificationsForEvent` setiap kali event berhasil diinsert.
-- Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, issueID, eventID, eventType)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
+- Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, issueID, eventID, eventType, excludeFollowerID)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
 - Endpoint notifikasi in-app publik:
   - `GET /api/v1/notifications?follower_id=...&limit=50`
   - `PATCH /api/v1/notifications/:id/read?follower_id=...`
   - `GET /api/v1/notifications/stream?follower_id=...` — **SSE stream** (text/event-stream)
-- Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri.
+- Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri. Jika row tidak ditemukan, endpoint mengembalikan `404` (bukan success palsu).
+- Self-notify prevention:
+  - endpoint submit report menerima field opsional `actor_follower_id`.
+  - dispatcher skip follower yang sama dengan actor (`excludeFollowerID`) agar pengirim update tidak menerima notifikasi untuk event yang ia buat sendiri.
+  - behavior ini hanya diterapkan pada event dari flow submit report; event admin tetap broadcast ke seluruh follower.
+- Copy notifikasi sekarang kontekstual lokasi issue:
+  - prioritas label: `issues.road_name` → `regions.name` dari issue → `regions.name` dari submission terbaru → fallback `Issue #<short-id>`.
+  - contoh: `Foto baru ditambahkan pada laporan di Jalan ...`.
 - **SSE Hub** (`internal/sse/hub.go`):
   - Singleton `sse.Default` dipakai oleh dispatcher dan endpoint stream.
   - `DispatchNotificationsForEvent` kini memakai `RETURNING` untuk mendapat follower IDs yang baru di-insert, lalu memanggil `sse.Default.Push(followerID, msg)` untuk setiap row.
@@ -194,11 +201,12 @@
     - metadata issue tertua unresolved (`oldest_open_issue_id`, lokasi, first seen) jika ada
   - region leaderboard:
     - top wilayah berdasarkan `issue_count`, `casualty_count`, `report_count`
-    - sumber wilayah dari join `regions` (fallback label: `Wilayah Tidak Diketahui`)
+    - fallback sumber wilayah: `issues.region_id -> regions.name` → `latest issue_submissions.region_id -> regions.name` → `Sekitar {road_name}` → `Area Lainnya`
   - top issues:
     - issue dengan laporan terbanyak
     - issue dengan korban terbanyak
     - issue paling lama belum diperbaiki
+    - region_name juga memakai fallback manusiawi (`Sekitar {road_name}` / `Area Lainnya`) agar card tidak jatuh ke `Wilayah Tidak Diketahui` terlalu cepat
 - Semua query stats hanya memakai data publik issue:
   - `is_hidden = false`
   - status `rejected` dan `merged` dikecualikan

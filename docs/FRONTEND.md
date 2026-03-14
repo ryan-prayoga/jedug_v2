@@ -150,10 +150,12 @@
 - Endpoint yang dipakai:
   - list: `GET /api/v1/notifications?follower_id=...&limit=50`
   - mark read: `PATCH /api/v1/notifications/:id/read?follower_id=...`
+  - stream realtime: `GET /api/v1/notifications/stream?follower_id=...` (SSE)
 - UX behavior:
   - badge menampilkan jumlah item dengan `read_at = null`
   - dropdown panel menampilkan title/message/waktu
   - klik item menandai notifikasi sebagai read lalu navigasi ke `/issues/{issue_id}`
+  - jika mark-read gagal sinkron ke backend, store menampilkan error ringan dan refresh ulang list dari server agar unread badge tetap konsisten dengan DB
 - Scope saat ini hanya in-app notification (tanpa browser push/service worker/permission prompt).
 
 ## Public Stats Dashboard (`/stats`)
@@ -201,8 +203,10 @@ Di `/lapor`:
 5. Upload binary.
    - jika upload R2 gagal, fallback ke endpoint local `/api/v1/uploads/file/{object_key}`
 6. Submit report dengan metadata media + `client_request_id`.
-   - backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).
-   - UI tetap menampilkan ini sebagai label UX, bukan input wajib user.
+
+- payload juga mengirim `actor_follower_id` (identity follower anonim dari browser) untuk mencegah self-notify pada event yang dipicu user itu sendiri.
+- backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).
+- UI tetap menampilkan ini sebagai label UX, bukan input wajib user.
 
 Hardening UX submit report:
 
