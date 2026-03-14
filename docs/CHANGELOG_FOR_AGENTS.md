@@ -25,6 +25,32 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Submit Report Error Handling Overhaul
+
+- Scope:
+  - mengaudit end-to-end pipeline submit laporan dari bootstrap → compress → presign → upload → submit → success/error.
+  - menemukan root cause utama: catch block di `handleSubmit` menggunakan `e.message` mentah untuk semua error yang tidak dikelola secara eksplisit, sehingga pesan seperti "failed to submit report" (HTTP 500), "device is banned" (HTTP 403), dan "Failed to fetch" (network error) langsung tampil ke user.
+  - menambahkan fungsi `mapSubmitError(e: unknown): string` untuk memetakan semua error (ApiError 4xx/5xx, TypeError network, Error pipeline) ke pesan Indonesia yang kontekstual dan ramah pengguna.
+  - mengganti catch block di `handleSubmit` dari rantai if/else per status ke single `mapSubmitError` call dengan scroll-to-error otomatis.
+  - menambahkan `console.error` di catch untuk debugging submit failure.
+  - menambahkan `log.Printf` di backend handler sebelum return HTTP 500 agar error aktual ter-log di server.
+- Error mapping baru:
+  - `TypeError` (network/fetch failure) → "Koneksi sedang bermasalah. Periksa internet lalu coba lagi."
+  - `ApiError 429` → pesan backend (sudah dalam bahasa Indonesia)
+  - `ApiError 403` → "Akun tidak diizinkan mengirim laporan saat ini."
+  - `ApiError 401` → "Inisialisasi pelaporan belum selesai. Muat ulang halaman lalu coba lagi."
+  - `ApiError 400` → "Data laporan belum valid. Periksa kembali isian form lalu coba lagi."
+  - `ApiError 5xx` → "Laporan belum bisa dikirim saat ini. Coba beberapa saat lagi."
+  - `Error 'Canvas context not available'` → "Gagal memproses foto. Coba pilih ulang foto lalu kirim lagi."
+  - Error Indonesia yang dilempar pipeline (compress/upload) → pass-through as-is
+- Dampak area:
+  - `frontend/src/routes/lapor/+page.svelte`
+  - `backend/internal/http/handlers/report_handler.go`
+- File docs yang diupdate:
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tidak ada perubahan kontrak API; semua perubahan di sisi error presentation layer.
+
 ## 2026-03-14 - Core UX Bugfixes (Lapor Bootstrap, Blue Dot Map, Active Navbar)
 
 - Scope:

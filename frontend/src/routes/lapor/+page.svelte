@@ -45,6 +45,7 @@
 	const locationLabelCache = new Map<string, LocationLabelData>();
 	let activeLocationLabelRequestId = 0;
 	let bootstrapInitializing = $state(true);
+	let errorRef = $state<HTMLElement | null>(null);
 
 	const stepLabels: Record<Step, string> = {
 		idle: '',
@@ -65,7 +66,7 @@
 	];
 
 	// Get location on mount
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	onMount(async () => {
 		try {
 			await ensureDeviceBootstrap({ retry: 1 });
@@ -221,6 +222,44 @@
 		return null;
 	}
 
+	function mapSubmitError(e: unknown): string {
+		// Network failure (no internet / DNS / CORS)
+		if (e instanceof TypeError) {
+			return 'Koneksi sedang bermasalah. Periksa internet lalu coba lagi.';
+		}
+		if (e instanceof ApiError) {
+			if (e.status === 429) {
+				// Backend returns a nice Indonesian message for this case
+				return e.message || 'Terlalu banyak laporan dikirim. Tunggu beberapa menit lalu coba lagi.';
+			}
+			if (e.status === 403) {
+				return 'Akun tidak diizinkan mengirim laporan saat ini.';
+			}
+			if (e.status === 401) {
+				return 'Inisialisasi pelaporan belum selesai. Muat ulang halaman lalu coba lagi.';
+			}
+			if (e.status === 400) {
+				return 'Data laporan belum valid. Periksa kembali isian form lalu coba lagi.';
+			}
+			if (e.status >= 500) {
+				return 'Laporan belum bisa dikirim saat ini. Coba beberapa saat lagi.';
+			}
+			return 'Terjadi kesalahan saat mengirim laporan. Coba lagi.';
+		}
+		if (e instanceof Error) {
+			// Known English errors from browser/canvas — remap to Indonesian
+			if (e.message === 'Canvas context not available') {
+				return 'Gagal memproses foto. Coba pilih ulang foto lalu kirim lagi.';
+			}
+			if (e.message === 'bootstrap token missing') {
+				return 'Inisialisasi pelaporan belum selesai. Muat ulang halaman lalu coba lagi.';
+			}
+			// All other Error messages are our own Indonesian strings — pass through
+			return e.message;
+		}
+		return 'Terjadi kesalahan. Coba lagi.';
+	}
+
 	async function handleSubmit() {
 		if (!getResolvedLocation() && !locationLoading) {
 			currentStep = 'getting-location';
@@ -335,16 +374,11 @@
 				goto(`/issues/${reportRes.data!.issue_id}`);
 			}, 500);
 		} catch (e) {
-			if (e instanceof ApiError && e.status === 429) {
-				error = e.message || 'Terlalu banyak permintaan. Coba lagi nanti.';
-			} else if (e instanceof ApiError && e.status === 403) {
-				error = e.message || 'Akun tidak diizinkan mengirim laporan saat ini.';
-			} else if (isBootstrapMissingError(e)) {
-				error = 'Inisialisasi pelaporan belum selesai. Mohon tunggu sebentar lalu coba lagi.';
-			} else {
-				error = e instanceof Error ? e.message : 'Terjadi kesalahan';
-			}
+			console.error('[lapor] submit failed', { step: currentStep, error: e });
+			error = mapSubmitError(e);
 			currentStep = 'idle';
+			await tick();
+			errorRef?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 		} finally {
 			if (currentStep !== 'done') {
 				submitting = false;
@@ -507,7 +541,7 @@
 
 	<!-- Error -->
 	{#if error}
-		<div class="error-msg">⚠️ {error}</div>
+		<div class="error-msg" bind:this={errorRef}>⚠️ {error}</div>
 	{/if}
 
 	<!-- Submit -->
