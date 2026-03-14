@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import ImagePicker from '$lib/components/ImagePicker.svelte';
 	import LoadingState from '$lib/components/LoadingState.svelte';
-	import { getAnonToken, isConsentGiven } from '$lib/utils/storage';
+	import { getOrCreateIssueFollowerId, isConsentGiven } from '$lib/utils/storage';
 	import { ensureDeviceBootstrap, isBootstrapMissingError } from '$lib/utils/device-init';
 	import { getLocation, type GeoResult } from '$lib/utils/geolocation';
 	import { compressImage } from '$lib/utils/image';
@@ -315,6 +315,7 @@
 			const payload = {
 				client_request_id: clientRequestId,
 				anon_token: token,
+				actor_follower_id: getOrCreateIssueFollowerId() ?? undefined,
 				latitude: location.latitude,
 				longitude: location.longitude,
 				gps_accuracy_m: geo ? geo.accuracy : undefined,

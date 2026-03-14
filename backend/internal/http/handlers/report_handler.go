@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"jedug_backend/internal/http/response"
 	"jedug_backend/internal/service"
 	"jedug_backend/internal/storage"
@@ -34,6 +35,7 @@ type reportMediaInput struct {
 type submitReportBody struct {
 	ClientRequestID *string            `json:"client_request_id"`
 	AnonToken       string             `json:"anon_token"`
+	ActorFollowerID *string            `json:"actor_follower_id"`
 	Latitude        float64            `json:"latitude"`
 	Longitude       float64            `json:"longitude"`
 	GPSAccuracyM    *float64           `json:"gps_accuracy_m"`
@@ -74,6 +76,7 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 	result, err := h.svc.SubmitReport(c.Context(), service.SubmitReportRequest{
 		ClientRequestID: body.ClientRequestID,
 		AnonToken:       body.AnonToken,
+		ActorFollowerID: body.ActorFollowerID,
 		Latitude:        body.Latitude,
 		Longitude:       body.Longitude,
 		GPSAccuracyM:    body.GPSAccuracyM,
@@ -129,6 +132,11 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 func validateReportBody(b *submitReportBody) error {
 	if b.AnonToken == "" {
 		return errors.New("anon_token is required")
+	}
+	if b.ActorFollowerID != nil && strings.TrimSpace(*b.ActorFollowerID) != "" {
+		if _, err := uuid.Parse(strings.TrimSpace(*b.ActorFollowerID)); err != nil {
+			return errors.New("actor_follower_id must be a valid uuid")
+		}
 	}
 	if b.Latitude < -90 || b.Latitude > 90 {
 		return errors.New("latitude must be between -90 and 90")

@@ -51,8 +51,12 @@ func (h *NotificationHandler) MarkRead(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
 	}
 
-	if err := h.svc.MarkAsRead(c.Context(), notificationID, followerID); err != nil {
+	updated, err := h.svc.MarkAsRead(c.Context(), notificationID, followerID)
+	if err != nil {
 		return response.Error(c, fiber.StatusInternalServerError, "failed to mark notification as read")
+	}
+	if !updated {
+		return response.Error(c, fiber.StatusNotFound, "notification not found for this follower")
 	}
 
 	return response.OKMessage(c, "notification marked as read")

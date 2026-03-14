@@ -144,7 +144,7 @@ Dokumen ini disusun dari:
 - Rawan salah paham:
   - `event_id` merujuk ke `issue_events.id` secara logis, tetapi tidak ada FK constraint karena tipe kolom belum diverifikasi eksplisit.
   - dispatch notifikasi berjalan non-fatal setelah event berhasil diinsert; jika gagal, hanya di-log.
-  - `read_at` belum dipakai aktif di API (disimpan untuk fitur mark-as-read di masa depan).
+  - `read_at` dipakai aktif oleh endpoint `PATCH /api/v1/notifications/:id/read?follower_id=...` dan menjadi source of truth unread badge di frontend.
 - Migration: `backend/migrations/202603150001_create_notifications.sql` — WAJIB DIJALANKAN DI PROD.
 
 ### `moderation_actions`

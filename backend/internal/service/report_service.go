@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +41,7 @@ type MediaInput struct {
 type SubmitReportRequest struct {
 	ClientRequestID *string
 	AnonToken       string
+	ActorFollowerID *string
 	Longitude       float64
 	Latitude        float64
 	GPSAccuracyM    *float64
@@ -153,9 +155,22 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		}
 	}
 
+	var actorFollowerID *uuid.UUID
+	if req.ActorFollowerID != nil {
+		trimmed := strings.TrimSpace(*req.ActorFollowerID)
+		if trimmed != "" {
+			parsedFollowerID, parseErr := uuid.Parse(trimmed)
+			if parseErr != nil {
+				return nil, errors.New("invalid actor_follower_id format")
+			}
+			actorFollowerID = &parsedFollowerID
+		}
+	}
+
 	result, err := s.reportRepo.SubmitReport(ctx, repository.SubmitInput{
 		ClientRequestID: clientRequestID,
 		DeviceID:        device.ID,
+		ActorFollowerID: actorFollowerID,
 		Longitude:       req.Longitude,
 		Latitude:        req.Latitude,
 		GPSAccuracyM:    req.GPSAccuracyM,
