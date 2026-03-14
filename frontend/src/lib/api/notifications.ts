@@ -4,7 +4,7 @@ import type { ApiResponse } from "./types";
 export interface Notification {
   id: string;
   issue_id: string;
-  event_id: string;
+  event_id: number;
   type: string;
   title: string;
   message: string;

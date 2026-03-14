@@ -25,6 +25,22 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - Notification Bug Fix: int64 vs UUID mismatch on issue_events.id
+
+- Scope: fix scan error `unable to scan type int64 into UUID` yang menyebabkan event insert gagal dan notifikasi tidak terkirim.
+- Akar masalah:
+  - `issue_events.id` di production DB adalah `BIGSERIAL` (int64).
+  - Kode yang dibuat di task sebelumnya mengasumsikan kolom ini UUID → `RETURNING id` di-scan ke `uuid.UUID` → scan error → event dianggap gagal → notifikasi tidak dibuat.
+- Perbaikan (minimal, follow actual schema):
+  1. `domain/notification.go`: `EventID uuid.UUID` → `EventID int64`.
+  2. `repository/notification_repository.go`: signature `DispatchNotificationsForEvent(..., eventID uuid.UUID, ...)` → `eventID int64`.
+  3. `repository/report_repository.go`: `var eventID uuid.UUID` → `var eventID int64`; format log `%s` → `%d`.
+  4. `repository/admin_repository.go`: `eventID uuid.UUID` → `eventID int64`; format log `%s` → `%d`.
+  5. `migrations/202603150001_create_notifications.sql`: `event_id UUID` → `event_id BIGINT`.
+  6. `frontend/src/lib/api/notifications.ts`: `event_id: string` → `event_id: number`.
+- Tidak ada perubahan ke `issue_events` schema — sengaja mengikuti schema yang sudah ada.
+- Action wajib di prod: jalankan migration `202603150001_create_notifications.sql` jika belum.
+
 ## 2026-03-15 - Follow Notification Pipeline: issue_events → notifications
 
 - Scope: backend notification pipeline + GET `/api/v1/notifications` endpoint + frontend API helper.

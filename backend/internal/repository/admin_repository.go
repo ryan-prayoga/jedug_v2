@@ -223,7 +223,7 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 	}
 
 	var (
-		eventID      uuid.UUID
+		eventID       int64
 		statusChanged bool
 	)
 
@@ -253,7 +253,7 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 
 	if statusChanged {
 		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, id, eventID, "status_updated"); dispatchErr != nil {
-			log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%s error=%v", id, eventID, dispatchErr)
+			log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%d error=%v", id, eventID, dispatchErr)
 		}
 	}
 	return nil
