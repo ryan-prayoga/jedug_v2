@@ -1,4 +1,5 @@
-import { apiDelete, apiGet, apiPost } from "./client";
+import { ApiError, apiDelete, apiGet, apiPost } from "./client";
+import type { ApiResponse } from "./types";
 import type {
   Issue,
   IssueDetail,
@@ -30,31 +31,76 @@ export async function getIssue(id: string) {
   return apiGet<IssueDetail>(`/api/v1/issues/${encodeURIComponent(id)}`);
 }
 
+async function with404Fallback<T>(
+  primary: () => Promise<ApiResponse<T>>,
+  fallback: () => Promise<ApiResponse<T>>,
+) {
+  try {
+    return await primary();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return fallback();
+    }
+
+    throw error;
+  }
+}
+
 export async function followIssue(id: string, followerId: string) {
-  return apiPost<IssueFollowState>(
-    `/api/v1/issues/${encodeURIComponent(id)}/follow`,
-    { follower_id: followerId },
+  const encodedId = encodeURIComponent(id);
+
+  return with404Fallback(
+    () =>
+      apiPost<IssueFollowState>(`/api/v1/issues/${encodedId}/follow`, {
+        follower_id: followerId,
+      }),
+    () =>
+      apiPost<IssueFollowState>(`/api/v1/issues/${encodedId}/followers`, {
+        follower_id: followerId,
+      }),
   );
 }
 
 export async function unfollowIssue(id: string, followerId: string) {
-  return apiDelete<IssueFollowState>(
-    `/api/v1/issues/${encodeURIComponent(id)}/follow`,
-    { follower_id: followerId },
+  const encodedId = encodeURIComponent(id);
+
+  return with404Fallback(
+    () =>
+      apiDelete<IssueFollowState>(`/api/v1/issues/${encodedId}/follow`, {
+        follower_id: followerId,
+      }),
+    () =>
+      apiDelete<IssueFollowState>(
+        `/api/v1/issues/${encodedId}/followers?follower_id=${encodeURIComponent(followerId)}`,
+      ),
   );
 }
 
 export async function getIssueFollowerCount(id: string) {
-  return apiGet<IssueFollowersCount>(
-    `/api/v1/issues/${encodeURIComponent(id)}/followers/count`,
+  const encodedId = encodeURIComponent(id);
+
+  return with404Fallback(
+    () =>
+      apiGet<IssueFollowersCount>(
+        `/api/v1/issues/${encodedId}/followers/count`,
+      ),
+    () => apiGet<IssueFollowersCount>(`/api/v1/issues/${encodedId}/count`),
   );
 }
 
 export async function getIssueFollowStatus(id: string, followerId: string) {
   const query = new URLSearchParams({ follower_id: followerId });
+  const encodedId = encodeURIComponent(id);
 
-  return apiGet<IssueFollowState>(
-    `/api/v1/issues/${encodeURIComponent(id)}/follow-status?${query.toString()}`,
+  return with404Fallback(
+    () =>
+      apiGet<IssueFollowState>(
+        `/api/v1/issues/${encodedId}/follow-status?${query.toString()}`,
+      ),
+    () =>
+      apiGet<IssueFollowState>(
+        `/api/v1/issues/${encodedId}/follow/status?${query.toString()}`,
+      ),
   );
 }
 

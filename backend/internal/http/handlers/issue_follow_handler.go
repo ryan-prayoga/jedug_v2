@@ -89,11 +89,18 @@ func parseFollowRequest(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {
 	}
 
 	var body issueFollowBody
-	if parseErr := c.BodyParser(&body); parseErr != nil {
-		return uuid.Nil, uuid.Nil, response.Error(c, fiber.StatusBadRequest, "invalid request body")
+	if len(c.Body()) > 0 {
+		if parseErr := c.BodyParser(&body); parseErr != nil {
+			return uuid.Nil, uuid.Nil, response.Error(c, fiber.StatusBadRequest, "invalid request body")
+		}
 	}
 
-	followerID, followerErr := parseFollowerUUID(body.FollowerID)
+	rawFollowerID := body.FollowerID
+	if rawFollowerID == "" {
+		rawFollowerID = c.Query("follower_id")
+	}
+
+	followerID, followerErr := parseFollowerUUID(rawFollowerID)
 	if followerErr != nil {
 		return uuid.Nil, uuid.Nil, response.Error(c, fiber.StatusBadRequest, followerErr.Error())
 	}

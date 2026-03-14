@@ -122,8 +122,12 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issues.Get("/:id/timeline", issueHandler.Timeline)
 	issues.Post("/:id/follow", rlFollow, issueFollowHandler.Follow)
 	issues.Delete("/:id/follow", rlFollow, issueFollowHandler.Unfollow)
+	issues.Post("/:id/followers", rlFollow, issueFollowHandler.Follow)
+	issues.Delete("/:id/followers", rlFollow, issueFollowHandler.Unfollow)
 	issues.Get("/:id/followers/count", issueFollowHandler.Count)
+	issues.Get("/:id/count", issueFollowHandler.Count)
 	issues.Get("/:id/follow-status", issueFollowHandler.Status)
+	issues.Get("/:id/follow/status", issueFollowHandler.Status)
 	issues.Get("/:id", issueHandler.Get)
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
 

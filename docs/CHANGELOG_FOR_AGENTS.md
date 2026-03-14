@@ -25,6 +25,24 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - Follow Issue API 404 contract sync fix
+
+- Scope:
+  - memperbaiki mismatch kontrak follow issue yang menyebabkan request frontend ke follow-status / count / follow berujung 404 pada runtime tertentu.
+  - menambahkan alias route backend yang kompatibel dan fallback 404 terarah di helper frontend.
+  - mengurangi request awal follow state agar tidak menembak endpoint ganda tanpa kebutuhan.
+- Dampak area:
+  - `backend/internal/http/router.go`
+  - `backend/internal/http/handlers/issue_follow_handler.go`
+  - `frontend/src/lib/api/issues.ts`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - contract final tetap dipertahankan pada path utama `/follow`, `/followers/count`, `/follow-status`; alias hanya disediakan untuk kompatibilitas dan rollback-safe deploy.
+
 ## 2026-03-14 - Follow Issue / Subscribe Update MVP
 
 - Scope:
