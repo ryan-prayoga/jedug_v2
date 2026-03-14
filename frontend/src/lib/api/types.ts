@@ -120,6 +120,12 @@ export interface IssueDetail extends Issue {
   recent_submissions: SubmissionSummary[];
 }
 
+export interface IssueTimelineEvent {
+  type: string;
+  created_at: string;
+  data: Record<string, unknown>;
+}
+
 // Public stats
 export interface PublicStatsGlobal {
   total_issues: number;

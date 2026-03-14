@@ -30,6 +30,7 @@
 - `GET /api/v1/location/label?latitude={lat}&longitude={lng}`
 - `GET /api/v1/issues`
 - `GET /api/v1/issues/:id`
+- `GET /api/v1/issues/:id/timeline`
 - `POST /api/v1/issues/:id/flag`
 - `GET /api/v1/stats`
 
@@ -108,6 +109,22 @@
   - recent submissions membawa `casualty_count` dan `public_note` additive agar UI tidak perlu menampilkan note mentah
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
+- `ListTimeline`:
+  - endpoint `GET /api/v1/issues/:id/timeline`
+  - urut event terbaru di atas (`created_at DESC, id DESC`)
+  - default/maximum `limit` dijaga di 100 untuk menjaga payload tetap ringan
+  - support pagination lewat query `limit` + `offset`
+
+### Issue Timeline Event Logging
+
+- Tabel event: `issue_events`.
+- Event dibuat otomatis saat:
+  - issue baru dibuat (`issue_created`)
+  - submission membawa foto (`photo_added`)
+  - severity issue naik (`severity_changed`)
+  - korban dilaporkan/naik (`casualty_reported`)
+  - status issue berubah via moderasi (`status_updated`)
+- `event_data` disimpan sebagai JSONB agar additive/fleksibel tanpa mematahkan schema timeline.
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)
 

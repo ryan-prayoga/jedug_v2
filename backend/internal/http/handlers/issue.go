@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -86,4 +87,24 @@ func (h *IssueHandler) Get(c *fiber.Ctx) error {
 	}
 
 	return response.OK(c, detail)
+}
+
+func (h *IssueHandler) Timeline(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, "invalid issue id")
+	}
+
+	limit := c.QueryInt("limit", 100)
+	offset := c.QueryInt("offset", 0)
+
+	events, err := h.svc.GetTimeline(c.Context(), id, limit, offset)
+	if err != nil {
+		if errors.Is(err, service.ErrIssueNotFound) {
+			return response.Error(c, fiber.StatusNotFound, "issue not found")
+		}
+		return response.Error(c, fiber.StatusInternalServerError, "failed to fetch issue timeline")
+	}
+
+	return response.OK(c, events)
 }

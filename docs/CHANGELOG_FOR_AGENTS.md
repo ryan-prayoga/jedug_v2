@@ -25,6 +25,34 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Issue Timeline / Riwayat Perkembangan Issue
+
+- Scope:
+  - menambahkan tabel `issue_events` sebagai audit timeline publik per issue.
+  - menambahkan endpoint publik `GET /api/v1/issues/:id/timeline` dengan pagination (`limit`, `offset`) dan ordering terbaru di atas.
+  - menambahkan event logging otomatis untuk `issue_created`, `photo_added`, `severity_changed`, `casualty_reported`, `status_updated`.
+  - menambahkan section UI `Riwayat Laporan` pada detail issue publik (`/issues/[id]`) dengan timeline vertikal mobile-first + load more saat event > 100.
+- Dampak area:
+  - `backend/migrations/202603140001_create_issue_events.sql`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/repository/admin_repository.go`
+  - `backend/internal/repository/issue_repository.go`
+  - `backend/internal/service/issue_service.go`
+  - `backend/internal/http/handlers/issue.go`
+  - `backend/internal/http/router.go`
+  - `backend/internal/domain/issue.go`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/lib/api/issues.ts`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+- File docs yang diupdate:
+  - `docs/SCHEMA.md`
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - baseline schema SQL utama project masih direferensikan dari file eksternal, namun migration additive untuk timeline (`issue_events`) kini sudah versioned di repo.
+
 ## 2026-03-12 - Public Map Heatmap / Severity Visualization
 
 - Scope:

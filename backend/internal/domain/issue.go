@@ -39,3 +39,10 @@ type IssueDetail struct {
 	Media             []*MediaItem         `json:"media"`
 	RecentSubmissions []*SubmissionSummary `json:"recent_submissions"`
 }
+
+// IssueTimelineEvent is returned by GET /api/v1/issues/:id/timeline.
+type IssueTimelineEvent struct {
+	Type      string         `json:"type"`
+	CreatedAt time.Time      `json:"created_at"`
+	Data      map[string]any `json:"data"`
+}
