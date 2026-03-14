@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -45,14 +46,20 @@ type submitReportBody struct {
 }
 
 func (h *ReportHandler) Submit(c *fiber.Ctx) error {
+	log.Printf("[REPORT] submit_start ip=%s ua=%.60s", c.IP(), c.Get("User-Agent"))
+
 	var body submitReportBody
 	if err := c.BodyParser(&body); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "invalid request body")
+		log.Printf("[REPORT] parse_failed ip=%s error=%v", c.IP(), err)
+		return response.ErrorWithCode(c, fiber.StatusBadRequest, "INVALID_PAYLOAD", "invalid request body")
 	}
+
+	log.Printf("[REPORT] submit_payload ip=%s token=%.8s... lat=%.5f lon=%.5f severity=%d media=%d has_casualty=%t",
+		c.IP(), body.AnonToken, body.Latitude, body.Longitude, body.Severity, len(body.Media), body.HasCasualty)
 
 	if err := validateReportBody(&body); err != nil {
 		log.Printf("[ANTISPAM] validation_failed ip=%s reason=%s", c.IP(), err.Error())
-		return response.Error(c, fiber.StatusBadRequest, err.Error())
+		return response.ErrorWithCode(c, fiber.StatusBadRequest, classifyValidationError(err), err.Error())
 	}
 
 	media := make([]service.MediaInput, len(body.Media))
@@ -84,26 +91,27 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		if errors.Is(err, service.ErrDeviceNotFound) {
-			return response.Error(c, fiber.StatusUnauthorized, "device not found; bootstrap first")
+			return response.ErrorWithCode(c, fiber.StatusUnauthorized, "DEVICE_NOT_READY", "device not found; bootstrap first")
 		}
 		if errors.Is(err, service.ErrDeviceBanned) {
 			log.Printf("[ANTISPAM] banned_submit ip=%s", c.IP())
-			return response.Error(c, fiber.StatusForbidden, "device is banned")
+			return response.ErrorWithCode(c, fiber.StatusForbidden, "DEVICE_BANNED", "device is banned")
 		}
 		if errors.Is(err, service.ErrCooldown) {
 			log.Printf("[ANTISPAM] cooldown_submit ip=%s", c.IP())
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"success":     false,
+				"error_code":  "RATE_LIMITED",
 				"message":     "Tunggu beberapa menit sebelum mengirim laporan berikutnya.",
 				"retry_after": 120,
 			})
 		}
 		if errors.Is(err, service.ErrLowTrustScore) {
 			log.Printf("[ANTISPAM] low_trust_submit ip=%s", c.IP())
-			return response.Error(c, fiber.StatusForbidden, "Akun tidak diizinkan mengirim laporan saat ini.")
+			return response.ErrorWithCode(c, fiber.StatusForbidden, "LOW_TRUST", "Akun tidak diizinkan mengirim laporan saat ini.")
 		}
 		log.Printf("[REPORT] submit_internal_error ip=%s error=%v", c.IP(), err)
-		return response.Error(c, fiber.StatusInternalServerError, "failed to submit report")
+		return response.ErrorWithCode(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "failed to submit report")
 	}
 
 	status := fiber.StatusOK
@@ -160,3 +168,20 @@ func validateReportBody(b *submitReportBody) error {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// classifyValidationError maps a validation error to a stable error_code for the frontend.
+func classifyValidationError(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "media") && strings.Contains(msg, "required"):
+		return "PHOTO_REQUIRED"
+	case strings.HasPrefix(msg, "media["):
+		return "MEDIA_INVALID"
+	case strings.Contains(msg, "latitude") || strings.Contains(msg, "longitude"):
+		return "LOCATION_NOT_READY"
+	case strings.Contains(msg, "anon_token"):
+		return "DEVICE_NOT_READY"
+	default:
+		return "INVALID_PAYLOAD"
+	}
+}

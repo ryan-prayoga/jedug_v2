@@ -179,6 +179,8 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		Media:           mediaInputs,
 	})
 	if err != nil {
+		log.Printf("[REPORT] repo_submit_failed device=%s severity=%d error=%v",
+			device.ID, req.Severity, err)
 		return nil, err
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -93,7 +94,8 @@ func NewReportRepository(db *pgxpool.Pool, cfg ReportRepositoryConfig) ReportRep
 func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) (*SubmitResult, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		return nil, err
+		log.Printf("[REPORT] tx_begin_failed device=%s error=%v", input.DeviceID, err)
+		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after Commit
 	log.Printf("[REPORT] submit_tx_start device=%s lat=%.6f lon=%.6f radius_m=%.1f",
@@ -102,12 +104,16 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 
 	regionID, err := resolveBestRegionID(ctx, tx, input.Longitude, input.Latitude)
 	if err != nil {
-		return nil, err
+		log.Printf("[REPORT] resolve_region_failed device=%s lon=%.6f lat=%.6f error=%v",
+			input.DeviceID, input.Longitude, input.Latitude, err)
+		return nil, fmt.Errorf("resolve region: %w", err)
 	}
+	log.Printf("[REPORT] resolve_region_ok device=%s region_id=%v", input.DeviceID, regionID)
 
 	candidate, err := findDuplicateCandidate(ctx, tx, input.Longitude, input.Latitude, r.duplicateRadiusM)
 	if err != nil {
-		return nil, err
+		log.Printf("[REPORT] duplicate_lookup_failed device=%s error=%v", input.DeviceID, err)
+		return nil, fmt.Errorf("duplicate lookup: %w", err)
 	}
 
 	var issueID uuid.UUID
@@ -118,7 +124,9 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		issueID = candidate.IssueID
 		previousState, err = getIssueAggregateState(ctx, tx, issueID)
 		if err != nil {
-			return nil, err
+			log.Printf("[REPORT] get_issue_state_failed device=%s issue=%s error=%v",
+				input.DeviceID, issueID, err)
+			return nil, fmt.Errorf("get issue state: %w", err)
 		}
 		log.Printf(
 			"[REPORT] duplicate_merge_selected issue=%s distance_m=%.2f status=%s verification=%s",
@@ -127,7 +135,9 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	} else {
 		issueID = uuid.New()
 		if err := createIssue(ctx, tx, issueID, regionID, input); err != nil {
-			return nil, err
+			log.Printf("[REPORT] create_issue_failed device=%s issue=%s error=%v",
+				input.DeviceID, issueID, err)
+			return nil, fmt.Errorf("create issue: %w", err)
 		}
 		isNew = true
 		log.Printf("[REPORT] duplicate_merge_miss_new_issue issue=%s", issueID)
@@ -136,22 +146,34 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 	submissionID := uuid.New()
 	clientRequestID := input.ClientRequestID
 	if err := createSubmission(ctx, tx, submissionID, clientRequestID, issueID, regionID, input); err != nil {
-		return nil, err
+		log.Printf("[REPORT] create_submission_failed device=%s issue=%s submission=%s error=%v",
+			input.DeviceID, issueID, submissionID, err)
+		return nil, fmt.Errorf("create submission: %w", err)
 	}
+	log.Printf("[REPORT] create_submission_ok device=%s issue=%s submission=%s", input.DeviceID, issueID, submissionID)
 
 	if err := createSubmissionMedia(ctx, tx, submissionID, input.Media); err != nil {
-		return nil, err
+		log.Printf("[REPORT] create_media_failed device=%s submission=%s media_count=%d error=%v",
+			input.DeviceID, submissionID, len(input.Media), err)
+		return nil, fmt.Errorf("create media: %w", err)
 	}
+	log.Printf("[REPORT] create_media_ok device=%s submission=%s media_count=%d", input.DeviceID, submissionID, len(input.Media))
 
 	if !isNew {
 		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, regionID, input); err != nil {
-			return nil, err
+			log.Printf("[REPORT] update_aggregates_failed device=%s issue=%s error=%v",
+				input.DeviceID, issueID, err)
+			return nil, fmt.Errorf("update aggregates: %w", err)
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		log.Printf("[REPORT] tx_commit_failed device=%s issue=%s error=%v",
+			input.DeviceID, issueID, err)
+		return nil, fmt.Errorf("commit tx: %w", err)
 	}
+	log.Printf("[REPORT] submit_tx_committed device=%s issue=%s submission=%s is_new=%t",
+		input.DeviceID, issueID, submissionID, isNew)
 
 	// Timeline events are secondary audit data — inserted after the main commit
 	// using the pool directly so a missing/failing issue_events table never aborts
