@@ -72,6 +72,19 @@ export async function apiDelete<T>(
   return parseResponse<T>(res);
 }
 
+export async function apiPatch<T>(
+  path: string,
+  body?: unknown,
+  token?: string,
+): Promise<ApiResponse<T>> {
+  const res = await fetch(resolveUrl(path), {
+    method: "PATCH",
+    headers: getHeaders(token),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return parseResponse<T>(res);
+}
+
 export async function apiUploadBinary(
   path: string,
   file: Blob,

@@ -1,7 +1,16 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import {
+		notificationsState,
+		unreadNotificationCount,
+	} from '$lib/stores/notifications';
 
 	const pathname = $derived($page.url.pathname);
+	const unreadCount = $derived($unreadNotificationCount);
+	const notifState = $derived($notificationsState);
+
+	let openNotif = $state(false);
 
 	function isLaporActive(path: string): boolean {
 		return path === '/lapor' || path.startsWith('/lapor/');
@@ -13,6 +22,23 @@
 
 	function isStatsActive(path: string): boolean {
 		return path === '/stats' || path.startsWith('/stats/');
+	}
+
+	function formatNotifTime(input: string): string {
+		const date = new Date(input);
+		if (Number.isNaN(date.getTime())) return '';
+		return date.toLocaleString('id-ID', {
+			day: '2-digit',
+			month: 'short',
+			hour: '2-digit',
+			minute: '2-digit',
+		});
+	}
+
+	async function handleNotificationClick(id: string, issueID: string) {
+		await notificationsState.markRead(id);
+		openNotif = false;
+		await goto(`/issues/${issueID}`);
 	}
 </script>
 
@@ -46,6 +72,49 @@
 		>
 			Statistik
 		</a>
+		<div class="notif-wrap">
+			<button
+				type="button"
+				class="notif-button"
+				onclick={() => (openNotif = !openNotif)}
+				aria-label="Lihat notifikasi"
+			>
+				🔔
+				{#if unreadCount > 0}
+					<span class="notif-badge">{unreadCount}</span>
+				{/if}
+			</button>
+
+			{#if openNotif}
+				<div class="notif-panel">
+					<div class="notif-title">Notifikasi</div>
+					{#if notifState.loading}
+						<div class="notif-empty">Memuat...</div>
+					{:else if notifState.error}
+						<div class="notif-empty">{notifState.error}</div>
+					{:else if notifState.items.length === 0}
+						<div class="notif-empty">Belum ada notifikasi.</div>
+					{:else}
+						<ul class="notif-list">
+							{#each notifState.items as item (item.id)}
+								<li>
+									<button
+										type="button"
+										class="notif-item"
+										class:unread={!item.read_at}
+										onclick={() => handleNotificationClick(item.id, item.issue_id)}
+									>
+										<div class="notif-item-title">{item.title}</div>
+										<div class="notif-item-message">{item.message}</div>
+										<div class="notif-item-time">{formatNotifTime(item.created_at)}</div>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{/if}
+		</div>
 	</div>
 </nav>
 
@@ -89,6 +158,7 @@
 	.nav-links {
 		display: flex;
 		gap: 4px;
+		align-items: center;
 	}
 	.nav-link {
 		font-size: 14px;
@@ -107,6 +177,109 @@
 		color: #B42318;
 		background: #FEE4E2;
 		font-weight: 700;
+	}
+
+	.notif-wrap {
+		position: relative;
+	}
+
+	.notif-button {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		border-radius: 999px;
+		border: 1px solid #E2E8F0;
+		background: #fff;
+		cursor: pointer;
+		font-size: 16px;
+	}
+
+	.notif-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+		border-radius: 999px;
+		background: #DC2626;
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.notif-panel {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 8px);
+		width: min(92vw, 340px);
+		max-height: 420px;
+		overflow: auto;
+		background: #fff;
+		border: 1px solid #E2E8F0;
+		border-radius: 12px;
+		box-shadow: 0 14px 30px rgba(15, 23, 42, 0.15);
+		padding: 8px;
+		z-index: 120;
+	}
+
+	.notif-title {
+		font-size: 13px;
+		font-weight: 700;
+		color: #0F172A;
+		padding: 8px;
+	}
+
+	.notif-list {
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.notif-item {
+		width: 100%;
+		text-align: left;
+		border: 1px solid #E2E8F0;
+		background: #fff;
+		border-radius: 10px;
+		padding: 10px;
+		cursor: pointer;
+	}
+
+	.notif-item.unread {
+		border-color: #FCA5A5;
+		background: #FEF2F2;
+	}
+
+	.notif-item-title {
+		font-size: 12px;
+		font-weight: 700;
+		color: #0F172A;
+	}
+
+	.notif-item-message {
+		font-size: 12px;
+		color: #475569;
+		margin-top: 4px;
+	}
+
+	.notif-item-time {
+		font-size: 11px;
+		color: #94A3B8;
+		margin-top: 6px;
+	}
+
+	.notif-empty {
+		padding: 12px;
+		font-size: 12px;
+		color: #64748B;
 	}
 
 	@media (max-width: 420px) {

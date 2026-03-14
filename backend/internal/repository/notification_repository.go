@@ -43,6 +43,7 @@ func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueI
 // NotificationRepository reads notification data for a given follower.
 type NotificationRepository interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
+	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) error
 }
 
 type notificationRepository struct {
@@ -78,4 +79,14 @@ func (r *notificationRepository) GetByFollowerID(ctx context.Context, followerID
 		result = append(result, &n)
 	}
 	return result, rows.Err()
+}
+
+func (r *notificationRepository) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE notifications
+		SET read_at = COALESCE(read_at, NOW())
+		WHERE id = $1
+		  AND follower_id = $2
+	`, notificationID, followerID)
+	return err
 }

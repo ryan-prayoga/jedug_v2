@@ -25,6 +25,28 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - In-App Notification UI + Mark-as-Read Endpoint
+
+- Scope: menyelesaikan alur notifikasi in-app end-to-end di frontend, plus endpoint mark-as-read minimal di backend.
+- Kondisi awal:
+  - pipeline backend `issue_events -> notifications` sudah berjalan,
+  - tetapi frontend belum pernah memanggil `/api/v1/notifications`, sehingga badge/panel notifikasi tidak muncul.
+- Perbaikan backend:
+  1. `NotificationRepository` menambah `MarkAsRead(notificationID, followerID)`.
+  2. `NotificationService` menambah method `MarkAsRead`.
+  3. `NotificationHandler` menambah handler `PATCH /api/v1/notifications/:id/read?follower_id=...`.
+  4. Router menambah route patch tersebut.
+- Perbaikan frontend:
+  1. API client menambah helper `apiPatch`.
+  2. API notifications menambah `markNotificationRead(notificationID, followerID)`.
+  3. Menambah store terpusat `frontend/src/lib/stores/notifications.ts` untuk fetch/list/mark-read + unread count.
+  4. `routes/+layout.svelte` memanggil `notificationsState.init()` saat app load (setelah bootstrap device).
+  5. `AppHeader.svelte` menambah UI lonceng, unread badge, dan dropdown panel notifikasi.
+  6. Klik item notifikasi: mark as read lalu redirect ke `/issues/{issue_id}`.
+- Verifikasi lokal:
+  - `go test ./...` ✅
+  - `npm run check` ✅ (0 errors, 0 warnings)
+
 ## 2026-03-15 - Notification Bug Fix: int64 vs UUID mismatch on issue_events.id
 
 - Scope: fix scan error `unable to scan type int64 into UUID` yang menyebabkan event insert gagal dan notifikasi tidak terkirim.
