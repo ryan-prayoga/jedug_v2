@@ -1,0 +1,25 @@
+package service
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"jedug_backend/internal/domain"
+	"jedug_backend/internal/repository"
+)
+
+type NotificationService interface {
+	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
+}
+
+type notificationService struct {
+	repo repository.NotificationRepository
+}
+
+func NewNotificationService(repo repository.NotificationRepository) NotificationService {
+	return &notificationService{repo: repo}
+}
+
+func (s *notificationService) GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error) {
+	return s.repo.GetByFollowerID(ctx, followerID, limit)
+}

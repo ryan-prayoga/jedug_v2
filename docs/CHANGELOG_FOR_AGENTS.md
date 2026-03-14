@@ -25,6 +25,46 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - Follow Notification Pipeline: issue_events → notifications
+
+- Scope: backend notification pipeline + GET `/api/v1/notifications` endpoint + frontend API helper.
+- Akar masalah yang ditemukan:
+  - `issue_events` sudah menyimpan event (issue_created, photo_added, severity_changed, casualty_reported, status_updated) — benar.
+  - `issue_followers` sudah menyimpan data follower — benar.
+  - Tetapi tidak ada kode yang menghubungkan keduanya; tidak ada tabel `notifications`, tidak ada dispatch logic.
+  - `issue_timeline` tidak pernah ada di codebase (tidak ada referensi, tidak ada tabel).
+- Perbaikan:
+  1. Membuat tabel `notifications` via `backend/migrations/202603150001_create_notifications.sql` — **WAJIB DIJALANKAN DI PROD**.
+  2. Membuat `backend/internal/domain/notification.go` — struct `Notification`.
+  3. Membuat `backend/internal/repository/notification_repository.go` — interface `NotificationRepository` + free-function `DispatchNotificationsForEvent(ctx, db, issueID, eventID, eventType)` yang dipakai bersama oleh dua repo.
+  4. Membuat `backend/internal/service/notification_service.go` — `NotificationService.GetByFollowerID`.
+  5. Membuat `backend/internal/http/handlers/notification_handler.go` — `GET /api/v1/notifications?follower_id=<uuid>&limit=<n>`.
+  6. Mengubah `report_repository.insertTimelineEvents`: INSERT `issue_events` kini memakai `RETURNING id`; setelah berhasil, memanggil `DispatchNotificationsForEvent` (non-fatal).
+  7. Mengubah `admin_repository.UpdateIssueStatus`: INSERT `issue_events` kini memakai `RETURNING id`; dispatch notifikasi dipanggil setelah `tx.Commit()` berhasil (non-fatal).
+  8. Mengubah `router.go`: wire `notifRepo`, `notifSvc`, `notifHandler`; menambah route `GET /api/v1/notifications`.
+  9. Membuat `frontend/src/lib/api/notifications.ts` — helper `getNotifications(followerID, limit)`.
+- Event yang memicu notifikasi:
+  - `issue_created`, `photo_added`, `severity_changed`, `casualty_reported` → dari submit report
+  - `status_updated` → dari admin moderation action
+- Endpoint final:
+  - `GET /api/v1/notifications?follower_id=<uuid>[&limit=50]`
+  - Response: `{success: true, data: {items: [{id, issue_id, event_id, type, title, message, created_at},...]}}`
+- Deduplication: `UNIQUE(event_id, follower_id)` + `ON CONFLICT DO NOTHING` — dispatch idempotent.
+- Dampak area:
+  - `backend/migrations/202603150001_create_notifications.sql` (baru — **WAJIB RUN DI PROD**)
+  - `backend/internal/domain/notification.go` (baru)
+  - `backend/internal/repository/notification_repository.go` (baru)
+  - `backend/internal/service/notification_service.go` (baru)
+  - `backend/internal/http/handlers/notification_handler.go` (baru)
+  - `backend/internal/repository/report_repository.go` (diubah — INSERT RETURNING + dispatch)
+  - `backend/internal/repository/admin_repository.go` (diubah — INSERT RETURNING + dispatch + `log` import)
+  - `backend/internal/http/router.go` (diubah — wire notif + route)
+  - `frontend/src/lib/api/notifications.ts` (baru)
+- Action wajib setelah deploy:
+  - Jalankan: `psql "$DATABASE_URL" -f migrations/202603150001_create_notifications.sql`
+  - Verifikasi: submit report baru → cek tabel `notifications` untuk follower issue tersebut.
+  - Verifikasi: admin ubah status issue → cek tabel `notifications` untuk follower issue tersebut.
+
 ## 2026-03-15 - CI/CD Hotfix: PM2 bootstrap for non-interactive SSH
 
 - Scope:

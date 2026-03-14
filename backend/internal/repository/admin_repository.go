@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -221,7 +222,13 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 		return err
 	}
 
+	var (
+		eventID      uuid.UUID
+		statusChanged bool
+	)
+
 	if previousStatus != status {
+		statusChanged = true
 		payload, err := json.Marshal(map[string]any{
 			"from_status": previousStatus,
 			"to_status":   status,
@@ -231,15 +238,25 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 			return err
 		}
 
-		if _, err := tx.Exec(ctx, `
+		if err := tx.QueryRow(ctx, `
 			INSERT INTO issue_events (issue_id, event_type, event_data)
 			VALUES ($1, 'status_updated', $2::jsonb)
-		`, id, payload); err != nil {
+			RETURNING id
+		`, id, payload).Scan(&eventID); err != nil {
 			return err
 		}
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if statusChanged {
+		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, id, eventID, "status_updated"); dispatchErr != nil {
+			log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%s error=%v", id, eventID, dispatchErr)
+		}
+	}
+	return nil
 }
 
 func (r *adminRepository) BanDevice(ctx context.Context, id uuid.UUID, reason *string) error {
