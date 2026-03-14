@@ -24,7 +24,7 @@ export async function getNotifications(
     follower_id: followerID,
     limit: String(limit),
   });
-  return apiGet<NotificationList>(`/notifications?${params}`);
+  return apiGet<NotificationList>(`/api/v1/notifications?${params}`);
 }
 
 export async function markNotificationRead(
@@ -32,5 +32,7 @@ export async function markNotificationRead(
   followerID: string,
 ): Promise<ApiResponse<undefined>> {
   const params = new URLSearchParams({ follower_id: followerID });
-  return apiPatch<undefined>(`/notifications/${notificationID}/read?${params}`);
+  return apiPatch<undefined>(
+    `/api/v1/notifications/${notificationID}/read?${params}`,
+  );
 }

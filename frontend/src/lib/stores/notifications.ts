@@ -41,7 +41,7 @@ function _connectSSE(followerID: string) {
     _es = null;
   }
 
-  const url = `${PUBLIC_API_BASE_URL}/notifications/stream?follower_id=${encodeURIComponent(followerID)}`;
+  const url = `${PUBLIC_API_BASE_URL}/api/v1/notifications/stream?follower_id=${encodeURIComponent(followerID)}`;
   const es = new EventSource(url);
   _es = es;
 
