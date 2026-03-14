@@ -13,25 +13,29 @@ Di workflow saat ini:
 1. SSH ke VPS via `appleboy/ssh-action`
 2. `cd /home/ubuntu/projects/jedug_v2`
 3. `git fetch --prune origin`, `git checkout main`, `git reset --hard origin/main`
-4. deploy backend dari `/home/ubuntu/projects/jedug_v2/backend`:
+4. pastikan PM2 tersedia di sesi non-interactive:
+
+- jika `pm2` belum ada di PATH, workflow akan install user-local via `npm install -g pm2 --prefix ~/.local`
+
+5. deploy backend dari `/home/ubuntu/projects/jedug_v2/backend`:
 
 - `gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no`
 
-5. deploy frontend dari `/home/ubuntu/projects/jedug_v2/frontend`:
+6. deploy frontend dari `/home/ubuntu/projects/jedug_v2/frontend`:
 
 - `gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no`
 
-6. verifikasi PM2 status `online` untuk dua proses:
+7. verifikasi PM2 status `online` untuk dua proses:
 
 - `jedug-backend`
 - `jedug-frontend`
 
-7. verifikasi port dalam kondisi LISTEN:
+8. verifikasi port dalam kondisi LISTEN:
 
 - `5000` (backend)
 - `5001` (frontend)
 
-8. `pm2 save`
+9. `pm2 save`
 
 Semua step wajib fail-fast (`set -Eeuo pipefail`) dengan pesan error jelas agar kegagalan terlihat langsung di log GitHub Actions.
 
