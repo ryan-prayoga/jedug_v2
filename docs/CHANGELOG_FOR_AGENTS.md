@@ -25,6 +25,40 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - CI/CD Deploy Hardened with `gas build` Non-Interactive
+
+- Scope:
+  - mengganti flow deploy GitHub Actions dari build manual (`go build` + `npm run build` + restart PM2) ke jalur deploy server yang terbukti stabil: `gas build`.
+  - menstandarkan deploy backend/frontend agar 100% non-interactive menggunakan `--no-ui --yes`.
+  - menambahkan verifikasi runtime wajib pasca deploy: status PM2 harus `online` dan port backend/frontend harus dalam kondisi LISTEN.
+  - menambahkan fail-fast script (`set -Eeuo pipefail`) + pesan error eksplisit agar kegagalan langkah terlihat jelas di log workflow.
+- Dampak area:
+  - `.github/workflows/deploy.yml`
+  - `docs/DEPLOYMENT.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Command final yang dipakai:
+  - backend: `gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no`
+  - frontend: `gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no`
+- Mismatch baru (jika ada):
+  - opsi strategy/install-deps spesifik `gas` belum dipin karena flow `--type node-web` saat ini sudah cukup untuk project frontend yang berjalan, dan menjaga kompatibilitas lintas versi `gas`.
+
+## 2026-03-15 - Submit Merge Fix: SQLSTATE 42P08 on issue aggregate update
+
+- Scope:
+  - memperbaiki kegagalan `POST /api/v1/reports` pada jalur duplicate-merge saat update aggregate issue existing.
+  - menghilangkan ambiguitas tipe SQL parameter nullable pada query update aggregates.
+- Akar masalah:
+  - query `UPDATE issues` menggunakan `BTRIM($4)` pada parameter `road_name` nullable (`*string` dari Go), sehingga PostgreSQL menerima `$4` sebagai `unknown` pada kondisi tertentu dan gagal infer tipe (`SQLSTATE 42P08`).
+- Perbaikan:
+  - menambahkan cast eksplisit pada parameter update aggregate (`$1::int`, `$2::int`, `$3::int`, `$4::text`, `$5::bigint`) agar tipe selalu deterministik.
+  - menambahkan log error kontekstual baru `[REPORT] update_aggregates_query_failed` yang menyertakan `issue`, path `duplicate_merge`, serta nilai agregat input (tanpa data sensitif).
+- Dampak area:
+  - `backend/internal/repository/report_repository.go`
+- File docs yang diupdate:
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tidak ada; perubahan bersifat internal query typing dan tidak mengubah kontrak API.
+
 ## 2026-03-15 - Follow Issue API 404 contract sync fix
 
 - Scope:

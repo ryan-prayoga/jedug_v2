@@ -424,28 +424,37 @@ func updateIssueAggregatesOnMerge(
 	regionID *int64,
 	input SubmitInput,
 ) error {
+	incomingPhotos := len(input.Media)
+	incomingCasualty := incomingCasualtyCount(input)
+	roadNameProvided := input.RoadName != nil
+	regionProvided := regionID != nil
+
 	_, err := tx.Exec(ctx, `
 		UPDATE issues SET
 			last_seen_at     = NOW(),
 			submission_count = submission_count + 1,
-			photo_count      = photo_count + $1,
-			casualty_count   = GREATEST(casualty_count, $2),
-			severity_current = GREATEST(severity_current, $3),
-			severity_max     = GREATEST(severity_max, $3),
+			photo_count      = photo_count + $1::int,
+			casualty_count   = GREATEST(casualty_count, $2::int),
+			severity_current = GREATEST(severity_current, $3::int),
+			severity_max     = GREATEST(severity_max, $3::int),
 			road_name = CASE
 				WHEN (road_name IS NULL OR BTRIM(road_name) = '')
-				     AND $4 IS NOT NULL AND BTRIM($4) <> ''
-				THEN $4
+				     AND $4::text IS NOT NULL AND BTRIM($4::text) <> ''
+				THEN $4::text
 				ELSE road_name
 			END,
 			region_id = CASE
-				WHEN region_id IS NULL AND $5 IS NOT NULL
-				THEN $5
+				WHEN region_id IS NULL AND $5::bigint IS NOT NULL
+				THEN $5::bigint
 				ELSE region_id
 			END,
 			updated_at       = NOW()
 		WHERE id = $6
-	`, len(input.Media), incomingCasualtyCount(input), input.Severity, input.RoadName, regionID, issueID)
+	`, incomingPhotos, incomingCasualty, input.Severity, input.RoadName, regionID, issueID)
+	if err != nil {
+		log.Printf("[REPORT] update_aggregates_query_failed path=duplicate_merge issue=%s photo_inc=%d casualty_in=%d severity_in=%d road_name_provided=%t region_provided=%t error=%v",
+			issueID, incomingPhotos, incomingCasualty, input.Severity, roadNameProvided, regionProvided, err)
+	}
 	return err
 }
 

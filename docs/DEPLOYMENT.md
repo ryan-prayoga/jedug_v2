@@ -4,34 +4,61 @@
 
 - CI/CD: `.github/workflows/deploy.yml`
 - Trigger: push ke branch `main`
-- Mekanisme: SSH ke VPS, pull latest, build backend/frontend, restart PM2
+- Mekanisme: SSH ke VPS, pull latest, deploy backend/frontend via `gas build` non-interactive, lalu verifikasi runtime
 
 ## Flow Deploy Aktual
 
 Di workflow saat ini:
 
 1. SSH ke VPS via `appleboy/ssh-action`
-2. set `PATH` Node + PM2 binary spesifik user
-3. `cd /home/ryandotcodotid/projects/jedug_v2`
-4. `git fetch` lalu `git reset --hard origin/main`
-5. build backend:
-   - `go mod tidy`
-   - `go build -o bin/jedug-api ./cmd/api`
-   - `pm2 restart jedug-api --update-env`
-6. build frontend:
-   - `npm ci`
-   - `npm run build`
-   - `pm2 restart jedug-web --update-env`
-7. `pm2 save`
+2. `cd /home/ubuntu/projects/jedug_v2`
+3. `git fetch --prune origin`, `git checkout main`, `git reset --hard origin/main`
+4. deploy backend dari `/home/ubuntu/projects/jedug_v2/backend`:
+
+- `gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no`
+
+5. deploy frontend dari `/home/ubuntu/projects/jedug_v2/frontend`:
+
+- `gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no`
+
+6. verifikasi PM2 status `online` untuk dua proses:
+
+- `jedug-backend`
+- `jedug-frontend`
+
+7. verifikasi port dalam kondisi LISTEN:
+
+- `5000` (backend)
+- `5001` (frontend)
+
+8. `pm2 save`
+
+Semua step wajib fail-fast (`set -Eeuo pipefail`) dengan pesan error jelas agar kegagalan terlihat langsung di log GitHub Actions.
 
 ## PM2
 
 Asumsi proses PM2 di server:
 
-- `jedug-api` untuk backend
-- `jedug-web` untuk frontend
+- `jedug-backend` untuk backend (port `5000`)
+- `jedug-frontend` untuk frontend (port `5001`)
 
 Catatan: file ecosystem PM2 tidak ada di repo ini.
+
+## Command Deploy Non-Interactive (Source of Truth)
+
+Backend:
+
+- `gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no`
+
+Frontend:
+
+- `gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no`
+
+Alasan tidak menambah flag strategy/install-deps tambahan pada frontend:
+
+- kombinasi `--type node-web` + mode non-interactive (`--no-ui --yes`) sudah cukup untuk flow build/start standar app SvelteKit adapter-node saat ini.
+- menghindari coupling ke opsi spesifik yang belum terbukti konsisten lintas versi `gas`.
+- menjaga command tetap minimal, eksplisit, dan stabil.
 
 ## Nginx
 
@@ -75,22 +102,26 @@ Konsekuensi:
 - verifikasi endpoint health setelah deploy:
   - `GET /api/v1/health`
 - verifikasi UI publik + admin login setelah build frontend
+- verifikasi PM2 status backend/frontend = `online`
+- verifikasi port `5000` dan `5001` = LISTEN
 
 ## Current Implementation
 
-- Deploy single workflow, simple, langsung ke VPS.
-- Rollout backend/frontend dilakukan dalam satu job.
+- Deploy single workflow langsung ke VPS.
+- Rollout backend/frontend dilakukan dalam satu job dengan command `gas build` non-interactive.
+- Runtime diverifikasi langsung di server (PM2 + port check) sebelum job dianggap sukses.
 
 ## Intended Direction
 
 - simpan PM2 ecosystem + template Nginx di repo
 - tambahkan smoke-test post-deploy (health + sample API call)
-- minimalkan `git reset --hard` untuk mengurangi risiko overwrite file runtime tak terduga
+- minimalkan `git reset --hard` untuk mengurangi risiko overwrite file runtime tak terduga (saat sudah ada deployment strategy yang lebih aman)
 
 ## Known Mismatch
 
 - dokumentasi deployment infra masih tersebar antara workflow dan konfigurasi server manual.
 - konfigurasi endpoint reverse geocoder production (provider + policy quota) perlu dipastikan sesuai SLA operasional.
+- konfigurasi PM2/Nginx runtime masih belum versioned dalam repo.
 
 ## Read This Next
 
