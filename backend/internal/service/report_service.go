@@ -153,18 +153,6 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		}
 	}
 
-	log.Printf(
-		"[REPORT] submit_request device=%s severity=%d media=%d has_casualty=%t casualty_count=%d road=%v region=%v city=%v",
-		device.ID,
-		req.Severity,
-		len(req.Media),
-		req.HasCasualty,
-		req.CasualtyCount,
-		valueOrEmpty(locationInfo.RoadName),
-		valueOrEmpty(locationInfo.RegionName),
-		valueOrEmpty(locationInfo.CityName),
-	)
-
 	result, err := s.reportRepo.SubmitReport(ctx, repository.SubmitInput{
 		ClientRequestID: clientRequestID,
 		DeviceID:        device.ID,

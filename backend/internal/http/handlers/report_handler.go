@@ -46,16 +46,11 @@ type submitReportBody struct {
 }
 
 func (h *ReportHandler) Submit(c *fiber.Ctx) error {
-	log.Printf("[REPORT] submit_start ip=%s ua=%.60s", c.IP(), c.Get("User-Agent"))
-
 	var body submitReportBody
 	if err := c.BodyParser(&body); err != nil {
 		log.Printf("[REPORT] parse_failed ip=%s error=%v", c.IP(), err)
 		return response.ErrorWithCode(c, fiber.StatusBadRequest, "INVALID_PAYLOAD", "invalid request body")
 	}
-
-	log.Printf("[REPORT] submit_payload ip=%s token=%.8s... lat=%.5f lon=%.5f severity=%d media=%d has_casualty=%t",
-		c.IP(), body.AnonToken, body.Latitude, body.Longitude, body.Severity, len(body.Media), body.HasCasualty)
 
 	if err := validateReportBody(&body); err != nil {
 		log.Printf("[ANTISPAM] validation_failed ip=%s reason=%s", c.IP(), err.Error())

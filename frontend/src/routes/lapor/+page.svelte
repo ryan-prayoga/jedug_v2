@@ -70,8 +70,6 @@
 	onMount(async () => {
 		try {
 			await ensureDeviceBootstrap({ retry: 1 });
-		} catch (e) {
-			console.error('[lapor] bootstrap init failed on mount', e);
 		} finally {
 			bootstrapInitializing = false;
 		}
@@ -141,12 +139,6 @@
 			const res = await resolveLocationLabel(point.latitude, point.longitude);
 			if (requestId !== activeLocationLabelRequestId) return;
 
-			console.debug('[lapor] location-label response', {
-				latitude: point.latitude,
-				longitude: point.longitude,
-				payload: res.data ?? null
-			});
-
 			const data = res.data ?? null;
 			if (data) {
 				locationLabelCache.set(key, data);
@@ -154,10 +146,6 @@
 			locationLabel = data;
 		} catch {
 			if (requestId !== activeLocationLabelRequestId) return;
-			console.debug('[lapor] location-label error', {
-				latitude: point.latitude,
-				longitude: point.longitude
-			});
 			locationLabel = null;
 			locationLabelError = 'Nama wilayah belum tersedia. Koordinat tetap dipakai.';
 		} finally {
@@ -276,8 +264,7 @@
 		let token: string;
 		try {
 			token = await ensureDeviceBootstrap({ retry: 1 });
-		} catch (bootstrapErr) {
-			console.error('[lapor] bootstrap ensure failed before submit', bootstrapErr);
+		} catch {
 			error = 'Perangkat belum siap untuk mengirim laporan. Coba muat ulang halaman.';
 			return;
 		}
@@ -356,8 +343,6 @@
 				if (!isBootstrapMissingError(submitErr)) {
 					throw submitErr;
 				}
-
-				console.warn('[lapor] bootstrap token mismatch detected, refreshing bootstrap once');
 				token = await ensureDeviceBootstrap({ forceRefresh: true, retry: 1 });
 				reportRes = await submitReport({
 					...payload,
@@ -374,7 +359,6 @@
 				goto(`/issues/${reportRes.data!.issue_id}`);
 			}, 500);
 		} catch (e) {
-			console.error('[lapor] submit failed', { step: currentStep, error: e });
 			error = mapSubmitError(e);
 			currentStep = 'idle';
 			await tick();

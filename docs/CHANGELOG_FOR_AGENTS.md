@@ -25,6 +25,23 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-14 - Post-bugfix cleanup: trim noisy debug logs
+
+- Scope:
+  - merapikan log/debug sementara setelah fase incident debugging di area submit report, bootstrap readiness, dan location label.
+- Log yang dihapus:
+  - frontend `console.debug` untuk payload location label di `/lapor`.
+  - frontend `console.error`/`console.warn` yang hanya mengulang error yang sudah diterjemahkan ke UI state (`bootstrap init failed`, `bootstrap ensure failed`, `submit failed`, retry token mismatch).
+  - backend location-label request/success/miss/start logs yang terlalu chatty untuk setiap lookup.
+  - backend report submit start / payload / per-step success logs yang berlebihan dan sempat membawa detail token/payload.
+- Log yang dipertahankan:
+  - backend error logs untuk parse/validation/report failure, duplicate decision, media persist failure, tx begin/commit failure.
+  - backend location internal/reverse errors.
+  - frontend `IssueMap` fallback logs saat heatmap/clustering gagal, karena itu sinyal degradasi fitur yang tetap berguna.
+- Hasil observability:
+  - log production lebih ringkas, tidak spam di path normal.
+  - engineer tetap bisa mengidentifikasi failure penting tanpa payload berlebihan atau data sensitif parsial.
+
 ## 2026-03-14 - Submit Report 500 Fix: Missing submission_media table
 
 - Akar masalah terkonfirmasi dari log produksi:

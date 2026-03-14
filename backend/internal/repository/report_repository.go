@@ -100,9 +100,6 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after Commit
-	log.Printf("[REPORT] submit_tx_start device=%s lat=%.6f lon=%.6f radius_m=%.1f",
-		input.DeviceID, input.Latitude, input.Longitude, r.duplicateRadiusM,
-	)
 
 	regionID, err := resolveBestRegionID(ctx, tx, input.Longitude, input.Latitude)
 	if err != nil {
@@ -110,8 +107,6 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 			input.DeviceID, input.Longitude, input.Latitude, err)
 		return nil, fmt.Errorf("resolve region: %w", err)
 	}
-	log.Printf("[REPORT] resolve_region_ok device=%s region_id=%v", input.DeviceID, regionID)
-
 	candidate, err := findDuplicateCandidate(ctx, tx, input.Longitude, input.Latitude, r.duplicateRadiusM)
 	if err != nil {
 		log.Printf("[REPORT] duplicate_lookup_failed device=%s error=%v", input.DeviceID, err)
@@ -152,14 +147,12 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 			input.DeviceID, issueID, submissionID, err)
 		return nil, fmt.Errorf("create submission: %w", err)
 	}
-	log.Printf("[REPORT] create_submission_ok device=%s issue=%s submission=%s", input.DeviceID, issueID, submissionID)
 
 	if err := createSubmissionMedia(ctx, tx, submissionID, input.Media); err != nil {
 		log.Printf("[REPORT] create_media_failed device=%s submission=%s media_count=%d error=%v",
 			input.DeviceID, submissionID, len(input.Media), err)
 		return nil, fmt.Errorf("create media: %w", err)
 	}
-	log.Printf("[REPORT] create_media_ok device=%s submission=%s media_count=%d", input.DeviceID, submissionID, len(input.Media))
 
 	if !isNew {
 		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, regionID, input); err != nil {
@@ -355,7 +348,6 @@ func findDuplicateCandidate(ctx context.Context, tx pgx.Tx, lon, lat, radiusM fl
 		return nil, err
 	}
 	if len(candidates) == 0 {
-		log.Printf("[REPORT] duplicate_candidate_none radius_m=%.1f", radiusM)
 		return nil, nil
 	}
 
