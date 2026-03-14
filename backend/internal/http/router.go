@@ -66,6 +66,8 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
 	issueFollowSvc := service.NewIssueFollowService(issueRepo, issueFollowRepo)
+	notifRepo := repository.NewNotificationRepository(db)
+	notifSvc := service.NewNotificationService(notifRepo)
 	statsSvc := service.NewStatsService(statsRepo)
 	reverseGeocoder := service.NewHTTPReverseGeocoder(
 		cfg.ReverseGeocodeEnabled,
@@ -84,6 +86,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
 	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc)
+	notifHandler := handlers.NewNotificationHandler(notifSvc)
 	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
@@ -130,6 +133,8 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issues.Get("/:id/follow/status", issueFollowHandler.Status)
 	issues.Get("/:id", issueHandler.Get)
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
+
+	api.Get("/notifications", notifHandler.List)
 
 	api.Get("/stats", statsHandler.Get)
 

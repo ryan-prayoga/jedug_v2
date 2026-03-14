@@ -131,6 +131,22 @@ Dokumen ini disusun dari:
   - `follower_id` bukan device token backend; ini identity anonim client-side khusus fitur subscribe.
   - count follower sebaiknya dihitung dari tabel ini langsung sampai nanti benar-benar perlu cache/denormalisasi.
 
+### `notifications`
+
+- Fungsi: daftar notifikasi per-follower yang dibuat otomatis ketika ada event issue baru.
+- Relasi: FK ke `issues` (`ON DELETE CASCADE`); `follower_id` adalah UUID anonim client-side (tidak ada FK ke tabel lain).
+- Kolom penting: `issue_id`, `follower_id`, `event_id`, `type`, `title`, `message`, `created_at`, `read_at`.
+- Constraint/index penting:
+  - unique `(event_id, follower_id)` — deduplication agar satu follower tidak menerima notifikasi duplikat untuk event yang sama.
+  - index `(follower_id, created_at DESC)` — dipakai oleh GET `/api/v1/notifications?follower_id=...`.
+  - index `issue_id` — untuk cleanup cascade.
+- Business meaning: follower anonim bisa melihat daftar update issue tanpa login.
+- Rawan salah paham:
+  - `event_id` merujuk ke `issue_events.id` secara logis, tetapi tidak ada FK constraint karena tipe kolom belum diverifikasi eksplisit.
+  - dispatch notifikasi berjalan non-fatal setelah event berhasil diinsert; jika gagal, hanya di-log.
+  - `read_at` belum dipakai aktif di API (disimpan untuk fitur mark-as-read di masa depan).
+- Migration: `backend/migrations/202603150001_create_notifications.sql` — WAJIB DIJALANKAN DI PROD.
+
 ### `moderation_actions`
 
 - Fungsi: audit log tindakan moderasi admin/system.
@@ -219,7 +235,7 @@ Dokumen ini disusun dari:
 ## Current Implementation
 
 - Query backend paling banyak memakai tabel:
-  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`
+  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`, `notifications`
 - sebagian tabel schema sudah ada namun belum dipakai penuh (users/oauth/sessions/reactions/submission_flags/daily_stats/history).
 
 ## Migration SQL di Repo

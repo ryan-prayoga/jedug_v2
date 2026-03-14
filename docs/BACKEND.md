@@ -151,6 +151,8 @@
 ### Issue Timeline Event Logging
 
 - Tabel event: `issue_events`.
+- Tabel notifikasi: `notifications` — di-populate otomatis oleh `DispatchNotificationsForEvent` setiap kali event berhasil diinsert.
+- Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, issueID, eventID, eventType)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
 - Event dibuat otomatis saat:
   - issue baru dibuat (`issue_created`)
   - submission membawa foto (`photo_added`)
