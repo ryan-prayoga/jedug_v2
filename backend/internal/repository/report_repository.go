@@ -234,10 +234,13 @@ func (r *reportRepository) insertTimelineEvents(
 			log.Printf("[REPORT] timeline_event_marshal_error issue=%s type=%s error=%v", issueID, ev.eventType, marshalErr)
 			continue
 		}
+		// Use string(payload) so pgx v5 sends the JSON as text (OID 25).
+		// Passing []byte would encode as bytea (OID 17), and PostgreSQL cannot
+		// cast bytea to jsonb — causing the INSERT to fail.
 		_, execErr := r.db.Exec(ctx, `
 			INSERT INTO issue_events (issue_id, event_type, event_data)
 			VALUES ($1, $2, $3::jsonb)
-		`, issueID, ev.eventType, payload)
+		`, issueID, ev.eventType, string(payload))
 		if execErr != nil {
 			log.Printf("[REPORT] timeline_event_insert_error issue=%s type=%s error=%v", issueID, ev.eventType, execErr)
 		}
