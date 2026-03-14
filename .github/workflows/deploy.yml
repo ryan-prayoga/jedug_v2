@@ -34,6 +34,35 @@ jobs:
               exit 1
             }
 
+            ensure_pm2_ready() {
+              local node_bin_dir
+
+              # Non-interactive SSH kadang tidak mewarisi PATH Node dari shell login.
+              if [ -d "$HOME/.nvm/versions/node" ]; then
+                node_bin_dir="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin | sort | tail -n 1 || true)"
+                if [ -n "${node_bin_dir:-}" ]; then
+                  export PATH="$node_bin_dir:$PATH"
+                fi
+              fi
+
+              if command -v pm2 >/dev/null 2>&1; then
+                echo "[DEPLOY] PM2 tersedia: $(command -v pm2)"
+                return 0
+              fi
+
+              if ! command -v npm >/dev/null 2>&1; then
+                fail "PM2 tidak ditemukan dan npm juga tidak tersedia di PATH"
+              fi
+
+              echo "[DEPLOY] PM2 belum tersedia. Install user-local via npm..."
+              export PATH="$HOME/.local/bin:$PATH"
+              npm install -g pm2 --prefix "$HOME/.local" || fail "install PM2 gagal"
+              hash -r
+
+              command -v pm2 >/dev/null 2>&1 || fail "PM2 tetap tidak ditemukan setelah instalasi"
+              echo "[DEPLOY] PM2 siap: $(command -v pm2)"
+            }
+
             check_pm2_online() {
               local process_name="$1"
               local status_line
@@ -59,6 +88,9 @@ jobs:
             git fetch --prune origin || fail "git fetch gagal"
             git checkout main || fail "git checkout main gagal"
             git reset --hard origin/main || fail "git reset origin/main gagal"
+
+            echo "[DEPLOY] Pastikan PM2 tersedia di environment CI non-interactive"
+            ensure_pm2_ready
 
             echo "[DEPLOY] Deploy backend via gas build (non-interactive)"
             cd "$BACKEND_DIR" || fail "Backend directory tidak ditemukan: $BACKEND_DIR"

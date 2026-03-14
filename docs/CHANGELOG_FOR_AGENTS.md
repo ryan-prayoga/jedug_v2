@@ -25,6 +25,22 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - CI/CD Hotfix: PM2 bootstrap for non-interactive SSH
+
+- Scope:
+  - memperbaiki kegagalan deploy CI saat `gas build` berjalan di sesi SSH non-interactive dan PM2 tidak ditemukan di PATH.
+  - menambah langkah preflight untuk memastikan PM2 siap sebelum deploy backend/frontend.
+- Perbaikan:
+  - workflow kini mencoba menambahkan PATH Node dari lokasi NVM umum (`~/.nvm/versions/node/*/bin`).
+  - bila `pm2` belum tersedia, workflow install PM2 user-local via `npm install -g pm2 --prefix ~/.local` lalu lanjut deploy.
+  - jika npm juga tidak tersedia, workflow gagal cepat dengan pesan error eksplisit.
+- Dampak area:
+  - `.github/workflows/deploy.yml`
+  - `docs/DEPLOYMENT.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - tetap ada ketergantungan ke runtime Node/npm di VPS; bila runtime Node tidak terpasang sama sekali, deploy harus memperbaiki provisioning server dulu.
+
 ## 2026-03-15 - CI/CD Deploy Hardened with `gas build` Non-Interactive
 
 - Scope:
