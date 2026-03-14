@@ -10,6 +10,7 @@ import (
 
 type NotificationService interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
+	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) error
 }
 
 type notificationService struct {
@@ -22,4 +23,8 @@ func NewNotificationService(repo repository.NotificationRepository) Notification
 
 func (s *notificationService) GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error) {
 	return s.repo.GetByFollowerID(ctx, followerID, limit)
+}
+
+func (s *notificationService) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) error {
+	return s.repo.MarkAsRead(ctx, notificationID, followerID)
 }

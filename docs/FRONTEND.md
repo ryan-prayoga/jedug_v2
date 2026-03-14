@@ -139,6 +139,23 @@
   - state tetap additive; SSR detail issue tetap berjalan seperti sebelumnya
   - initial load follow tidak lagi menembak dua endpoint sekaligus tanpa alasan; status diprioritaskan dulu, count dipakai sebagai fallback ringan
 
+## In-App Notification Center
+
+- Notifikasi in-app ditampilkan di `AppHeader` (ikon lonceng + badge unread).
+- Data notifikasi dikelola store bersama:
+  - `src/lib/stores/notifications.ts`
+  - state: `items`, `loading`, `error`, `followerID`, `initialized`
+  - derived: `unreadNotificationCount`
+- Saat app publik pertama kali mount (`routes/+layout.svelte`), frontend menjalankan `notificationsState.init()` setelah bootstrap device.
+- Endpoint yang dipakai:
+  - list: `GET /api/v1/notifications?follower_id=...&limit=50`
+  - mark read: `PATCH /api/v1/notifications/:id/read?follower_id=...`
+- UX behavior:
+  - badge menampilkan jumlah item dengan `read_at = null`
+  - dropdown panel menampilkan title/message/waktu
+  - klik item menandai notifikasi sebagai read lalu navigasi ke `/issues/{issue_id}`
+- Scope saat ini hanya in-app notification (tanpa browser push/service worker/permission prompt).
+
 ## Public Stats Dashboard (`/stats`)
 
 - Halaman mobile-first untuk civic storytelling berbasis agregasi data issue publik.

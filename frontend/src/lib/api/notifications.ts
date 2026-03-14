@@ -1,4 +1,4 @@
-import { apiGet } from "./client";
+import { apiGet, apiPatch } from "./client";
 import type { ApiResponse } from "./types";
 
 export interface Notification {
@@ -25,4 +25,12 @@ export async function getNotifications(
     limit: String(limit),
   });
   return apiGet<NotificationList>(`/notifications?${params}`);
+}
+
+export async function markNotificationRead(
+  notificationID: string,
+  followerID: string,
+): Promise<ApiResponse<undefined>> {
+  const params = new URLSearchParams({ follower_id: followerID });
+  return apiPatch<undefined>(`/notifications/${notificationID}/read?${params}`);
 }

@@ -6,6 +6,7 @@
 	import { getAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
 	import { recordConsent } from '$lib/api/device';
 	import { ensureDeviceBootstrap } from '$lib/utils/device-init';
+	import { notificationsState } from '$lib/stores/notifications';
 
 	let { children } = $props();
 
@@ -27,6 +28,7 @@
 
 		try {
 			await ensureDeviceBootstrap({ retry: 1 });
+			await notificationsState.init();
 
 			if (!isConsentGiven()) {
 				showConsent = true;
