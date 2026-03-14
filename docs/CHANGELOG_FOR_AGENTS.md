@@ -29,7 +29,7 @@ Area yang selalu wajib update docs bila berubah:
 
 - Akar masalah:
   - Tabel `issue_events` belum pernah dibuat di database (migrations/ kosong).
-  - `createIssueEvent()` dipanggil *di dalam* transaction utama submit report.
+  - `createIssueEvent()` dipanggil _di dalam_ transaction utama submit report.
   - Query INSERT ke tabel yang tidak ada melempar DB error, menyebabkan seluruh TX rollback.
   - Handler menangkap error ini sebagai generic 500 "failed to submit report".
 - Perbaikan:
