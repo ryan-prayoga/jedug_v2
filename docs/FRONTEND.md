@@ -138,6 +138,7 @@
   - follower count langsung ter-update setelah follow/unfollow berhasil
   - state tetap additive; SSR detail issue tetap berjalan seperti sebelumnya
   - initial load follow tidak lagi menembak dua endpoint sekaligus tanpa alasan; status diprioritaskan dulu, count dipakai sebagai fallback ringan
+  - refresh dari klik notifikasi pada issue yang sama juga me-refresh follow state agar count/following status tetap sinkron
 
 ## In-App Notification Center
 
@@ -150,12 +151,17 @@
 - Endpoint yang dipakai:
   - list: `GET /api/v1/notifications?follower_id=...&limit=50`
   - mark read: `PATCH /api/v1/notifications/:id/read?follower_id=...`
+  - delete: `DELETE /api/v1/notifications/:id?follower_id=...`
   - stream realtime: `GET /api/v1/notifications/stream?follower_id=...` (SSE)
 - UX behavior:
   - badge menampilkan jumlah item dengan `read_at = null`
-  - dropdown panel menampilkan title/message/waktu
-  - klik item menandai notifikasi sebagai read lalu navigasi ke `/issues/{issue_id}`
+  - dropdown panel menampilkan title/message/waktu + action hapus ringan per item
+  - klik item menandai notifikasi sebagai read lalu:
+    - navigasi normal ke `/issues/{issue_id}` bila target issue berbeda
+    - memicu refresh lokal detail issue + timeline + follow state bila user sudah berada di `/issues/{issue_id}` yang sama
+  - delete item menghapus row lokal tanpa full reload; unread badge ikut turun jika item yang dihapus masih unread
   - jika mark-read gagal sinkron ke backend, store menampilkan error ringan dan refresh ulang list dari server agar unread badge tetap konsisten dengan DB
+  - jika delete gagal sinkron ke backend, store menampilkan copy `Belum bisa menghapus notifikasi. Coba lagi.` lalu refresh snapshot server agar state tetap akurat
 - Scope saat ini hanya in-app notification (tanpa browser push/service worker/permission prompt).
 
 ## Public Stats Dashboard (`/stats`)

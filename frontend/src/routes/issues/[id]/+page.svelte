@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { navigating } from '$app/state';
+	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api/client';
 	import {
 		followIssue,
@@ -19,6 +20,7 @@
 	import LoadingState from '$lib/components/LoadingState.svelte';
 	import ShareActions from '$lib/components/ShareActions.svelte';
 	import { formatDate, relativeTime } from '$lib/utils/date';
+	import { onIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
 	import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
 	import {
 		buildIssueDetailSeo,
@@ -48,8 +50,8 @@
 	let previewMediaID = $state<string | null>(null);
 	let failedMediaIDs = $state<Set<string>>(new Set());
 
-	const canonicalUrl = (() => data.seo.canonical_url)();
-	const ogImageUrl = (() => data.seo.og_image_url)();
+	const canonicalUrl = $derived(data.seo.canonical_url);
+	const ogImageUrl = $derived(data.seo.og_image_url);
 
 	const seo = $derived(buildIssueDetailSeo(issue, { canonicalUrl, ogImageUrl }));
 	const timelinePageSize = 100;
@@ -66,6 +68,9 @@
 	let followErrorMessage = $state<string | null>(null);
 	let isFollowing = $state(false);
 	let followersCount = $state(0);
+	let notificationRefreshLoading = $state(false);
+	let notificationRefreshMessage = $state<string | null>(null);
+	let refreshMessageTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const locationLabel = $derived(issue ? getIssueLocationLabel(issue) : '-');
 	const locationContext = $derived(issue ? getIssueRegionOrCoordinates(issue) : '-');
@@ -247,6 +252,25 @@
 		followersCount = 0;
 	}
 
+	function clearRefreshMessageTimer() {
+		if (refreshMessageTimer !== null) {
+			clearTimeout(refreshMessageTimer);
+			refreshMessageTimer = null;
+		}
+	}
+
+	function showNotificationRefreshMessage(message: string) {
+		clearRefreshMessageTimer();
+		notificationRefreshMessage = message;
+
+		if (!browser) return;
+
+		refreshMessageTimer = window.setTimeout(() => {
+			notificationRefreshMessage = null;
+			refreshMessageTimer = null;
+		}, 2400);
+	}
+
 	type FollowStateSnapshot = {
 		following: boolean;
 		followersCount: number;
@@ -369,6 +393,69 @@
 		}
 	}
 
+	async function refreshIssueFromNotification(issueID: string) {
+		if (!browser || notificationRefreshLoading) return;
+		if (issue?.id !== issueID) return;
+
+		notificationRefreshLoading = true;
+		notificationRefreshMessage = null;
+
+		try {
+			const result = await getIssue(issueID);
+			if (!result.data) {
+				notFound = true;
+				errorMessage = null;
+				issue = null;
+				resetTimelineState();
+				timelineIssueID = null;
+				resetFollowState();
+				return;
+			}
+
+			issue = result.data;
+			notFound = false;
+			errorMessage = null;
+			failedMediaIDs = new Set();
+
+			const timelineRefresh = loadInitialTimeline(issueID);
+			const currentFollowerID = getOrCreateIssueFollowerId();
+			let followRefresh: Promise<void> | null = null;
+
+			if (currentFollowerID) {
+				followerID = currentFollowerID;
+				followLoading = true;
+				followErrorMessage = null;
+				followRefresh = (async () => {
+					const snapshot = await loadFollowState(issueID, currentFollowerID);
+					if (issue?.id !== issueID) return;
+
+					isFollowing = snapshot.following;
+					followersCount = snapshot.followersCount;
+					followErrorMessage = snapshot.errorMessage;
+					followLoading = false;
+				})();
+			}
+
+			await Promise.all([timelineRefresh, followRefresh]);
+			showNotificationRefreshMessage('Laporan diperbarui');
+		} catch (err) {
+			if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+				notFound = true;
+				errorMessage = null;
+				issue = null;
+				resetTimelineState();
+				timelineIssueID = null;
+				resetFollowState();
+				return;
+			}
+
+			showNotificationRefreshMessage('Belum bisa memperbarui laporan.');
+		} finally {
+			followLoading = false;
+			notificationRefreshLoading = false;
+		}
+	}
+
 	function handlePreviewOverlayClick(event: MouseEvent) {
 		if (event.currentTarget !== event.target) return;
 		closePreview();
@@ -380,6 +467,33 @@
 			closePreview();
 		}
 	}
+
+	$effect(() => {
+		const nextIssue = data.issue;
+		const nextIssueID = nextIssue?.id ?? data.id;
+
+		issue = nextIssue;
+		errorMessage = data.loadError;
+		notFound = data.notFound;
+		loading = false;
+		previewMediaID = null;
+		failedMediaIDs = new Set();
+		notificationRefreshLoading = false;
+		notificationRefreshMessage = null;
+		clearRefreshMessageTimer();
+
+		if (!nextIssue) {
+			resetTimelineState();
+			timelineIssueID = null;
+			resetFollowState();
+			return;
+		}
+
+		if (timelineIssueID && timelineIssueID !== nextIssueID) {
+			resetTimelineState();
+			timelineIssueID = null;
+		}
+	});
 
 	$effect(() => {
 		const issueID = issue?.id;
@@ -427,6 +541,12 @@
 		return () => {
 			cancelled = true;
 		};
+	});
+
+	onMount(() => {
+		return onIssueDetailRefresh(({ issueID }) => {
+			void refreshIssueFromNotification(issueID);
+		});
 	});
 </script>
 
@@ -482,6 +602,11 @@
 	{:else if issue}
 		{#if isRouteNavigating}
 			<div class="page-loading-indicator">Memuat halaman issue...</div>
+		{/if}
+		{#if notificationRefreshLoading || notificationRefreshMessage}
+			<div class="page-refresh-indicator" aria-live="polite">
+				{notificationRefreshLoading ? 'Memperbarui laporan...' : notificationRefreshMessage}
+			</div>
 		{/if}
 
 		<IssueHeader
@@ -790,6 +915,20 @@
 		width: fit-content;
 		background: rgba(15, 23, 42, 0.92);
 		color: #fff;
+		font-size: 12px;
+		font-weight: 700;
+		padding: 8px 12px;
+		border-radius: 999px;
+	}
+
+	.page-refresh-indicator {
+		position: sticky;
+		top: 58px;
+		z-index: 11;
+		width: fit-content;
+		background: #fff7ed;
+		border: 1px solid #fdba74;
+		color: #9a3412;
 		font-size: 12px;
 		font-weight: 700;
 		padding: 8px 12px;

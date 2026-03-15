@@ -20,6 +20,12 @@ Dokumen ini bukan sumber utama token desain.
 - Sub-label: "Pantau Jalan Rusak" in `#64748B`, 11px, next to logo
 - Nav links: "Lapor", "Peta", "Statistik", 14px, 500 weight, `#64748B`, hover `#E5484D`
 - Padding: 12px 16px
+- Notification bell:
+  - badge unread tampil dari jumlah item dengan `read_at = null`
+  - panel dropdown tetap nyaman di mobile (`<= 340px` lebar efektif)
+  - tiap item punya area tap utama untuk membuka issue dan action hapus terpisah yang tetap mudah disentuh
+  - action hapus tidak boleh ikut memicu navigasi item
+  - item unread memakai tint ringan merah muda agar cepat dibedakan
 
 ## IssueMap
 
@@ -144,6 +150,14 @@ Dokumen ini bukan sumber utama token desain.
   - tombol disable saat request berlangsung
   - label tombol berubah menjadi state progres
 - Copy UX harus menegaskan bahwa satu browser/device anonim dihitung sebagai satu follower.
+
+## Notification-Driven Issue Refresh
+
+- Jika user klik notifikasi dan target issue berbeda dari route aktif, lakukan navigasi normal ke `/issues/[id]`.
+- Jika user klik notifikasi ketika sudah berada di `/issues/[id]` yang sama:
+  - jangan noop
+  - refresh detail issue, timeline, dan state follow/follower count
+  - tampilkan micro-feedback ringan bahwa laporan diperbarui
 
 ## IssueGallery
 

@@ -51,7 +51,7 @@ func (h *NotificationHandler) MarkRead(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
 	}
 
-	updated, err := h.svc.MarkAsRead(c.Context(), notificationID, followerID)
+	readAt, updated, err := h.svc.MarkAsRead(c.Context(), notificationID, followerID)
 	if err != nil {
 		return response.Error(c, fiber.StatusInternalServerError, "failed to mark notification as read")
 	}
@@ -59,7 +59,31 @@ func (h *NotificationHandler) MarkRead(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusNotFound, "notification not found for this follower")
 	}
 
-	return response.OKMessage(c, "notification marked as read")
+	return response.OK(c, fiber.Map{
+		"read_at": readAt,
+	})
+}
+
+// DELETE /api/v1/notifications/:id?follower_id=<uuid>
+func (h *NotificationHandler) Delete(c *fiber.Ctx) error {
+	notificationID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, "notification id must be a valid UUID")
+	}
+
+	followerID, err := uuid.Parse(c.Query("follower_id"))
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
+	}
+
+	deleted, err := h.svc.Delete(c.Context(), notificationID, followerID)
+	if err != nil {
+		return response.Error(c, fiber.StatusInternalServerError, "failed to delete notification")
+	}
+
+	return response.OK(c, fiber.Map{
+		"deleted": deleted,
+	})
 }
 
 // GET /api/v1/notifications/stream?follower_id=<uuid>

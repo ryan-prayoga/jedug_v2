@@ -25,6 +25,37 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-15 - Notification Delete UX + Smart Same-Issue Refresh
+
+- Scope: menambah delete notification end-to-end dan membuat klik notification pada issue aktif melakukan refresh lokal, bukan navigate sia-sia.
+
+### Backend
+
+1. Menambah endpoint `DELETE /api/v1/notifications/:id?follower_id=...`.
+2. Authorization delete mengikuti pasangan `notification_id + follower_id`; row milik follower lain tidak terhapus.
+3. Delete dibuat aman/idempotent dengan payload `deleted: true|false`.
+4. `PATCH /api/v1/notifications/:id/read` kini mengembalikan `data.read_at` dari DB agar frontend bisa sinkron tanpa timestamp lokal palsu.
+
+### Frontend
+
+5. `stores/notifications.ts` menambah state `deletingIDs` + method `delete(notificationID)` untuk removal lokal ringan tanpa full reload.
+6. `AppHeader.svelte` menambah action hapus per item dan logic route-aware:
+   - issue berbeda -> `goto('/issues/{id}')`
+   - issue sama -> dispatch refresh event lokal
+7. Menambah helper `frontend/src/lib/utils/issue-detail-refresh.ts` untuk event ringan refresh detail issue.
+8. `routes/issues/[id]/+page.svelte` kini:
+   - listen refresh event dari notification click
+   - re-fetch detail issue, timeline, dan follow state saat issue sama
+   - menampilkan micro-feedback `Laporan diperbarui`
+   - sinkron lagi ke `data` route saat user pindah ke issue lain di route yang sama
+
+### Doc Updates
+
+- `docs/BACKEND.md`
+- `docs/FRONTEND.md`
+- `design-docs/component-spec.md`
+- `design-docs/guide.md`
+
 ## 2026-03-15 - Realtime In-App Notifications via SSE
 
 - Scope: SSE backend hub + endpoint + frontend EventSource client dengan exponential-backoff reconnect.

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { requestIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
 	import {
 		notificationsState,
 		unreadNotificationCount,
@@ -38,7 +39,20 @@
 	async function handleNotificationClick(id: string, issueID: string) {
 		await notificationsState.markRead(id);
 		openNotif = false;
-		await goto(`/issues/${issueID}`);
+
+		const targetPath = `/issues/${issueID}`;
+		if (pathname === targetPath) {
+			requestIssueDetailRefresh({ issueID, source: 'notification' });
+			return;
+		}
+
+		await goto(targetPath);
+	}
+
+	async function handleNotificationDelete(event: MouseEvent, id: string) {
+		event.preventDefault();
+		event.stopPropagation();
+		await notificationsState.delete(id);
 	}
 </script>
 
@@ -97,7 +111,7 @@
 					{:else}
 						<ul class="notif-list">
 							{#each notifState.items as item (item.id)}
-								<li>
+								<li class="notif-row">
 									<button
 										type="button"
 										class="notif-item"
@@ -107,6 +121,15 @@
 										<div class="notif-item-title">{item.title}</div>
 										<div class="notif-item-message">{item.message}</div>
 										<div class="notif-item-time">{formatNotifTime(item.created_at)}</div>
+									</button>
+									<button
+										type="button"
+										class="notif-delete"
+										aria-label="Hapus notifikasi"
+										disabled={notifState.deletingIDs.includes(item.id)}
+										onclick={(event) => handleNotificationDelete(event, item.id)}
+									>
+										{notifState.deletingIDs.includes(item.id) ? '...' : 'Hapus'}
 									</button>
 								</li>
 							{/each}
@@ -243,6 +266,13 @@
 		gap: 6px;
 	}
 
+	.notif-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 8px;
+		align-items: stretch;
+	}
+
 	.notif-item {
 		width: 100%;
 		text-align: left;
@@ -274,6 +304,23 @@
 		font-size: 11px;
 		color: #94A3B8;
 		margin-top: 6px;
+	}
+
+	.notif-delete {
+		min-width: 60px;
+		padding: 0 12px;
+		border-radius: 10px;
+		border: 1px solid #FECACA;
+		background: #FFF5F5;
+		color: #B42318;
+		font-size: 12px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.notif-delete:disabled {
+		opacity: 0.65;
+		cursor: default;
 	}
 
 	.notif-empty {
