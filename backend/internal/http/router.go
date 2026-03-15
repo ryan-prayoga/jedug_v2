@@ -137,6 +137,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	api.Get("/notifications", notifHandler.List)
 	api.Get("/notifications/stream", notifHandler.Stream)
 	api.Patch("/notifications/:id/read", notifHandler.MarkRead)
+	api.Delete("/notifications/:id", notifHandler.Delete)
 
 	api.Get("/stats", statsHandler.Get)
 

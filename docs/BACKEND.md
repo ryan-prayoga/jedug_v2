@@ -156,8 +156,10 @@
 - Endpoint notifikasi in-app publik:
   - `GET /api/v1/notifications?follower_id=...&limit=50`
   - `PATCH /api/v1/notifications/:id/read?follower_id=...`
+  - `DELETE /api/v1/notifications/:id?follower_id=...`
   - `GET /api/v1/notifications/stream?follower_id=...` — **SSE stream** (text/event-stream)
-- Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri. Jika row tidak ditemukan, endpoint mengembalikan `404` (bukan success palsu).
+- Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri. Endpoint mengembalikan `read_at` persisten dari DB; jika row tidak ditemukan, response `404`.
+- Delete notification juga dikunci oleh pasangan `notification_id + follower_id`; response `deleted: true|false` dibuat aman/idempotent tanpa membocorkan ownership follower lain.
 - Self-notify prevention:
   - endpoint submit report menerima field opsional `actor_follower_id`.
   - dispatcher skip follower yang sama dengan actor (`excludeFollowerID`) agar pengirim update tidak menerima notifikasi untuk event yang ia buat sendiri.

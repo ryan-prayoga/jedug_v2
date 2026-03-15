@@ -1,6 +1,7 @@
 import { derived, writable } from "svelte/store";
 import { PUBLIC_API_BASE_URL } from "$env/static/public";
 import {
+  deleteNotification,
   getNotifications,
   markNotificationRead,
   type Notification,
@@ -13,6 +14,7 @@ interface NotificationState {
   error: string | null;
   followerID: string | null;
   initialized: boolean;
+  deletingIDs: string[];
 }
 
 const initialState: NotificationState = {
@@ -21,6 +23,7 @@ const initialState: NotificationState = {
   error: null,
   followerID: null,
   initialized: false,
+  deletingIDs: [],
 };
 
 const state = writable<NotificationState>(initialState);
@@ -175,13 +178,14 @@ export const notificationsState = {
     }
 
     try {
-      await markNotificationRead(notificationID, followerID);
+      const result = await markNotificationRead(notificationID, followerID);
+      const readAt = result.data?.read_at ?? new Date().toISOString();
       state.update((prev) => ({
         ...prev,
         error: null,
         items: prev.items.map((item) =>
           item.id === notificationID
-            ? { ...item, read_at: item.read_at ?? new Date().toISOString() }
+            ? { ...item, read_at: item.read_at ?? readAt }
             : item,
         ),
       }));
@@ -192,6 +196,60 @@ export const notificationsState = {
       }));
       // Pull latest state so badge/list stays consistent with persisted DB state.
       await this.refresh();
+    }
+  },
+
+  async delete(notificationID: string) {
+    let followerID: string | null = null;
+    let shouldDelete = false;
+    state.update((prev) => {
+      followerID = prev.followerID;
+      if (prev.deletingIDs.includes(notificationID)) {
+        return prev;
+      }
+
+      shouldDelete = true;
+
+      return {
+        ...prev,
+        error: null,
+        deletingIDs: [...prev.deletingIDs, notificationID],
+      };
+    });
+
+    if (!shouldDelete) {
+      return false;
+    }
+
+    if (!followerID) {
+      state.update((prev) => ({
+        ...prev,
+        deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
+      }));
+      return false;
+    }
+
+    try {
+      const result = await deleteNotification(notificationID, followerID);
+
+      state.update((prev) => ({
+        ...prev,
+        error: null,
+        deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
+        items: result.data?.deleted
+          ? prev.items.filter((item) => item.id !== notificationID)
+          : prev.items,
+      }));
+
+      return Boolean(result.data?.deleted);
+    } catch {
+      state.update((prev) => ({
+        ...prev,
+        error: "Belum bisa menghapus notifikasi. Coba lagi.",
+        deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
+      }));
+      await this.refresh();
+      return false;
     }
   },
 

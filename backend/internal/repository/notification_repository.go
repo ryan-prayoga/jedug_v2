@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"jedug_backend/internal/domain"
 	"jedug_backend/internal/sse"
@@ -134,7 +135,8 @@ func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueI
 // NotificationRepository reads notification data for a given follower.
 type NotificationRepository interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
-	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error)
+	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (*time.Time, bool, error)
+	Delete(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error)
 }
 
 type notificationRepository struct {
@@ -172,10 +174,27 @@ func (r *notificationRepository) GetByFollowerID(ctx context.Context, followerID
 	return result, rows.Err()
 }
 
-func (r *notificationRepository) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error) {
-	tag, err := r.db.Exec(ctx, `
+func (r *notificationRepository) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (*time.Time, bool, error) {
+	var readAt time.Time
+	err := r.db.QueryRow(ctx, `
 		UPDATE notifications
 		SET read_at = COALESCE(read_at, NOW())
+		WHERE id = $1
+		  AND follower_id = $2
+		RETURNING read_at
+	`, notificationID, followerID).Scan(&readAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return &readAt, true, nil
+}
+
+func (r *notificationRepository) Delete(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error) {
+	tag, err := r.db.Exec(ctx, `
+		DELETE FROM notifications
 		WHERE id = $1
 		  AND follower_id = $2
 	`, notificationID, followerID)
