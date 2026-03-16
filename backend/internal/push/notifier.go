@@ -29,6 +29,7 @@ type Notifier struct {
 	cfg        Config
 	repo       repository.PushSubscriptionRepository
 	httpClient *http.Client
+	jobs       chan []repository.PushDelivery
 }
 
 type notificationPayload struct {
@@ -45,7 +46,7 @@ func NewNotifier(cfg Config, repo repository.PushSubscriptionRepository) *Notifi
 		ttl = 300
 	}
 
-	return &Notifier{
+	notifier := &Notifier{
 		cfg: Config{
 			Enabled:         cfg.Enabled,
 			SiteURL:         strings.TrimRight(cfg.SiteURL, "/"),
@@ -58,7 +59,12 @@ func NewNotifier(cfg Config, repo repository.PushSubscriptionRepository) *Notifi
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		jobs: make(chan []repository.PushDelivery, 128),
 	}
+	if notifier.cfg.Enabled {
+		notifier.startWorkers(2)
+	}
+	return notifier
 }
 
 func (n *Notifier) DeliverBatch(ctx context.Context, deliveries []repository.PushDelivery) error {
@@ -66,43 +72,13 @@ func (n *Notifier) DeliverBatch(ctx context.Context, deliveries []repository.Pus
 		return nil
 	}
 
-	followerIDs := uniqueFollowerIDs(deliveries)
-	subscriptionsByFollower, err := n.repo.GetActiveByFollowerIDs(ctx, followerIDs)
-	if err != nil {
-		return err
+	job := append(make([]repository.PushDelivery, 0, len(deliveries)), deliveries...)
+	select {
+	case n.jobs <- job:
+		return nil
+	default:
+		return fmt.Errorf("push delivery queue is full")
 	}
-
-	for _, delivery := range deliveries {
-		subscriptions := subscriptionsByFollower[delivery.FollowerID]
-		if len(subscriptions) == 0 {
-			continue
-		}
-
-		payload, err := json.Marshal(notificationPayload{
-			Title:   delivery.Title,
-			Body:    delivery.Message,
-			IssueID: delivery.IssueID.String(),
-			URL:     issueURL(n.cfg.SiteURL, delivery.IssueID),
-			Type:    delivery.Type,
-		})
-		if err != nil {
-			log.Printf("[PUSH] payload_marshal_error follower=%s issue=%s error=%v", delivery.FollowerID, delivery.IssueID, err)
-			continue
-		}
-
-		for _, subscription := range subscriptions {
-			if sendErr := n.send(ctx, subscription, payload, delivery.IssueID); sendErr != nil {
-				log.Printf("[PUSH] send_error follower=%s issue=%s endpoint=%s error=%v",
-					delivery.FollowerID,
-					delivery.IssueID,
-					subscription.Endpoint,
-					sendErr,
-				)
-			}
-		}
-	}
-
-	return nil
 }
 
 func (n *Notifier) send(ctx context.Context, subscription *domain.PushSubscription, payload []byte, issueID uuid.UUID) error {
@@ -155,4 +131,57 @@ func uniqueFollowerIDs(deliveries []repository.PushDelivery) []uuid.UUID {
 		result = append(result, delivery.FollowerID)
 	}
 	return result
+}
+
+func (n *Notifier) startWorkers(workerCount int) {
+	for workerIndex := 0; workerIndex < workerCount; workerIndex++ {
+		go n.workerLoop()
+	}
+}
+
+func (n *Notifier) workerLoop() {
+	for deliveries := range n.jobs {
+		jobCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		n.deliverBatchSync(jobCtx, deliveries)
+		cancel()
+	}
+}
+
+func (n *Notifier) deliverBatchSync(ctx context.Context, deliveries []repository.PushDelivery) {
+	followerIDs := uniqueFollowerIDs(deliveries)
+	subscriptionsByFollower, err := n.repo.GetActiveByFollowerIDs(ctx, followerIDs)
+	if err != nil {
+		log.Printf("[PUSH] load_subscriptions_error error=%v", err)
+		return
+	}
+
+	for _, delivery := range deliveries {
+		subscriptions := subscriptionsByFollower[delivery.FollowerID]
+		if len(subscriptions) == 0 {
+			continue
+		}
+
+		payload, err := json.Marshal(notificationPayload{
+			Title:   delivery.Title,
+			Body:    delivery.Message,
+			IssueID: delivery.IssueID.String(),
+			URL:     issueURL(n.cfg.SiteURL, delivery.IssueID),
+			Type:    delivery.Type,
+		})
+		if err != nil {
+			log.Printf("[PUSH] payload_marshal_error follower=%s issue=%s error=%v", delivery.FollowerID, delivery.IssueID, err)
+			continue
+		}
+
+		for _, subscription := range subscriptions {
+			if sendErr := n.send(ctx, subscription, payload, delivery.IssueID); sendErr != nil {
+				log.Printf("[PUSH] send_error follower=%s issue=%s endpoint=%s error=%v",
+					delivery.FollowerID,
+					delivery.IssueID,
+					subscription.Endpoint,
+					sendErr,
+				)
+			}
+		}
+	}
 }

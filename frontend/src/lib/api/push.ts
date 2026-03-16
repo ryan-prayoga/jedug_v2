@@ -24,28 +24,28 @@ export interface BrowserPushUnsubscribeResponse {
 }
 
 export async function getBrowserPushStatus(
-  followerID: string,
+  followerToken: string,
 ): Promise<ApiResponse<BrowserPushStatusResponse>> {
-  const params = new URLSearchParams({ follower_id: followerID });
+  const params = new URLSearchParams({ follower_token: followerToken });
   return apiGet<BrowserPushStatusResponse>(`/api/v1/push/status?${params}`);
 }
 
 export async function subscribeBrowserPush(
-  followerID: string,
+  followerToken: string,
   subscription: BrowserPushSubscriptionPayload,
 ): Promise<ApiResponse<BrowserPushStatusResponse>> {
   return apiPost<BrowserPushStatusResponse>("/api/v1/push/subscribe", {
-    follower_id: followerID,
+    follower_token: followerToken,
     subscription,
   });
 }
 
 export async function unsubscribeBrowserPush(
-  followerID: string,
+  followerToken: string,
   endpoint: string,
 ): Promise<ApiResponse<BrowserPushUnsubscribeResponse>> {
   return apiPost<BrowserPushUnsubscribeResponse>("/api/v1/push/unsubscribe", {
-    follower_id: followerID,
+    follower_token: followerToken,
     endpoint,
   });
 }

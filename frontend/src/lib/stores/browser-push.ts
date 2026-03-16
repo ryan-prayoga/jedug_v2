@@ -8,6 +8,7 @@ import {
   type BrowserPushStatusResponse,
 } from "$lib/api/push";
 import { requestIssueDetailRefresh } from "$lib/utils/issue-detail-refresh";
+import { ensureFollowerAuthToken } from "$lib/utils/follower-auth";
 import { getOrCreateIssueFollowerId } from "$lib/utils/storage";
 
 export type BrowserPushStatus =
@@ -27,6 +28,7 @@ interface BrowserPushState {
   subscribed: boolean;
   subscriptionCount: number;
   followerID: string | null;
+  followerToken: string | null;
   loading: boolean;
   busy: boolean;
   initialized: boolean;
@@ -57,6 +59,7 @@ const initialState: BrowserPushState = {
   subscribed: false,
   subscriptionCount: 0,
   followerID: null,
+  followerToken: null,
   loading: false,
   busy: false,
   initialized: false,
@@ -108,7 +111,9 @@ async function ensureServiceWorkerRegistration() {
 
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const normalized = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const normalized = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
   const rawData = window.atob(normalized);
   const output = new Uint8Array(rawData.length);
 
@@ -144,7 +149,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-async function loadSnapshot(followerID: string) {
+async function loadSnapshot(followerID: string, followerToken: string | null) {
   const supported = isSupported();
   const permission: PushPermission = supported
     ? Notification.permission
@@ -162,11 +167,13 @@ async function loadSnapshot(followerID: string) {
   }
 
   let backendStatus: BrowserPushStatusResponse | null = null;
-  try {
-    const result = await getBrowserPushStatus(followerID);
-    backendStatus = result.data ?? null;
-  } catch {
-    backendStatus = null;
+  if (followerToken) {
+    try {
+      const result = await getBrowserPushStatus(followerToken);
+      backendStatus = result.data ?? null;
+    } catch {
+      backendStatus = null;
+    }
   }
 
   let localSubscription: PushSubscription | null = null;
@@ -227,9 +234,10 @@ function bindMessageBridge() {
 
 async function syncExistingSubscription(
   followerID: string,
+  followerToken: string | null,
   snapshot: Awaited<ReturnType<typeof loadSnapshot>>,
 ) {
-  if (!snapshot.enabled || !snapshot.localSubscription) {
+  if (!snapshot.enabled || !snapshot.localSubscription || !followerToken) {
     return snapshot;
   }
 
@@ -238,10 +246,10 @@ async function syncExistingSubscription(
   }
 
   await subscribeBrowserPush(
-    followerID,
+    followerToken,
     toSubscriptionPayload(snapshot.localSubscription),
   );
-  return loadSnapshot(followerID);
+  return loadSnapshot(followerID, followerToken);
 }
 
 async function refreshState(showLoading: boolean) {
@@ -261,6 +269,8 @@ async function refreshState(showLoading: boolean) {
     return;
   }
 
+  const followerToken = await ensureFollowerAuthToken();
+
   if (showLoading) {
     state.update((prev) => ({
       ...prev,
@@ -268,12 +278,17 @@ async function refreshState(showLoading: boolean) {
       error: null,
       success: null,
       followerID,
+      followerToken,
     }));
   }
 
   try {
-    let snapshot = await loadSnapshot(followerID);
-    snapshot = await syncExistingSubscription(followerID, snapshot);
+    let snapshot = await loadSnapshot(followerID, followerToken);
+    snapshot = await syncExistingSubscription(
+      followerID,
+      followerToken,
+      snapshot,
+    );
     bindMessageBridge();
 
     const subscribed = Boolean(snapshot.localSubscription);
@@ -287,6 +302,7 @@ async function refreshState(showLoading: boolean) {
       subscriptionCount: snapshot.subscriptionCount,
       vapidPublicKey: snapshot.vapidPublicKey,
       followerID,
+      followerToken,
       loading: false,
       busy: false,
       initialized: true,
@@ -300,6 +316,7 @@ async function refreshState(showLoading: boolean) {
       busy: false,
       initialized: true,
       followerID,
+      followerToken,
       error: "Belum bisa memeriksa status notifikasi browser.",
     }));
   }
@@ -351,12 +368,24 @@ export const browserPushState = {
       return false;
     }
 
+    const followerToken = await ensureFollowerAuthToken({ forceRefresh: true });
+    if (!followerToken) {
+      state.update((prev) => ({
+        ...prev,
+        busy: false,
+        error:
+          "Ikuti setidaknya satu laporan dari browser ini dulu agar notifikasi browser bisa diamankan.",
+      }));
+      return false;
+    }
+
     state.update((prev) => ({
       ...prev,
       busy: true,
       error: null,
       success: null,
       followerID,
+      followerToken,
     }));
 
     try {
@@ -379,7 +408,7 @@ export const browserPushState = {
         return false;
       }
 
-      const statusResult = await getBrowserPushStatus(followerID);
+      const statusResult = await getBrowserPushStatus(followerToken);
       const backendStatus = statusResult.data;
       if (!backendStatus?.enabled || !backendStatus.vapid_public_key) {
         state.update((prev) => ({
@@ -406,7 +435,7 @@ export const browserPushState = {
       }
 
       await subscribeBrowserPush(
-        followerID,
+        followerToken,
         toSubscriptionPayload(subscription),
       );
 
@@ -438,9 +467,9 @@ export const browserPushState = {
   async disable() {
     if (!browser || !isSupported()) return false;
 
-    let followerID: string | null = null;
+    let followerToken: string | null = null;
     state.update((prev) => {
-      followerID = prev.followerID;
+      followerToken = prev.followerToken;
       return {
         ...prev,
         busy: true,
@@ -449,16 +478,16 @@ export const browserPushState = {
       };
     });
 
-    if (!followerID) {
-      followerID = getOrCreateIssueFollowerId();
+    if (!followerToken) {
+      followerToken = await ensureFollowerAuthToken({ forceRefresh: true });
     }
 
     try {
       const registration = await ensureServiceWorkerRegistration();
       const subscription = await registration.pushManager.getSubscription();
 
-      if (subscription && followerID) {
-        await unsubscribeBrowserPush(followerID, subscription.endpoint);
+      if (subscription && followerToken) {
+        await unsubscribeBrowserPush(followerToken, subscription.endpoint);
         await subscription.unsubscribe();
       }
 

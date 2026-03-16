@@ -167,12 +167,15 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
   - `WEB_PUSH_SUBSCRIBER`
   - `WEB_PUSH_SITE_URL`
   - `WEB_PUSH_TTL_SEC` (optional, default `300`)
+- auth notifikasi follower:
+  - `FOLLOWER_TOKEN_SECRET` (required, minimal 32 karakter random)
+  - `FOLLOWER_TOKEN_TTL_SEC` (optional, default `604800`)
 
 ### Frontend env
 
 - `PUBLIC_API_BASE_URL`
 
-Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`.
+Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`. Frontend juga tidak menyimpan secret follower; ia hanya menyimpan `follower_token` hasil `POST /api/v1/followers/auth`.
 
 ## Restart / Rollout Checklist
 

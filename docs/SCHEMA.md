@@ -138,14 +138,14 @@ Dokumen ini disusun dari:
 - Kolom penting: `issue_id`, `follower_id`, `event_id`, `type`, `title`, `message`, `created_at`, `read_at`.
 - Constraint/index penting:
   - unique `(event_id, follower_id)` — deduplication agar satu follower tidak menerima notifikasi duplikat untuk event yang sama.
-  - index `(follower_id, created_at DESC)` — dipakai oleh GET `/api/v1/notifications?follower_id=...`.
+  - index `(follower_id, created_at DESC)` — dipakai backend setelah `follower_token` diverifikasi dan di-resolve ke follower yang sah.
   - index `issue_id` — untuk cleanup cascade.
 - Business meaning: follower anonim bisa melihat daftar update issue tanpa login.
 - Rawan salah paham:
   - `event_id` merujuk ke `issue_events.id` secara logis, tetapi tidak ada FK constraint karena tipe kolom belum diverifikasi eksplisit.
   - dispatch notifikasi berjalan non-fatal setelah event berhasil diinsert; jika gagal, hanya di-log.
   - browser push tidak menggantikan tabel ini; `notifications` tetap source of truth daftar update in-app.
-  - `read_at` dipakai aktif oleh endpoint `PATCH /api/v1/notifications/:id/read?follower_id=...` dan menjadi source of truth unread badge di frontend.
+  - `read_at` dipakai aktif oleh endpoint `PATCH /api/v1/notifications/:id/read?follower_token=...` dan menjadi source of truth unread badge di frontend.
 - Migration: `backend/migrations/202603150001_create_notifications.sql` — WAJIB DIJALANKAN DI PROD.
 
 ### `push_subscriptions`
@@ -165,6 +165,19 @@ Dokumen ini disusun dari:
   - follower yang sama tetap bisa punya beberapa row historis bila browser merotasi endpoint dari waktu ke waktu.
   - public VAPID key tidak disimpan di tabel; ia berasal dari env backend dan diexpose via endpoint status.
 - Migration: `backend/migrations/202603160001_create_push_subscriptions.sql` — WAJIB DIJALANKAN DI PROD.
+
+### `follower_auth_bindings`
+
+- Fungsi: mengikat `follower_id` anonim ke hash `X-Device-Token` sehingga akses notification/push tidak lagi hanya bergantung pada UUID mentah.
+- Relasi: `follower_id` UUID anonim client-side yang sama dengan `issue_followers`, `notifications`, dan `push_subscriptions` (tanpa FK ke tabel lain).
+- Kolom penting: `follower_id`, `device_token_hash`, `created_at`, `updated_at`.
+- Business meaning:
+  - backend dapat menerbitkan `follower_token` bertanda tangan server hanya untuk browser yang memegang device token anonim yang benar.
+  - notifikasi tetap semi-anonim tanpa menambah sistem login user.
+- Rawan salah paham:
+  - tabel ini tidak menyimpan raw `X-Device-Token`; hanya hash SHA-256.
+  - `follower_token` sendiri tidak disimpan di DB; ia stateless dan diverifikasi via signature + keberadaan binding row.
+- Migration: `backend/migrations/202603160002_create_follower_auth_bindings.sql` — WAJIB DIJALANKAN DI PROD.
 
 ### `moderation_actions`
 

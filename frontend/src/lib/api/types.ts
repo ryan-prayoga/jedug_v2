@@ -2,6 +2,7 @@
 
 export interface ApiResponse<T = undefined> {
   success: boolean;
+  error_code?: string;
   message?: string;
   data?: T;
 }
@@ -124,6 +125,8 @@ export interface IssueDetail extends Issue {
 export interface IssueFollowState {
   following: boolean;
   followers_count: number;
+  follower_token?: string;
+  follower_token_expires_at?: string;
 }
 
 export interface IssueFollowersCount {

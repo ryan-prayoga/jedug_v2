@@ -5,19 +5,19 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"jedug_backend/internal/http/response"
 	"jedug_backend/internal/service"
 )
 
 type PushHandler struct {
-	svc service.PushService
+	svc     service.PushService
+	authSvc service.FollowerAuthService
 }
 
 type pushSubscriptionBody struct {
-	FollowerID   string `json:"follower_id"`
-	Endpoint     string `json:"endpoint"`
-	Subscription struct {
+	FollowerToken string `json:"follower_token"`
+	Endpoint      string `json:"endpoint"`
+	Subscription  struct {
 		Endpoint string `json:"endpoint"`
 		Keys     struct {
 			P256DH string `json:"p256dh"`
@@ -27,18 +27,18 @@ type pushSubscriptionBody struct {
 }
 
 type pushUnsubscribeBody struct {
-	FollowerID string `json:"follower_id"`
-	Endpoint   string `json:"endpoint"`
+	FollowerToken string `json:"follower_token"`
+	Endpoint      string `json:"endpoint"`
 }
 
-func NewPushHandler(svc service.PushService) *PushHandler {
-	return &PushHandler{svc: svc}
+func NewPushHandler(svc service.PushService, authSvc service.FollowerAuthService) *PushHandler {
+	return &PushHandler{svc: svc, authSvc: authSvc}
 }
 
 func (h *PushHandler) Status(c *fiber.Ctx) error {
-	followerID, err := uuid.Parse(c.Query("follower_id"))
-	if err != nil || followerID == uuid.Nil {
-		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
+	followerID, err := authenticateFollowerToken(c, h.authSvc)
+	if err != nil {
+		return mapFollowerAuthError(c, err)
 	}
 
 	status, err := h.svc.GetStatus(c.Context(), followerID)
@@ -55,9 +55,9 @@ func (h *PushHandler) Subscribe(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	followerID, err := parsePushFollowerID(body.FollowerID)
+	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token")))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, err.Error())
+		return mapFollowerAuthError(c, err)
 	}
 
 	endpoint := firstNonEmpty(body.Subscription.Endpoint, body.Endpoint)
@@ -83,9 +83,9 @@ func (h *PushHandler) Unsubscribe(c *fiber.Ctx) error {
 		}
 	}
 
-	followerID, err := parsePushFollowerID(firstNonEmpty(body.FollowerID, c.Query("follower_id")))
+	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token")))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, err.Error())
+		return mapFollowerAuthError(c, err)
 	}
 
 	status, unsubscribed, svcErr := h.svc.Unsubscribe(c.Context(), service.PushUnsubscribeInput{
@@ -104,18 +104,12 @@ func (h *PushHandler) Unsubscribe(c *fiber.Ctx) error {
 	})
 }
 
-func parsePushFollowerID(raw string) (uuid.UUID, error) {
-	followerID, err := uuid.Parse(strings.TrimSpace(raw))
-	if err != nil || followerID == uuid.Nil {
-		return uuid.Nil, errors.New("follower_id must be a valid UUID")
-	}
-	return followerID, nil
-}
-
 func mapPushError(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, service.ErrPushDisabled):
 		return response.Error(c, fiber.StatusServiceUnavailable, "browser push notification belum dikonfigurasi")
+	case errors.Is(err, service.ErrInvalidPushSubscription):
+		return response.Error(c, fiber.StatusBadRequest, err.Error())
 	case err != nil && strings.Contains(err.Error(), "required"):
 		return response.Error(c, fiber.StatusBadRequest, err.Error())
 	default:

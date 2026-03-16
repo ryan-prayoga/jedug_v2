@@ -30,6 +30,8 @@ type Config struct {
 	ReverseGeocodeUserAgent string
 	ReverseGeocodeTimeout   time.Duration
 	ReverseGeocodeCacheTTL  time.Duration
+	FollowerTokenSecret     string
+	FollowerTokenTTL        time.Duration
 	WebPushVAPIDPublicKey   string
 	WebPushVAPIDPrivateKey  string
 	WebPushSubscriber       string
@@ -61,6 +63,8 @@ func Load() *Config {
 		ReverseGeocodeUserAgent: getEnv("REVERSE_GEOCODE_USER_AGENT", "jedug-api/1.0"),
 		ReverseGeocodeTimeout:   getEnvPositiveDurationMS("REVERSE_GEOCODE_TIMEOUT_MS", 2000),
 		ReverseGeocodeCacheTTL:  getEnvPositiveDurationSec("REVERSE_GEOCODE_CACHE_TTL_SEC", 300),
+		FollowerTokenSecret:     strings.TrimSpace(mustGetEnv("FOLLOWER_TOKEN_SECRET")),
+		FollowerTokenTTL:        getEnvPositiveDurationSec("FOLLOWER_TOKEN_TTL_SEC", 7*24*60*60),
 		WebPushVAPIDPublicKey:   strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PUBLIC_KEY", "")),
 		WebPushVAPIDPrivateKey:  strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PRIVATE_KEY", "")),
 		WebPushSubscriber:       strings.TrimSpace(getEnv("WEB_PUSH_SUBSCRIBER", "")),
@@ -69,6 +73,7 @@ func Load() *Config {
 	}
 
 	validateWebPushConfig(cfg)
+	validateFollowerTokenConfig(cfg)
 	return cfg
 }
 
@@ -181,5 +186,11 @@ func validateWebPushConfig(cfg *Config) {
 
 	if setCount != len(values) {
 		panic("web push env must be configured together: WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY, WEB_PUSH_SUBSCRIBER, WEB_PUSH_SITE_URL")
+	}
+}
+
+func validateFollowerTokenConfig(cfg *Config) {
+	if len(cfg.FollowerTokenSecret) < 32 {
+		panic("FOLLOWER_TOKEN_SECRET must be at least 32 characters")
 	}
 }

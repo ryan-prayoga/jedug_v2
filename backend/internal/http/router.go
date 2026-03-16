@@ -57,6 +57,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueRepo := repository.NewIssueRepository(db)
 	issueFollowRepo := repository.NewIssueFollowRepository(db)
 	pushRepo := repository.NewPushSubscriptionRepository(db)
+	followerAuthRepo := repository.NewFollowerAuthRepository(db)
 	pushNotifier := push.NewNotifier(push.Config{
 		Enabled:         cfg.WebPushVAPIDPublicKey != "",
 		SiteURL:         cfg.WebPushSiteURL,
@@ -79,6 +80,10 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
 	issueFollowSvc := service.NewIssueFollowService(issueRepo, issueFollowRepo)
+	followerAuthSvc := service.NewFollowerAuthService(followerAuthRepo, issueFollowRepo, service.FollowerAuthServiceConfig{
+		Secret: []byte(cfg.FollowerTokenSecret),
+		TTL:    cfg.FollowerTokenTTL,
+	})
 	notifRepo := repository.NewNotificationRepository(db)
 	notifSvc := service.NewNotificationService(notifRepo)
 	pushSvc := service.NewPushService(pushRepo, service.PushServiceConfig{
@@ -102,9 +107,10 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	healthHandler := handlers.NewHealthHandler(db)
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
-	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc)
-	notifHandler := handlers.NewNotificationHandler(notifSvc)
-	pushHandler := handlers.NewPushHandler(pushSvc)
+	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc, followerAuthSvc)
+	followerAuthHandler := handlers.NewFollowerAuthHandler(followerAuthSvc)
+	notifHandler := handlers.NewNotificationHandler(notifSvc, followerAuthSvc)
+	pushHandler := handlers.NewPushHandler(pushSvc, followerAuthSvc)
 	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
@@ -153,6 +159,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issues.Get("/:id", issueHandler.Get)
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
 
+	api.Post("/followers/auth", rlFollow, followerAuthHandler.Issue)
 	api.Get("/notifications", notifHandler.List)
 	api.Get("/notifications/stream", notifHandler.Stream)
 	api.Patch("/notifications/:id/read", notifHandler.MarkRead)
