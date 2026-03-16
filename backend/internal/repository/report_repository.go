@@ -293,11 +293,12 @@ func resolveBestRegionID(ctx context.Context, tx pgx.Tx, lon, lat float64) (*int
 		WHERE ST_Covers(reg.geom, p.geom)
 		ORDER BY
 			CASE
-				WHEN reg.level = 'district' THEN 0
-				WHEN reg.level = 'subdistrict' THEN 1
-				WHEN reg.level = 'city' THEN 2
-				WHEN reg.level = 'province' THEN 3
-				ELSE 4
+				WHEN LOWER(COALESCE(reg.level, '')) IN ('district', 'kecamatan') THEN 0
+				WHEN LOWER(COALESCE(reg.level, '')) IN ('subdistrict') THEN 1
+				WHEN LOWER(COALESCE(reg.level, '')) IN ('city', 'kota') THEN 2
+				WHEN LOWER(COALESCE(reg.level, '')) IN ('regency', 'kabupaten') THEN 3
+				WHEN LOWER(COALESCE(reg.level, '')) IN ('province', 'provinsi') THEN 4
+				ELSE 5
 			END,
 			ST_Area(reg.geom::geography) ASC
 		LIMIT 1

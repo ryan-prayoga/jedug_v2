@@ -1,5 +1,5 @@
 import { apiGet } from "./client";
-import type { PublicStats } from "./types";
+import type { PublicStats, PublicStatsRegionOptionsData } from "./types";
 
 interface GetPublicStatsOptions {
   provinceID?: number | null;
@@ -17,4 +17,8 @@ export async function getPublicStats(options: GetPublicStatsOptions = {}) {
 
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
   return apiGet<PublicStats>(`/api/v1/stats${suffix}`);
+}
+
+export async function getPublicStatsRegionOptions() {
+  return apiGet<PublicStatsRegionOptionsData>("/api/v1/stats/regions/options");
 }

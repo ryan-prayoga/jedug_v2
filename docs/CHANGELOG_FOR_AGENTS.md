@@ -25,6 +25,35 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-16 - Fix Filter Statistik Wilayah Administratif
+
+- Scope:
+  - memperbaiki dropdown provinsi/kabupaten-kota di `/stats` agar tidak lagi bergantung penuh pada payload `/stats` yang sama.
+  - memperkuat penurunan wilayah administratif backend untuk issue lama/new reports supaya leaderboard dan top issue benar-benar berbasis wilayah administratif.
+- Dampak area:
+  - `backend/internal/domain/stats.go`
+  - `backend/internal/repository/stats_repository.go`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/repository/location_repository.go`
+  - `backend/internal/service/stats_service.go`
+  - `backend/internal/service/stats_service_test.go`
+  - `backend/internal/service/location_service.go`
+  - `backend/internal/http/handlers/stats.go`
+  - `backend/internal/http/router.go`
+  - `frontend/src/lib/api/stats.ts`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/routes/stats/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Catatan penting untuk agent berikutnya:
+  - endpoint baru `GET /api/v1/stats/regions/options` sekarang menjadi sumber utama dropdown wilayah di frontend.
+  - query stats tidak lagi hanya bergantung pada `issues.region_id`; ia fallback ke `latest issue_submissions.region_id` lalu spatial lookup dari `issues.public_location`.
+  - normalisasi level wilayah kini mengenali alias English + Indonesia (`provinsi`, `kabupaten`, `kota`, `kecamatan`) agar data `regions` dengan label berbeda tetap cocok untuk filter stats dan default geolocation.
+  - `GET /api/v1/location/label` kini additive membawa `district_name`, `regency_name`, dan `province_name` untuk membantu matching default scope `/stats`.
+
 ## 2026-03-16 - iPhone Push UX + Stats Wilayah Administratif
 
 - Scope:

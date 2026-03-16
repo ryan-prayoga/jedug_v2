@@ -141,6 +141,11 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   6. Top issue cards
 - Default filter harus mencoba memakai lokasi user saat ini.
 - Jika geolocation gagal atau belum tersedia, halaman boleh memakai scope default backend asalkan user tetap bisa mengganti wilayah manual.
+- Filter wilayah harus tetap usable walau lokasi default tidak match persis:
+  - dropdown provinsi terisi dari dataset statistik yang tersedia
+  - dropdown kabupaten/kota baru aktif setelah provinsi dipilih
+  - tampilkan helper/loading yang jelas saat opsi wilayah sedang diambil
+  - sediakan tombol retry ringan `Gunakan lokasi saya`
 - Region leaderboard tidak lagi memakai label pseudo-lokasi seperti `Sekitar Jalan ...`; prioritasnya nama wilayah administratif.
 - Top issue card harus menampilkan konteks lokasi ringkas `kecamatan, kabupaten/kota, provinsi` bila data tersedia.
 - Top issue wajib menyediakan link cepat ke detail `/issues/{id}`.

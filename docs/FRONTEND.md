@@ -291,9 +291,12 @@
 ## Public Stats Dashboard (`/stats`)
 
 - Halaman mobile-first untuk civic storytelling berbasis agregasi data issue publik.
-- Route melakukan fetch `GET /api/v1/stats` via `lib/api/stats.ts`.
+- Route melakukan fetch:
+  - `GET /api/v1/stats`
+  - `GET /api/v1/stats/regions/options`
+  via `lib/api/stats.ts`.
 - Query yang dipakai frontend:
-  - initial/default: tanpa query agar backend mengembalikan scope default + options
+  - initial/default: tanpa query agar backend mengembalikan scope default
   - manual filter: `province_id`, `regency_id`
 - Struktur section:
   - Filter Wilayah (provinsi + kabupaten/kota)
@@ -307,10 +310,17 @@
   - error + retry
   - empty
 - Default wilayah:
-  - backend selalu memberi `filters.active_province_id` + `filters.active_regency_id` fallback agar page punya scope awal yang stabil
-  - frontend kemudian mencoba geolocation browser + `GET /api/v1/location/label`
-  - jika lokasi berhasil dipetakan ke data stats, frontend override filter awal ke provinsi/kabupaten user
+  - backend tetap memberi `filters.active_province_id` + `filters.active_regency_id` fallback agar page punya scope awal yang stabil
+  - dropdown manual diisi dari endpoint opsi wilayah terpisah; frontend menyimpan daftar provinsi + regency agar select tidak kosong saat user ingin override scope
+  - frontend mencoba geolocation browser + `GET /api/v1/location/label`
+  - pencocokan nama wilayah kini menormalkan alias seperti `Daerah Khusus Ibukota Jakarta`, `Kota Administrasi Jakarta Selatan`, kapitalisasi, spasi, dan prefix `Kabupaten/Kota`
+  - jika lokasi hanya cocok di level provinsi, page pindah ke scope provinsi dan user diminta memilih kabupaten/kota secara manual
   - jika geolocation gagal/tidak tersedia, page tetap memakai default backend dan user bisa ganti manual
+- UX filter wilayah:
+  - tombol `Gunakan lokasi saya` tersedia sebagai retry manual tanpa reload halaman
+  - dropdown provinsi menampilkan loading/error helper yang jelas, bukan kosong tanpa alasan
+  - dropdown kabupaten/kota baru aktif setelah provinsi terpilih
+  - memilih provinsi tidak lagi memaksa kabupaten/kota pertama; user bisa melihat scope level provinsi atau lanjut memilih kota/kabupaten
 - Region leaderboard tidak lagi memakai label `Sekitar Jalan ...`; frontend merender `regions[].district_name`.
 - Top issue card sekarang menampilkan:
   - judul issue (`road_name` bila ada)

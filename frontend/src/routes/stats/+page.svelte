@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getPublicStats } from '$lib/api/stats';
+	import { getPublicStats, getPublicStatsRegionOptions } from '$lib/api/stats';
 	import { resolveLocationLabel } from '$lib/api/location';
 	import type {
 		LocationLabelData,
 		PublicStats,
+		PublicStatsProvinceOption,
 		PublicStatsRegionOption,
+		PublicStatsRegionOptionsData,
 		PublicTopIssue
 	} from '$lib/api/types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -24,10 +26,23 @@
 	let refreshing = $state(false);
 	let pageErrorMessage = $state<string | null>(null);
 	let inlineErrorMessage = $state<string | null>(null);
+	let optionsErrorMessage = $state<string | null>(null);
+	let regionOptions = $state<PublicStatsRegionOptionsData | null>(null);
+	let optionsLoading = $state(false);
+	let applyingLocationDefault = $state(false);
 	let selectedProvinceID = $state('');
 	let selectedRegencyID = $state('');
 	let locationHint = $state('Wilayah awal akan dicoba menyesuaikan lokasi kamu, lalu tetap bisa diganti manual.');
 	let triedLocationDefault = false;
+
+	const provinceOptions = $derived.by((): PublicStatsProvinceOption[] => regionOptions?.provinces ?? []);
+	const selectedProvince = $derived.by(() => {
+		return provinceOptions.find((option) => String(option.id) === selectedProvinceID) ?? null;
+	});
+	const regencyOptions = $derived.by((): PublicStatsRegionOption[] => selectedProvince?.regencies ?? []);
+	const selectedRegency = $derived.by(() => {
+		return regencyOptions.find((option) => String(option.id) === selectedRegencyID) ?? null;
+	});
 
 	const isEmpty = $derived.by(() => {
 		if (!stats) return false;
@@ -39,15 +54,43 @@
 		return stats.status.open + stats.status.fixed + stats.status.archived;
 	});
 
-	const activeScopeLabel = $derived(stats?.filters.scope_label || 'Pilih wilayah');
+	const activeScopeLabel = $derived.by(() => {
+		const selectedScope = joinLocationParts([selectedRegency?.name, selectedProvince?.name]);
+		return stats?.filters.scope_label || selectedScope || 'Pilih wilayah';
+	});
 
 	onMount(() => {
 		void initPage();
 	});
 
 	async function initPage() {
-		await fetchStats({}, { preserveData: false });
+		await Promise.all([fetchRegionOptions(), fetchStats({}, { preserveData: false })]);
 		await applyLocationDefault();
+	}
+
+	async function fetchRegionOptions() {
+		optionsLoading = true;
+		optionsErrorMessage = null;
+
+		try {
+			const result = await getPublicStatsRegionOptions();
+			if (!result.data) {
+				optionsErrorMessage = 'Daftar wilayah statistik belum tersedia saat ini.';
+				regionOptions = buildFallbackRegionOptions(stats);
+				return;
+			}
+
+			regionOptions = result.data;
+			if (stats) {
+				syncSelectedFilters(stats);
+			}
+		} catch (err) {
+			optionsErrorMessage =
+				err instanceof Error ? err.message : 'Gagal memuat daftar wilayah statistik.';
+			regionOptions = buildFallbackRegionOptions(stats);
+		} finally {
+			optionsLoading = false;
+		}
 	}
 
 	async function fetchStats(
@@ -75,6 +118,7 @@
 			}
 
 			stats = result.data;
+			syncRegionOptionsWithStats(result.data);
 			syncSelectedFilters(result.data);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Gagal memuat statistik publik.';
@@ -96,12 +140,72 @@
 		selectedRegencyID = data.filters.active_regency_id ? String(data.filters.active_regency_id) : '';
 	}
 
-	async function applyLocationDefault() {
-		if (triedLocationDefault || !stats) return;
-		triedLocationDefault = true;
+	function buildFallbackRegionOptions(statsData: PublicStats | null): PublicStatsRegionOptionsData | null {
+		if (!statsData || statsData.filters.province_options.length === 0) {
+			return null;
+		}
+
+		return {
+			provinces: statsData.filters.province_options.map((province) => ({
+				...province,
+				regencies:
+					statsData.filters.active_province_id === province.id
+						? [...statsData.filters.regency_options]
+						: []
+			}))
+		};
+	}
+
+	function syncRegionOptionsWithStats(statsData: PublicStats) {
+		const fallback = buildFallbackRegionOptions(statsData);
+		if (!fallback) {
+			return;
+		}
+
+		if (!regionOptions || regionOptions.provinces.length === 0) {
+			regionOptions = fallback;
+			return;
+		}
+
+		const provinceMap = new Map<number, PublicStatsProvinceOption>();
+		for (const province of regionOptions.provinces) {
+			provinceMap.set(province.id, {
+				...province,
+				regencies: [...province.regencies]
+			});
+		}
+
+		for (const province of fallback.provinces) {
+			provinceMap.set(province.id, {
+				...province,
+				regencies:
+					statsData.filters.active_province_id === province.id
+						? [...province.regencies]
+						: provinceMap.get(province.id)?.regencies ?? []
+			});
+		}
+
+		regionOptions = {
+			provinces: fallback.provinces.map((province) => provinceMap.get(province.id) ?? province)
+		};
+	}
+
+	async function applyLocationDefault(options: { forceFresh?: boolean; manual?: boolean } = {}) {
+		if ((!options.manual && triedLocationDefault) || provinceOptions.length === 0) {
+			if (provinceOptions.length === 0) {
+				locationHint =
+					'Opsi wilayah statistik belum siap, jadi pilih provinsi dan kabupaten/kota secara manual saat daftar tersedia.';
+			}
+			return;
+		}
+		if (!options.manual) {
+			triedLocationDefault = true;
+		}
+
+		applyingLocationDefault = true;
 
 		try {
-			const point = await getLocation();
+			const point = await getLocation({ forceFresh: options.forceFresh });
 			const labelResult = await resolveLocationLabel(point.latitude, point.longitude);
 			const label = labelResult.data;
 			if (!label) {
@@ -109,29 +213,27 @@
 				return;
 			}
 
-			const province = findProvinceOption(label, stats.filters.province_options);
+			const province = findProvinceOption(label, provinceOptions);
 			if (!province) {
 				locationHint =
-					'Lokasi ditemukan, tetapi provinsinya belum cocok dengan data statistik saat ini. Kamu masih bisa pilih manual.';
+					'Lokasi ditemukan, tetapi provinsinya belum cocok dengan data statistik saat ini. Kamu masih bisa pilih manual dari daftar.';
 				return;
 			}
 
-			if (stats.filters.active_province_id !== province.id) {
-				await fetchStats({ provinceID: province.id });
-			}
-
-			const currentStats = stats;
-			if (!currentStats) return;
-
-			const regency = findRegencyOption(label, currentStats.filters.regency_options);
+			const regency = findRegencyOption(label, province.regencies);
 			if (regency) {
 				await fetchStats({ provinceID: province.id, regencyID: regency.id });
+				locationHint = `Wilayah awal disesuaikan ke ${regency.name}, ${province.name}.`;
+				return;
 			}
 
-			locationHint = 'Wilayah awal disesuaikan dengan lokasi kamu saat ini.';
+			await fetchStats({ provinceID: province.id, regencyID: null });
+			locationHint = `Provinsi ${province.name} berhasil dikenali. Pilih kabupaten/kota yang paling sesuai jika belum terisi otomatis.`;
 		} catch {
 			locationHint =
 				'Lokasi tidak tersedia, jadi statistik memakai wilayah default. Kamu tetap bisa ganti provinsi dan kabupaten/kota secara manual.';
+		} finally {
+			applyingLocationDefault = false;
 		}
 	}
 
@@ -155,55 +257,109 @@
 
 	function normalizeRegionToken(value: string | null | undefined): string {
 		return (value || '')
-			.trim()
+			.normalize('NFKD')
+			.replace(/[\u0300-\u036f]/gu, '')
 			.toLocaleLowerCase('id-ID')
-			.replace(/\s+/g, ' ')
-			.replace(/^(provinsi|kabupaten|kota|kecamatan)\s+/u, '');
+			.replace(/[.,()/_-]+/gu, ' ')
+			.replace(/\bdaerah khusus ibukota\b/gu, 'dki')
+			.replace(/\bdaerah istimewa\b/gu, 'di')
+			.replace(/\bkab\.?\b/gu, 'kabupaten')
+			.replace(/\bkec\.?\b/gu, 'kecamatan')
+			.replace(/\bkota administrasi\b/gu, 'kota')
+			.replace(/\bkabupaten administrasi\b/gu, 'kabupaten')
+			.replace(/\badministrasi\b/gu, ' ')
+			.replace(/\s+/gu, ' ')
+			.trim();
 	}
 
-	function findOptionByCandidates(
-		options: PublicStatsRegionOption[],
+	function stripRegionTypePrefix(value: string): string {
+		return value
+			.replace(/^(provinsi|province)\s+/u, '')
+			.replace(/^(kabupaten|regency)\s+/u, '')
+			.replace(/^(kota|city)\s+/u, '')
+			.replace(/^(kecamatan|district)\s+/u, '')
+			.replace(/^(kelurahan|desa|village|subdistrict)\s+/u, '')
+			.trim();
+	}
+
+	function buildRegionKeys(value: string | null | undefined): string[] {
+		const normalized = normalizeRegionToken(value);
+		if (!normalized) return [];
+
+		const stripped = stripRegionTypePrefix(normalized);
+		const keys = new Set<string>([normalized, stripped].filter(Boolean));
+
+		if (normalized === 'dki jakarta') {
+			keys.add('jakarta');
+		}
+		if (normalized === 'di yogyakarta') {
+			keys.add('yogyakarta');
+		}
+
+		return Array.from(keys);
+	}
+
+	function hasSameRegionMeaning(left: string, right: string): boolean {
+		if (left === right) return true;
+		if (!left || !right) return false;
+
+		const leftTokens = new Set(left.split(' ').filter(Boolean));
+		const rightTokens = new Set(right.split(' ').filter(Boolean));
+		const shorter = leftTokens.size <= rightTokens.size ? leftTokens : rightTokens;
+		const longer = leftTokens.size <= rightTokens.size ? rightTokens : leftTokens;
+
+		for (const token of shorter) {
+			if (!longer.has(token)) {
+				return false;
+			}
+		}
+
+		return shorter.size > 0;
+	}
+
+	function findOptionByCandidates<T extends { name: string }>(
+		options: T[],
 		candidates: Array<string | null | undefined>
-	): PublicStatsRegionOption | null {
-		const normalizedCandidates = candidates
-			.map((candidate) => normalizeRegionToken(candidate))
-			.filter((candidate) => candidate !== '');
+	): T | null {
+		const candidateKeys = candidates.flatMap((candidate) => buildRegionKeys(candidate));
 
-		if (normalizedCandidates.length === 0) return null;
+		if (candidateKeys.length === 0) return null;
 
-		return (
-			options.find((option) => normalizedCandidates.includes(normalizeRegionToken(option.name))) || null
-		);
+		for (const option of options) {
+			const optionKeys = buildRegionKeys(option.name);
+			if (
+				optionKeys.some((optionKey) =>
+					candidateKeys.some((candidateKey) => hasSameRegionMeaning(optionKey, candidateKey))
+				)
+			) {
+				return option;
+			}
+		}
+
+		return null;
 	}
 
 	function findProvinceOption(
 		label: LocationLabelData,
-		options: PublicStatsRegionOption[]
-	): PublicStatsRegionOption | null {
-		const level = normalizeRegionToken(label.region_level);
-
-		if (level === 'province') {
-			return findOptionByCandidates(options, [label.region_name]);
-		}
-
-		if (level === 'city' || level === 'regency') {
-			return findOptionByCandidates(options, [label.parent_name, label.grandparent_name]);
-		}
-
-		return findOptionByCandidates(options, [label.grandparent_name, label.parent_name]);
+		options: PublicStatsProvinceOption[]
+	): PublicStatsProvinceOption | null {
+		return findOptionByCandidates(options, [
+			label.province_name,
+			label.grandparent_name,
+			label.parent_name,
+			label.region_name
+		]);
 	}
 
 	function findRegencyOption(
 		label: LocationLabelData,
 		options: PublicStatsRegionOption[]
 	): PublicStatsRegionOption | null {
-		const level = normalizeRegionToken(label.region_level);
-
-		if (level === 'city' || level === 'regency') {
-			return findOptionByCandidates(options, [label.region_name]);
-		}
-
-		return findOptionByCandidates(options, [label.parent_name]);
+		return findOptionByCandidates(options, [
+			label.regency_name,
+			label.parent_name,
+			label.region_name
+		]);
 	}
 
 	function getIssueName(item: PublicTopIssue): string {
@@ -239,8 +395,9 @@
 
 	async function handleProvinceChange(event: Event) {
 		const value = Number((event.currentTarget as HTMLSelectElement).value || 0);
-		if (!value) return;
-		await fetchStats({ provinceID: value });
+		selectedProvinceID = value ? String(value) : '';
+		selectedRegencyID = '';
+		await fetchStats({ provinceID: value || null, regencyID: null });
 	}
 
 	async function handleRegencyChange(event: Event) {
@@ -285,7 +442,7 @@
 				{/if}
 				<button
 					class="refresh-btn"
-					onclick={() => fetchStats(getCurrentScope())}
+					onclick={() => initPage()}
 					disabled={loading || refreshing}
 				>
 					{loading || refreshing ? 'Memuat...' : 'Muat Ulang'}
@@ -296,7 +453,7 @@
 		{#if loading}
 			<LoadingState message="Memuat statistik publik..." />
 	{:else if pageErrorMessage}
-		<ErrorState message={pageErrorMessage} onretry={() => fetchStats(getCurrentScope())} />
+		<ErrorState message={pageErrorMessage} onretry={() => initPage()} />
 	{:else if stats && isEmpty}
 		<EmptyState
 			icon="📊"
@@ -318,11 +475,18 @@
 				<label class="filter-field">
 					<span>Provinsi</span>
 					<select
-						value={selectedProvinceID}
-						disabled={refreshing || stats.filters.province_options.length === 0}
+						bind:value={selectedProvinceID}
+						disabled={refreshing || optionsLoading || provinceOptions.length === 0}
 						onchange={handleProvinceChange}
 					>
-						{#each stats.filters.province_options as province (province.id)}
+						<option value="" disabled>
+							{optionsLoading
+								? 'Memuat provinsi...'
+								: provinceOptions.length === 0
+									? 'Provinsi belum tersedia'
+									: 'Pilih provinsi'}
+						</option>
+						{#each provinceOptions as province (province.id)}
 							<option value={province.id}>{province.name}</option>
 						{/each}
 					</select>
@@ -331,15 +495,39 @@
 				<label class="filter-field">
 					<span>Kabupaten/Kota</span>
 					<select
-						value={selectedRegencyID}
-						disabled={refreshing || stats.filters.regency_options.length === 0}
+						bind:value={selectedRegencyID}
+						disabled={refreshing || !selectedProvinceID || regencyOptions.length === 0}
 						onchange={handleRegencyChange}
 					>
-						{#each stats.filters.regency_options as regency (regency.id)}
+						<option value="">
+							{!selectedProvinceID
+								? 'Pilih provinsi dulu'
+								: regencyOptions.length === 0
+									? 'Kabupaten/kota belum tersedia'
+									: 'Semua kabupaten/kota di provinsi ini'}
+						</option>
+						{#each regencyOptions as regency (regency.id)}
 							<option value={regency.id}>{regency.name}</option>
 						{/each}
 					</select>
 				</label>
+			</div>
+
+			<div class="filter-actions">
+				<button
+					class="location-btn"
+					onclick={() => applyLocationDefault({ forceFresh: true, manual: true })}
+					disabled={refreshing || optionsLoading || applyingLocationDefault || provinceOptions.length === 0}
+				>
+					{applyingLocationDefault ? 'Mencocokkan lokasi...' : 'Gunakan lokasi saya'}
+				</button>
+				{#if optionsLoading}
+					<span class="filter-note">Memuat daftar wilayah statistik...</span>
+				{:else if optionsErrorMessage}
+					<span class="filter-note">{optionsErrorMessage}</span>
+				{:else if provinceOptions.length > 0}
+					<span class="filter-note">Kamu tetap bisa pilih manual jika lokasi browser tidak cocok persis.</span>
+				{/if}
 			</div>
 
 			<p class="filter-hint">{locationHint}</p>
@@ -453,7 +641,7 @@
 				</div>
 			</div>
 			{#if stats.regions.length === 0}
-				<p class="section-empty">Belum ada data wilayah.</p>
+				<p class="section-empty">Wilayah administratif belum tersedia untuk scope ini.</p>
 			{:else}
 				<div class="leaderboard-list">
 					{#each stats.regions as region, index (region.district_name)}
@@ -501,7 +689,7 @@
 	{:else}
 		<ErrorState
 			message="Data statistik publik tidak tersedia saat ini."
-			onretry={() => fetchStats(getCurrentScope())}
+			onretry={() => initPage()}
 		/>
 	{/if}
 </div>
@@ -655,6 +843,36 @@
 		font-size: 12px;
 		color: #64748B;
 		line-height: 1.5;
+	}
+
+	.filter-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 10px;
+		margin-top: 10px;
+	}
+
+	.location-btn {
+		border: 1px solid #FECACA;
+		border-radius: 999px;
+		background: #FEF2F2;
+		color: #B42318;
+		font-size: 12px;
+		font-weight: 700;
+		padding: 8px 12px;
+		cursor: pointer;
+	}
+
+	.location-btn:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+
+	.filter-note {
+		font-size: 12px;
+		line-height: 1.5;
+		color: #64748B;
 	}
 
 	.filter-error {

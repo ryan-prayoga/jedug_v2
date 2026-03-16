@@ -15,6 +15,7 @@ import (
 
 type StatsRepository interface {
 	GetPublicStats(ctx context.Context, query domain.PublicStatsQuery, regionLimit int) (*domain.PublicStats, error)
+	GetPublicRegionOptions(ctx context.Context) (*domain.PublicRegionOptions, error)
 }
 
 type statsRepository struct {
@@ -35,7 +36,43 @@ type topIssueRow struct {
 	FirstSeenAt     time.Time
 }
 
-const statsScopedIssuesCTE = `
+type regionScopeRow struct {
+	ProvinceID   int64
+	ProvinceName string
+	RegencyID    *int64
+	RegencyName  *string
+	IssueCount   int64
+	ReportCount  int64
+}
+
+func regionLevelExpr(column string) string {
+	return fmt.Sprintf(`
+			CASE
+				WHEN LOWER(COALESCE(%s, '')) IN ('province', 'provinsi') THEN 'province'
+				WHEN LOWER(COALESCE(%s, '')) IN ('city', 'kota') THEN 'city'
+				WHEN LOWER(COALESCE(%s, '')) IN ('regency', 'kabupaten') THEN 'regency'
+				WHEN LOWER(COALESCE(%s, '')) IN ('district', 'kecamatan') THEN 'district'
+				WHEN LOWER(COALESCE(%s, '')) IN ('subdistrict') THEN 'subdistrict'
+				WHEN LOWER(COALESCE(%s, '')) IN ('village', 'kelurahan', 'desa') THEN 'village'
+				ELSE LOWER(COALESCE(%s, ''))
+			END
+	`, column, column, column, column, column, column, column)
+}
+
+func regionPriorityExpr(column string) string {
+	return fmt.Sprintf(`
+			CASE
+				WHEN LOWER(COALESCE(%s, '')) IN ('district', 'kecamatan') THEN 0
+				WHEN LOWER(COALESCE(%s, '')) IN ('subdistrict') THEN 1
+				WHEN LOWER(COALESCE(%s, '')) IN ('city', 'kota') THEN 2
+				WHEN LOWER(COALESCE(%s, '')) IN ('regency', 'kabupaten') THEN 3
+				WHEN LOWER(COALESCE(%s, '')) IN ('province', 'provinsi') THEN 4
+				ELSE 5
+			END
+	`, column, column, column, column, column)
+}
+
+var statsScopedIssuesCTE = fmt.Sprintf(`
 	WITH latest_submission_regions AS (
 		SELECT DISTINCT ON (s.issue_id)
 			s.issue_id,
@@ -52,27 +89,66 @@ const statsScopedIssuesCTE = `
 			i.casualty_count,
 			i.last_seen_at,
 			COALESCE(i.first_seen_at, i.created_at) AS first_seen_at,
-			COALESCE(i.region_id, latest.region_id) AS base_region_id
+			i.region_id AS issue_region_id,
+			latest.region_id AS latest_region_id,
+			i.public_location::geometry AS public_location_geom
 		FROM issues i
 		LEFT JOIN latest_submission_regions latest ON latest.issue_id = i.id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
+	), effective_regions AS (
+		SELECT
+			base.id,
+			base.status,
+			base.road_name,
+			base.submission_count,
+			base.casualty_count,
+			base.last_seen_at,
+			base.first_seen_at,
+			COALESCE(base.issue_region_id, base.latest_region_id, spatial.region_id) AS base_region_id
+		FROM base_issues base
+		LEFT JOIN LATERAL (
+			SELECT reg.id AS region_id
+			FROM regions reg
+			WHERE ST_Covers(reg.geom, base.public_location_geom)
+			ORDER BY
+				%s,
+				ST_Area(reg.geom::geography) ASC
+			LIMIT 1
+		) spatial
+			ON base.issue_region_id IS NULL
+		   AND base.latest_region_id IS NULL
+		   AND base.public_location_geom IS NOT NULL
 	), resolved_regions AS (
 		SELECT
-			base.*,
+			base.id,
+			base.status,
+			base.road_name,
+			base.submission_count,
+			base.casualty_count,
+			base.last_seen_at,
+			base.first_seen_at,
 			r0.id AS region_id_0,
 			NULLIF(TRIM(r0.name), '') AS region_name_0,
-			r0.level AS region_level_0,
+			%s AS region_level_0,
 			r1.id AS region_id_1,
 			NULLIF(TRIM(r1.name), '') AS region_name_1,
-			r1.level AS region_level_1,
+			%s AS region_level_1,
 			r2.id AS region_id_2,
 			NULLIF(TRIM(r2.name), '') AS region_name_2,
-			r2.level AS region_level_2
-		FROM base_issues base
+			%s AS region_level_2,
+			r3.id AS region_id_3,
+			NULLIF(TRIM(r3.name), '') AS region_name_3,
+			%s AS region_level_3,
+			r4.id AS region_id_4,
+			NULLIF(TRIM(r4.name), '') AS region_name_4,
+			%s AS region_level_4
+		FROM effective_regions base
 		LEFT JOIN regions r0 ON r0.id = base.base_region_id
 		LEFT JOIN regions r1 ON r1.id = r0.parent_id
 		LEFT JOIN regions r2 ON r2.id = r1.parent_id
+		LEFT JOIN regions r3 ON r3.id = r2.parent_id
+		LEFT JOIN regions r4 ON r4.id = r3.parent_id
 	), normalized AS (
 		SELECT
 			resolved.id,
@@ -87,44 +163,142 @@ const statsScopedIssuesCTE = `
 				WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_id_0
 				WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_id_1
 				WHEN resolved.region_level_2 IN ('district', 'subdistrict') THEN resolved.region_id_2
+				WHEN resolved.region_level_3 IN ('district', 'subdistrict') THEN resolved.region_id_3
+				WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_id_4
 				ELSE NULL
 			END AS district_id,
 			CASE
 				WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
 				WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
 				WHEN resolved.region_level_2 IN ('district', 'subdistrict') THEN resolved.region_name_2
+				WHEN resolved.region_level_3 IN ('district', 'subdistrict') THEN resolved.region_name_3
+				WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_name_4
 				ELSE NULL
 			END AS district_name,
 			CASE
 				WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_id_0
 				WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_id_1
 				WHEN resolved.region_level_2 IN ('city', 'regency') THEN resolved.region_id_2
+				WHEN resolved.region_level_3 IN ('city', 'regency') THEN resolved.region_id_3
+				WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_id_4
 				ELSE NULL
 			END AS regency_id,
 			CASE
 				WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_name_0
 				WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_name_1
 				WHEN resolved.region_level_2 IN ('city', 'regency') THEN resolved.region_name_2
+				WHEN resolved.region_level_3 IN ('city', 'regency') THEN resolved.region_name_3
+				WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_name_4
 				ELSE NULL
 			END AS regency_name,
 			CASE
 				WHEN resolved.region_level_0 = 'province' THEN resolved.region_id_0
 				WHEN resolved.region_level_1 = 'province' THEN resolved.region_id_1
 				WHEN resolved.region_level_2 = 'province' THEN resolved.region_id_2
+				WHEN resolved.region_level_3 = 'province' THEN resolved.region_id_3
+				WHEN resolved.region_level_4 = 'province' THEN resolved.region_id_4
 				ELSE NULL
 			END AS province_id,
 			CASE
 				WHEN resolved.region_level_0 = 'province' THEN resolved.region_name_0
 				WHEN resolved.region_level_1 = 'province' THEN resolved.region_name_1
 				WHEN resolved.region_level_2 = 'province' THEN resolved.region_name_2
+				WHEN resolved.region_level_3 = 'province' THEN resolved.region_name_3
+				WHEN resolved.region_level_4 = 'province' THEN resolved.region_name_4
 				ELSE NULL
-			END AS province_name
+			END AS province_name,
+			COALESCE(
+				CASE
+					WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
+					WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
+					WHEN resolved.region_level_2 IN ('district', 'subdistrict') THEN resolved.region_name_2
+					WHEN resolved.region_level_3 IN ('district', 'subdistrict') THEN resolved.region_name_3
+					WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_name_4
+					ELSE NULL
+				END,
+				CASE
+					WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_name_0
+					WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_name_1
+					WHEN resolved.region_level_2 IN ('city', 'regency') THEN resolved.region_name_2
+					WHEN resolved.region_level_3 IN ('city', 'regency') THEN resolved.region_name_3
+					WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_name_4
+					ELSE NULL
+				END,
+				CASE
+					WHEN resolved.region_level_0 = 'province' THEN resolved.region_name_0
+					WHEN resolved.region_level_1 = 'province' THEN resolved.region_name_1
+					WHEN resolved.region_level_2 = 'province' THEN resolved.region_name_2
+					WHEN resolved.region_level_3 = 'province' THEN resolved.region_name_3
+					WHEN resolved.region_level_4 = 'province' THEN resolved.region_name_4
+					ELSE NULL
+				END,
+				resolved.region_name_0,
+				resolved.region_name_1,
+				resolved.region_name_2,
+				resolved.region_name_3,
+				resolved.region_name_4
+			) AS admin_region_name
 		FROM resolved_regions resolved
 	)
-`
+`, regionPriorityExpr("reg.level"),
+	regionLevelExpr("r0.level"),
+	regionLevelExpr("r1.level"),
+	regionLevelExpr("r2.level"),
+	regionLevelExpr("r3.level"),
+	regionLevelExpr("r4.level"),
+)
 
 func NewStatsRepository(db *pgxpool.Pool) StatsRepository {
 	return &statsRepository{db: db}
+}
+
+func (r *statsRepository) GetPublicRegionOptions(ctx context.Context) (*domain.PublicRegionOptions, error) {
+	provinceOptions, err := r.queryProvinceOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	regencyRows, err := r.queryAllRegencyOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &domain.PublicRegionOptions{
+		Provinces: make([]*domain.PublicProvinceOption, 0, len(provinceOptions)),
+	}
+
+	provinceIndex := make(map[int64]*domain.PublicProvinceOption, len(provinceOptions))
+	for _, item := range provinceOptions {
+		province := &domain.PublicProvinceOption{
+			ID:          item.ID,
+			Name:        item.Name,
+			IssueCount:  item.IssueCount,
+			ReportCount: item.ReportCount,
+			Regencies:   make([]*domain.PublicRegionOption, 0),
+		}
+		provinceIndex[item.ID] = province
+		out.Provinces = append(out.Provinces, province)
+	}
+
+	for _, row := range regencyRows {
+		if row.RegencyID == nil || row.RegencyName == nil {
+			continue
+		}
+
+		province := provinceIndex[row.ProvinceID]
+		if province == nil {
+			continue
+		}
+
+		province.Regencies = append(province.Regencies, &domain.PublicRegionOption{
+			ID:          *row.RegencyID,
+			Name:        *row.RegencyName,
+			IssueCount:  row.IssueCount,
+			ReportCount: row.ReportCount,
+		})
+	}
+
+	return out, nil
 }
 
 func (r *statsRepository) GetPublicStats(ctx context.Context, query domain.PublicStatsQuery, regionLimit int) (*domain.PublicStats, error) {
@@ -165,7 +339,8 @@ func (r *statsRepository) GetPublicStats(ctx context.Context, query domain.Publi
 	}
 	stats.Filters.ProvinceOptions = provinceOptions
 
-	activeProvinceID, activeProvinceName := chooseRegionOption(query.ProvinceID, provinceOptions)
+	useDefaultScope := query.ProvinceID == nil && query.RegencyID == nil
+	activeProvinceID, activeProvinceName := chooseRegionOption(query.ProvinceID, provinceOptions, useDefaultScope)
 	stats.Filters.ActiveProvinceID = activeProvinceID
 	stats.Filters.ActiveProvince = activeProvinceName
 
@@ -175,7 +350,7 @@ func (r *statsRepository) GetPublicStats(ctx context.Context, query domain.Publi
 			return nil, regencyErr
 		}
 		stats.Filters.RegencyOptions = regencyOptions
-		activeRegencyID, activeRegencyName := chooseRegionOption(query.RegencyID, regencyOptions)
+		activeRegencyID, activeRegencyName := chooseRegionOption(query.RegencyID, regencyOptions, useDefaultScope)
 		stats.Filters.ActiveRegencyID = activeRegencyID
 		stats.Filters.ActiveRegency = activeRegencyName
 	}
@@ -367,13 +542,64 @@ func (r *statsRepository) queryRegencyOptions(ctx context.Context, provinceID in
 	return options, rows.Err()
 }
 
+func (r *statsRepository) queryAllRegencyOptions(ctx context.Context) ([]regionScopeRow, error) {
+	query := statsScopedIssuesCTE + `
+		SELECT
+			normalized.province_id,
+			normalized.province_name,
+			normalized.regency_id,
+			normalized.regency_name,
+			COUNT(*)::bigint AS issue_count,
+			COALESCE(SUM(normalized.submission_count), 0)::bigint AS report_count
+		FROM normalized
+		WHERE normalized.province_id IS NOT NULL
+		  AND normalized.province_name IS NOT NULL
+		  AND normalized.regency_id IS NOT NULL
+		  AND normalized.regency_name IS NOT NULL
+		GROUP BY
+			normalized.province_id,
+			normalized.province_name,
+			normalized.regency_id,
+			normalized.regency_name
+		ORDER BY
+			normalized.province_name ASC,
+			issue_count DESC,
+			report_count DESC,
+			normalized.regency_name ASC
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]regionScopeRow, 0)
+	for rows.Next() {
+		var item regionScopeRow
+		if err := rows.Scan(
+			&item.ProvinceID,
+			&item.ProvinceName,
+			&item.RegencyID,
+			&item.RegencyName,
+			&item.IssueCount,
+			&item.ReportCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
 func (r *statsRepository) queryOldestOpenIssue(ctx context.Context, scope domain.PublicStatsQuery) (*topIssueRow, error) {
 	query, args := buildScopedQuery(scope, `
 		SELECT
 			normalized.id,
 			normalized.status,
 			normalized.road_name,
-			COALESCE(normalized.district_name, normalized.regency_name, normalized.province_name, normalized.raw_region_name) AS region_name,
+			normalized.admin_region_name AS region_name,
 			normalized.district_name,
 			normalized.regency_name,
 			normalized.province_name,
@@ -402,7 +628,7 @@ func (r *statsRepository) queryTopIssueByReports(ctx context.Context, scope doma
 			normalized.id,
 			normalized.status,
 			normalized.road_name,
-			COALESCE(normalized.district_name, normalized.regency_name, normalized.province_name, normalized.raw_region_name) AS region_name,
+			normalized.admin_region_name AS region_name,
 			normalized.district_name,
 			normalized.regency_name,
 			normalized.province_name,
@@ -430,7 +656,7 @@ func (r *statsRepository) queryTopIssueByCasualties(ctx context.Context, scope d
 			normalized.id,
 			normalized.status,
 			normalized.road_name,
-			COALESCE(normalized.district_name, normalized.regency_name, normalized.province_name, normalized.raw_region_name) AS region_name,
+			normalized.admin_region_name AS region_name,
 			normalized.district_name,
 			normalized.regency_name,
 			normalized.province_name,
@@ -489,17 +715,12 @@ func (r *statsRepository) queryRegionLeaderboard(ctx context.Context, scope doma
 	query, args := buildScopedQuery(scope, `
 		SELECT
 			MIN(normalized.district_id) AS district_id,
-			COALESCE(
-				normalized.district_name,
-				normalized.regency_name,
-				normalized.province_name,
-				normalized.raw_region_name,
-				'Wilayah administratif belum tersedia'
-			) AS district_name,
+			normalized.admin_region_name AS district_name,
 			COUNT(*)::bigint AS issue_count,
 			COALESCE(SUM(normalized.casualty_count), 0)::bigint AS casualty_count,
 			COALESCE(SUM(normalized.submission_count), 0)::bigint AS report_count
 		FROM normalized
+		WHERE normalized.admin_region_name IS NOT NULL
 		`, fmt.Sprintf(`
 			GROUP BY 2
 			ORDER BY issue_count DESC, report_count DESC, casualty_count DESC, district_name ASC
@@ -557,7 +778,11 @@ func buildScopedQuery(scope domain.PublicStatsQuery, selectSQL string, suffixSQL
 	return query, args
 }
 
-func chooseRegionOption(requestedID *int64, options []*domain.PublicRegionOption) (*int64, *string) {
+func chooseRegionOption(
+	requestedID *int64,
+	options []*domain.PublicRegionOption,
+	allowFallback bool,
+) (*int64, *string) {
 	if len(options) == 0 {
 		return nil, nil
 	}
@@ -570,6 +795,10 @@ func chooseRegionOption(requestedID *int64, options []*domain.PublicRegionOption
 				return &id, &name
 			}
 		}
+	}
+
+	if !allowFallback {
+		return nil, nil
 	}
 
 	id := options[0].ID
@@ -607,9 +836,6 @@ func buildTopIssue(
 			regionName = row.RegencyName
 		case row.ProvinceName != nil && strings.TrimSpace(*row.ProvinceName) != "":
 			regionName = row.ProvinceName
-		case row.RoadName != nil && strings.TrimSpace(*row.RoadName) != "":
-			fallback := "Sekitar " + strings.TrimSpace(*row.RoadName)
-			regionName = &fallback
 		default:
 			fallback := "Wilayah administratif belum tersedia"
 			regionName = &fallback
