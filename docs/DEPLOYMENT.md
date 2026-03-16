@@ -108,6 +108,15 @@ location /api/v1/notifications/stream {
 > **Catatan**: Header `X-Accel-Buffering: no` juga di-set di response handler Go sebagai
 > safeguard tambahan, tapi konfigurasi nginx di atas tetap wajib.
 
+## Browser Push Readiness
+
+Browser push memerlukan syarat runtime tambahan:
+
+- frontend harus disajikan dari origin HTTPS yang sama dengan service worker (`/sw.js`)
+- exception development: `http://localhost` tetap valid untuk testing lokal
+- `WEB_PUSH_SITE_URL` backend harus menunjuk ke origin frontend publik yang benar, bukan origin API
+- file statis `frontend/static/sw.js` dan `frontend/static/push-icon.svg` harus ikut terbawa ke deploy frontend
+
 ### Cara Apply Nginx Config
 
 1. Edit file nginx (biasanya `/etc/nginx/sites-available/jedug` atau `/etc/nginx/conf.d/jedug.conf`).
@@ -152,10 +161,18 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
   - `R2_BUCKET`
   - `R2_ENDPOINT`
   - `R2_PUBLIC_BASE_URL`
+- browser push vars saat mode Web Push aktif:
+  - `WEB_PUSH_VAPID_PUBLIC_KEY`
+  - `WEB_PUSH_VAPID_PRIVATE_KEY`
+  - `WEB_PUSH_SUBSCRIBER`
+  - `WEB_PUSH_SITE_URL`
+  - `WEB_PUSH_TTL_SEC` (optional, default `300`)
 
 ### Frontend env
 
 - `PUBLIC_API_BASE_URL`
+
+Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`.
 
 ## Restart / Rollout Checklist
 
@@ -164,6 +181,11 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
 - verifikasi endpoint health setelah deploy:
   - `GET /api/v1/health`
 - verifikasi UI publik + admin login setelah build frontend
+- verifikasi browser push:
+  - buka JEDUG via origin HTTPS
+  - follow issue
+  - aktifkan notifikasi browser
+  - pastikan klik notifikasi membuka `/issues/{id}`
 - verifikasi PM2 status backend/frontend = `online`
 - verifikasi port `5000` dan `5001` = LISTEN
 

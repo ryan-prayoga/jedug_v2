@@ -30,10 +30,15 @@ type Config struct {
 	ReverseGeocodeUserAgent string
 	ReverseGeocodeTimeout   time.Duration
 	ReverseGeocodeCacheTTL  time.Duration
+	WebPushVAPIDPublicKey   string
+	WebPushVAPIDPrivateKey  string
+	WebPushSubscriber       string
+	WebPushSiteURL          string
+	WebPushTTLSeconds       int
 }
 
 func Load() *Config {
-	return &Config{
+	cfg := &Config{
 		AppName:                 getEnv("APP_NAME", "jedug-api"),
 		AppEnv:                  getEnv("APP_ENV", "development"),
 		AppPort:                 getEnv("APP_PORT", "8080"),
@@ -56,7 +61,15 @@ func Load() *Config {
 		ReverseGeocodeUserAgent: getEnv("REVERSE_GEOCODE_USER_AGENT", "jedug-api/1.0"),
 		ReverseGeocodeTimeout:   getEnvPositiveDurationMS("REVERSE_GEOCODE_TIMEOUT_MS", 2000),
 		ReverseGeocodeCacheTTL:  getEnvPositiveDurationSec("REVERSE_GEOCODE_CACHE_TTL_SEC", 300),
+		WebPushVAPIDPublicKey:   strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PUBLIC_KEY", "")),
+		WebPushVAPIDPrivateKey:  strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PRIVATE_KEY", "")),
+		WebPushSubscriber:       strings.TrimSpace(getEnv("WEB_PUSH_SUBSCRIBER", "")),
+		WebPushSiteURL:          strings.TrimRight(strings.TrimSpace(getEnv("WEB_PUSH_SITE_URL", "")), "/"),
+		WebPushTTLSeconds:       getEnvPositiveInt("WEB_PUSH_TTL_SEC", 300),
 	}
+
+	validateWebPushConfig(cfg)
+	return cfg
 }
 
 func getEnv(key, fallback string) string {
@@ -75,6 +88,20 @@ func getEnvPositiveFloat64(key string, fallback float64) float64 {
 	parsed, err := strconv.ParseFloat(v, 64)
 	if err != nil || parsed <= 0 {
 		panic("invalid positive float environment variable: " + key)
+	}
+
+	return parsed
+}
+
+func getEnvPositiveInt(key string, fallback int) int {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(v)
+	if err != nil || parsed <= 0 {
+		panic("invalid positive integer environment variable: " + key)
 	}
 
 	return parsed
@@ -131,4 +158,28 @@ func mustGetEnv(key string) string {
 		panic("required environment variable not set: " + key)
 	}
 	return v
+}
+
+func validateWebPushConfig(cfg *Config) {
+	values := map[string]string{
+		"WEB_PUSH_VAPID_PUBLIC_KEY":  cfg.WebPushVAPIDPublicKey,
+		"WEB_PUSH_VAPID_PRIVATE_KEY": cfg.WebPushVAPIDPrivateKey,
+		"WEB_PUSH_SUBSCRIBER":        cfg.WebPushSubscriber,
+		"WEB_PUSH_SITE_URL":          cfg.WebPushSiteURL,
+	}
+
+	setCount := 0
+	for _, value := range values {
+		if value != "" {
+			setCount++
+		}
+	}
+
+	if setCount == 0 {
+		return
+	}
+
+	if setCount != len(values) {
+		panic("web push env must be configured together: WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY, WEB_PUSH_SUBSCRIBER, WEB_PUSH_SITE_URL")
+	}
 }

@@ -36,6 +36,9 @@
 - `GET /api/v1/issues/:id/followers/count`
 - `GET /api/v1/issues/:id/follow-status?follower_id=...`
 - `POST /api/v1/issues/:id/flag`
+- `GET /api/v1/push/status?follower_id=...`
+- `POST /api/v1/push/subscribe`
+- `POST /api/v1/push/unsubscribe`
 - `GET /api/v1/stats`
 
 ### Admin API
@@ -152,12 +155,16 @@
 
 - Tabel event: `issue_events`.
 - Tabel notifikasi: `notifications` — di-populate otomatis oleh `DispatchNotificationsForEvent` setiap kali event berhasil diinsert.
-- Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, issueID, eventID, eventType, excludeFollowerID)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
+- Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, pushNotifier, issueID, eventID, eventType, excludeFollowerID)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
 - Endpoint notifikasi in-app publik:
   - `GET /api/v1/notifications?follower_id=...&limit=50`
   - `PATCH /api/v1/notifications/:id/read?follower_id=...`
   - `DELETE /api/v1/notifications/:id?follower_id=...`
   - `GET /api/v1/notifications/stream?follower_id=...` — **SSE stream** (text/event-stream)
+- Endpoint browser push publik:
+  - `GET /api/v1/push/status?follower_id=...`
+  - `POST /api/v1/push/subscribe`
+  - `POST /api/v1/push/unsubscribe`
 - Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri. Endpoint mengembalikan `read_at` persisten dari DB; jika row tidak ditemukan, response `404`.
 - Delete notification juga dikunci oleh pasangan `notification_id + follower_id`; response `deleted: true|false` dibuat aman/idempotent tanpa membocorkan ownership follower lain.
 - Self-notify prevention:
@@ -174,6 +181,12 @@
   - Koneksi di-cleanup otomatis saat client disconnect (Flush error) via `defer done()`.
   - Ping/heartbeat dikirim setiap 30 detik untuk menjaga koneksi dan mendeteksi putus.
   - Format event: `event: notification\ndata: {id,issue_id,event_id,type,title,message,created_at}\n\n`
+- **Web Push notifier** (`internal/push/notifier.go`):
+  - browser push tetap additive di atas tabel `notifications` + SSE.
+  - dispatcher mengumpulkan row notifikasi baru lalu memanggil notifier batch per follower.
+  - payload push minimal: `title`, `body`, `issue_id`, `url`, `type`.
+  - `url` dibentuk dari `WEB_PUSH_SITE_URL + /issues/{issue_id}` agar klik notifikasi selalu menuju issue publik yang benar.
+  - response `404/410` dari push service dianggap subscription invalid/expired dan row ditandai `disabled_at`.
 - Event dibuat otomatis saat:
   - issue baru dibuat (`issue_created`)
   - submission membawa foto (`photo_added`)
@@ -181,6 +194,27 @@
   - korban dilaporkan/naik (`casualty_reported`)
   - status issue berubah via moderasi (`status_updated`)
 - `event_data` disimpan sebagai JSONB agar additive/fleksibel tanpa mematahkan schema timeline.
+
+### Browser Push Subscription Storage
+
+- Tabel `push_subscriptions` menyimpan endpoint Web Push aktif per `follower_id`.
+- Endpoint subscribe menerima:
+  - `follower_id`
+  - `subscription.endpoint`
+  - `subscription.keys.p256dh`
+  - `subscription.keys.auth`
+- Subscribe memakai upsert berbasis `endpoint`:
+  - saat browser merotasi endpoint, row yang sama dihidupkan kembali (`disabled_at = NULL`) dan metadata diperbarui.
+- Unsubscribe tidak menghapus row secara keras:
+  - row ditandai `disabled_at` agar invalidation dari provider tetap aman dan historinya masih bisa diaudit.
+- Status endpoint mengembalikan:
+  - `enabled`
+  - `subscribed`
+  - `subscription_count`
+  - `vapid_public_key`
+- Konfigurasi:
+  - jika seluruh env Web Push kosong, backend tetap hidup dan fitur browser push dianggap disabled.
+  - jika env Web Push hanya terisi sebagian, startup gagal cepat untuk mencegah half-config di production.
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)
 

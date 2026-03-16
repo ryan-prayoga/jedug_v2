@@ -69,6 +69,7 @@ type SubmitResult struct {
 
 type ReportRepositoryConfig struct {
 	DuplicateRadiusM float64
+	PushNotifier     NotificationPushNotifier
 }
 
 type ReportRepository interface {
@@ -79,6 +80,7 @@ type ReportRepository interface {
 type reportRepository struct {
 	db               *pgxpool.Pool
 	duplicateRadiusM float64
+	pushNotifier     NotificationPushNotifier
 }
 
 func NewReportRepository(db *pgxpool.Pool, cfg ReportRepositoryConfig) ReportRepository {
@@ -89,6 +91,7 @@ func NewReportRepository(db *pgxpool.Pool, cfg ReportRepositoryConfig) ReportRep
 	return &reportRepository{
 		db:               db,
 		duplicateRadiusM: radius,
+		pushNotifier:     cfg.PushNotifier,
 	}
 }
 
@@ -265,7 +268,7 @@ func (r *reportRepository) insertTimelineEvents(
 			log.Printf("[REPORT] timeline_event_insert_error issue=%s type=%s error=%v", issueID, ev.eventType, execErr)
 			continue
 		}
-		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, issueID, eventID, ev.eventType, input.ActorFollowerID); dispatchErr != nil {
+		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, r.pushNotifier, issueID, eventID, ev.eventType, input.ActorFollowerID); dispatchErr != nil {
 			log.Printf("[REPORT] notification_dispatch_error issue=%s event=%d error=%v", issueID, eventID, dispatchErr)
 		}
 	}

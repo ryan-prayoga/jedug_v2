@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import BrowserPushCard from '$lib/components/BrowserPushCard.svelte';
 	import { requestIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
 	import {
 		notificationsState,
@@ -102,6 +103,10 @@
 			{#if openNotif}
 				<div class="notif-panel">
 					<div class="notif-title">Notifikasi</div>
+					<BrowserPushCard
+						variant="compact"
+						lead="Aktifkan notifikasi browser agar update issue tetap masuk walau tab JEDUG tidak sedang dibuka."
+					/>
 					{#if notifState.loading}
 						<div class="notif-empty">Memuat...</div>
 					{:else if notifState.error}

@@ -144,8 +144,27 @@ Dokumen ini disusun dari:
 - Rawan salah paham:
   - `event_id` merujuk ke `issue_events.id` secara logis, tetapi tidak ada FK constraint karena tipe kolom belum diverifikasi eksplisit.
   - dispatch notifikasi berjalan non-fatal setelah event berhasil diinsert; jika gagal, hanya di-log.
+  - browser push tidak menggantikan tabel ini; `notifications` tetap source of truth daftar update in-app.
   - `read_at` dipakai aktif oleh endpoint `PATCH /api/v1/notifications/:id/read?follower_id=...` dan menjadi source of truth unread badge di frontend.
 - Migration: `backend/migrations/202603150001_create_notifications.sql` — WAJIB DIJALANKAN DI PROD.
+
+### `push_subscriptions`
+
+- Fungsi: menyimpan endpoint browser push aktif per follower anonim.
+- Relasi: `follower_id` UUID anonim client-side yang sama dengan sistem follow/notifikasi (tanpa FK ke tabel lain).
+- Kolom penting: `follower_id`, `endpoint`, `p256dh`, `auth`, `user_agent`, `created_at`, `updated_at`, `disabled_at`.
+- Constraint/index penting:
+  - unique `endpoint` — satu subscription browser aktif hanya punya satu row kanonik.
+  - index `follower_id`
+  - partial index active `follower_id WHERE disabled_at IS NULL`
+- Business meaning:
+  - satu browser yang memberi izin notifikasi dapat menerima channel tambahan Web Push meski tab JEDUG sedang tidak aktif.
+  - subscription bersifat device/browser-scoped, bukan global user account.
+- Rawan salah paham:
+  - `disabled_at` dipakai untuk soft-disable saat user unsubscribe atau endpoint terbukti invalid/expired (`404/410` dari push service).
+  - follower yang sama tetap bisa punya beberapa row historis bila browser merotasi endpoint dari waktu ke waktu.
+  - public VAPID key tidak disimpan di tabel; ia berasal dari env backend dan diexpose via endpoint status.
+- Migration: `backend/migrations/202603160001_create_push_subscriptions.sql` — WAJIB DIJALANKAN DI PROD.
 
 ### `moderation_actions`
 
@@ -235,13 +254,15 @@ Dokumen ini disusun dari:
 ## Current Implementation
 
 - Query backend paling banyak memakai tabel:
-  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`, `notifications`
+  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`, `notifications`, `push_subscriptions`
 - sebagian tabel schema sudah ada namun belum dipakai penuh (users/oauth/sessions/reactions/submission_flags/daily_stats/history).
 
 ## Migration SQL di Repo
 
 - Timeline issue events sekarang memiliki migration versioned di repo:
   - `backend/migrations/202603140001_create_issue_events.sql`
+- Browser push subscription sekarang juga punya migration versioned di repo:
+  - `backend/migrations/202603160001_create_push_subscriptions.sql`
 - Index performa yang dipakai timeline:
   - `idx_issue_events_issue_id_created_at (issue_id, created_at DESC, id DESC)`
 

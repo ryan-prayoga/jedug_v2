@@ -171,6 +171,8 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - tiap item memiliki action hapus ringan
   - unread badge harus langsung sinkron saat item dibaca atau dihapus
   - panel tidak boleh terasa berat atau memaksa reload penuh
+  - card `Notifikasi Browser` boleh muncul di atas list sebagai CTA ringan, bukan popup agresif
+  - CTA ini harus menjelaskan bahwa browser push adalah channel tambahan di atas notifikasi dalam aplikasi
 
 ### Detail Laporan (`/issues/[id]`)
 
@@ -203,11 +205,16 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - follower count terlihat jelas
   - tombol toggle follow/unfollow inline tanpa reload halaman
   - helper text menjelaskan bahwa browser anonim ini menjadi identitas follow sementara
+  - setelah user follow, boleh tampil CTA tambahan `Aktifkan Notifikasi Browser`
+  - CTA browser push hanya meminta permission setelah user menekan tombolnya
 - Catatan publik di issue detail tidak boleh memakai note mentah bila sudah ada `public_note` yang lebih aman dan ringkas dari API.
 - Jika user membuka notifikasi untuk issue yang sedang aktif:
   - halaman tidak melakukan navigasi sia-sia
   - data issue, timeline, dan follow state di-refresh lokal
   - tampilkan feedback ringan seperti `Laporan diperbarui`
+- Jika push datang saat tab JEDUG sedang visible:
+  - hindari OS notification ganda
+  - tab aktif boleh menerima refresh issue lokal via message dari service worker
 - Visual tetap mengikuti token:
   - severity colors (kuning-oranye-merah)
   - status/verification badge color-coded
