@@ -12,6 +12,7 @@
 		unfollowIssue
 	} from '$lib/api/issues';
 	import type { IssueDetail, IssueTimelineEvent } from '$lib/api/types';
+	import BrowserPushCard from '$lib/components/BrowserPushCard.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import IssueGallery from '$lib/components/IssueGallery.svelte';
@@ -671,6 +672,13 @@
 
 			{#if followErrorMessage}
 				<p class="follow-error">{followErrorMessage}</p>
+			{/if}
+
+			{#if isFollowing}
+				<BrowserPushCard
+					title="Aktifkan Notifikasi Browser"
+					lead="Kalau issue ini kamu ikuti, update terbaru juga bisa muncul di browser meski halaman JEDUG sedang tidak aktif."
+				/>
 			{/if}
 		</section>
 

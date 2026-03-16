@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ConsentSheet from '$lib/components/ConsentSheet.svelte';
+	import { browserPushState } from '$lib/stores/browser-push';
 	import { getAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
 	import { recordConsent } from '$lib/api/device';
 	import { ensureDeviceBootstrap } from '$lib/utils/device-init';
@@ -29,6 +30,7 @@
 		try {
 			await ensureDeviceBootstrap({ retry: 1 });
 			await notificationsState.init();
+			await browserPushState.init();
 
 			if (!isConsentGiven()) {
 				showConsent = true;

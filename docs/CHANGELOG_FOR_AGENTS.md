@@ -25,6 +25,56 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-16 - Browser Web Push Notifications for Followed Issues
+
+- Scope: menambah channel browser push di atas notifikasi in-app yang sudah ada, lengkap dengan service worker, subscription storage, dan delivery backend.
+
+### Backend
+
+1. Menambah tabel `push_subscriptions` via `backend/migrations/202603160001_create_push_subscriptions.sql`.
+2. Menambah endpoint:
+   - `GET /api/v1/push/status?follower_id=...`
+   - `POST /api/v1/push/subscribe`
+   - `POST /api/v1/push/unsubscribe`
+3. Menambah `internal/push/notifier.go` berbasis `github.com/SherClockHolmes/webpush-go` dengan payload minimal `title/body/issue_id/url/type`.
+4. `DispatchNotificationsForEvent` sekarang juga memanggil push notifier batch setelah row `notifications` berhasil dibuat; SSE tetap dipertahankan.
+5. Endpoint push yang `404/410` dari provider Web Push otomatis menandai row subscription sebagai `disabled_at`.
+6. Config backend baru:
+   - `WEB_PUSH_VAPID_PUBLIC_KEY`
+   - `WEB_PUSH_VAPID_PRIVATE_KEY`
+   - `WEB_PUSH_SUBSCRIBER`
+   - `WEB_PUSH_SITE_URL`
+   - `WEB_PUSH_TTL_SEC`
+7. Startup backend fail-fast jika env Web Push hanya terisi sebagian.
+
+### Frontend
+
+8. Menambah store `frontend/src/lib/stores/browser-push.ts` untuk state:
+   - `unsupported`
+   - `default`
+   - `granted`
+   - `denied`
+   - `subscribed`
+9. Menambah helper API `frontend/src/lib/api/push.ts`.
+10. Menambah service worker `frontend/static/sw.js` dan icon `frontend/static/push-icon.svg`.
+11. `routes/+layout.svelte` sekarang menginisialisasi browser push setelah bootstrap device + notification store.
+12. `AppHeader.svelte` menampilkan CTA ringan browser push di panel notifikasi.
+13. `routes/issues/[id]/+page.svelte` menampilkan CTA browser push setelah browser anonim mengikuti issue.
+14. Service worker behavior:
+    - tab visible -> kirim `postMessage` untuk refresh issue lokal, tanpa OS notification ganda
+    - tab tidak aktif -> tampilkan browser notification
+    - klik notification -> fokus/navigate ke issue terkait
+
+### Doc Updates
+
+- `docs/BACKEND.md`
+- `docs/FRONTEND.md`
+- `docs/SCHEMA.md`
+- `docs/DEPLOYMENT.md`
+- `docs/DECISIONS.md`
+- `design-docs/component-spec.md`
+- `design-docs/guide.md`
+
 ## 2026-03-15 - Notification Delete UX + Smart Same-Issue Refresh
 
 - Scope: menambah delete notification end-to-end dan membuat klik notification pada issue aktif melakukan refresh lokal, bukan navigate sia-sia.

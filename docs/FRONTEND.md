@@ -31,6 +31,12 @@
 
 ## Komponen Penting
 
+- `AppHeader.svelte`
+  - notification center
+  - CTA ringan browser push di dalam panel notifikasi
+- `BrowserPushCard.svelte`
+  - surface reusable untuk state `unsupported/default/granted/denied/subscribed`
+  - dipakai di panel notifikasi dan follow card detail issue
 - `IssueMap.svelte`
   - inisialisasi MapLibre
   - marker publik via `GeoJSON source + layers`
@@ -114,6 +120,7 @@
   - empty gallery
   - loading/error/empty/pagination untuk timeline issue (`GET /api/v1/issues/:id/timeline`)
   - loading/error/following state untuk follow issue anonim (`POST/DELETE /api/v1/issues/:id/follow`)
+  - loading/error/status browser push (`unsupported/default/granted/denied/subscribed`)
 
 ## Follow Issue Anonim (`/issues/[id]`)
 
@@ -139,6 +146,7 @@
   - state tetap additive; SSR detail issue tetap berjalan seperti sebelumnya
   - initial load follow tidak lagi menembak dua endpoint sekaligus tanpa alasan; status diprioritaskan dulu, count dipakai sebagai fallback ringan
   - refresh dari klik notifikasi pada issue yang sama juga me-refresh follow state agar count/following status tetap sinkron
+  - saat browser ini sudah follow issue, route juga menampilkan CTA `Aktifkan Notifikasi Browser`
 
 ## In-App Notification Center
 
@@ -162,7 +170,50 @@
   - delete item menghapus row lokal tanpa full reload; unread badge ikut turun jika item yang dihapus masih unread
   - jika mark-read gagal sinkron ke backend, store menampilkan error ringan dan refresh ulang list dari server agar unread badge tetap konsisten dengan DB
   - jika delete gagal sinkron ke backend, store menampilkan copy `Belum bisa menghapus notifikasi. Coba lagi.` lalu refresh snapshot server agar state tetap akurat
-- Scope saat ini hanya in-app notification (tanpa browser push/service worker/permission prompt).
+## Browser Push Notification
+
+- Browser push dikelola store terpisah:
+  - `src/lib/stores/browser-push.ts`
+  - state utama:
+    - `status`: `unsupported | default | granted | denied | subscribed`
+    - `enabled`
+    - `subscribed`
+    - `subscriptionCount`
+    - `busy`
+    - `error` / `success`
+- Init flow:
+  - dijalankan di `routes/+layout.svelte` setelah `notificationsState.init()`
+  - tidak memunculkan permission prompt otomatis
+  - hanya memeriksa capability browser, permission saat ini, status backend, dan existing subscription bila permission sudah `granted`
+- Endpoint yang dipakai:
+  - `GET /api/v1/push/status?follower_id=...`
+  - `POST /api/v1/push/subscribe`
+  - `POST /api/v1/push/unsubscribe`
+- CTA UI:
+  - `AppHeader` notification panel memakai `BrowserPushCard.svelte` versi compact
+  - detail issue menampilkan `BrowserPushCard.svelte` di bawah follow card setelah browser anonim mengikuti issue
+- Flow enable:
+  1. user klik `Aktifkan notifikasi browser`
+  2. browser memanggil `Notification.requestPermission()`
+  3. bila `granted`, frontend register `/sw.js`
+  4. frontend subscribe ke `PushManager` memakai `vapid_public_key` dari backend
+  5. subscription dikirim ke backend bersama `follower_id`
+- Flow disable:
+  1. ambil subscription aktif dari service worker registration
+  2. kirim `endpoint` + `follower_id` ke backend
+  3. unsubscribe lokal dari browser
+- Service worker:
+  - file statis: `frontend/static/sw.js`
+  - menerima event `push`
+  - bila ada tab JEDUG visible:
+    - tidak menampilkan OS notification
+    - mengirim `postMessage` ke client agar issue aktif bisa di-refresh lokal
+  - bila tidak ada tab visible:
+    - menampilkan browser notification dengan icon `push-icon.svg`
+  - `notificationclick` mencoba fokus issue/tab yang ada dulu, lalu fallback membuka `/issues/{id}`
+- Message bridge client:
+  - `jedug:push-received` -> refresh issue aktif jika path saat ini sama
+  - `jedug:push-open-issue` -> navigate ke issue target atau refresh issue yang sama
 
 ## Public Stats Dashboard (`/stats`)
 
@@ -251,6 +302,7 @@ Hardening UX submit report:
 - `lib/api/location.ts`: helper resolve label lokasi `/lapor`.
 - `lib/api/stats.ts`: helper fetch dashboard statistik publik `/stats`.
 - `lib/api/issues.ts`: helper fetch timeline issue publik (`getIssueTimeline`).
+- `lib/api/push.ts`: helper browser push status/subscribe/unsubscribe.
 - Token storage:
   - anon token: `jedug_anon_token`
   - issue follower id: `jedug_issue_follower_id`

@@ -26,11 +26,19 @@ type AdminRepository interface {
 }
 
 type adminRepository struct {
-	db *pgxpool.Pool
+	db           *pgxpool.Pool
+	pushNotifier NotificationPushNotifier
 }
 
-func NewAdminRepository(db *pgxpool.Pool) AdminRepository {
-	return &adminRepository{db: db}
+type AdminRepositoryConfig struct {
+	PushNotifier NotificationPushNotifier
+}
+
+func NewAdminRepository(db *pgxpool.Pool, cfg AdminRepositoryConfig) AdminRepository {
+	return &adminRepository{
+		db:           db,
+		pushNotifier: cfg.PushNotifier,
+	}
 }
 
 const adminIssueCols = `
@@ -252,7 +260,7 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 	}
 
 	if statusChanged {
-		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, id, eventID, "status_updated", nil); dispatchErr != nil {
+		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, r.pushNotifier, id, eventID, "status_updated", nil); dispatchErr != nil {
 			log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%d error=%v", id, eventID, dispatchErr)
 		}
 	}

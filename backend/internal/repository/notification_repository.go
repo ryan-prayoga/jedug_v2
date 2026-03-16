@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"strings"
 	"time"
 
@@ -12,6 +13,18 @@ import (
 	"jedug_backend/internal/domain"
 	"jedug_backend/internal/sse"
 )
+
+type PushDelivery struct {
+	FollowerID uuid.UUID
+	IssueID    uuid.UUID
+	Type       string
+	Title      string
+	Message    string
+}
+
+type NotificationPushNotifier interface {
+	DeliverBatch(ctx context.Context, deliveries []PushDelivery) error
+}
 
 func compactIssueLocationLabel(roadName, regionName *string, issueID uuid.UUID) string {
 	if roadName != nil && strings.TrimSpace(*roadName) != "" {
@@ -61,7 +74,15 @@ type ssePayload struct {
 // event to the follower via sse.Default. Callers must treat a non-nil error as
 // non-fatal and log it.
 // eventID is int64 because issue_events.id is BIGSERIAL in the production schema.
-func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueID uuid.UUID, eventID int64, eventType string, excludeFollowerID *uuid.UUID) error {
+func DispatchNotificationsForEvent(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	pushNotifier NotificationPushNotifier,
+	issueID uuid.UUID,
+	eventID int64,
+	eventType string,
+	excludeFollowerID *uuid.UUID,
+) error {
 	var (
 		roadName   *string
 		regionName *string
@@ -102,6 +123,8 @@ func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueI
 	}
 	defer rows.Close()
 
+	pushDeliveries := make([]PushDelivery, 0)
+
 	for rows.Next() {
 		var (
 			notifID    uuid.UUID
@@ -128,8 +151,25 @@ func DispatchNotificationsForEvent(ctx context.Context, db *pgxpool.Pool, issueI
 			continue
 		}
 		sse.Default.Push(followerID.String(), "event: notification\ndata: "+string(payload)+"\n\n")
+		pushDeliveries = append(pushDeliveries, PushDelivery{
+			FollowerID: followerID,
+			IssueID:    issID,
+			Type:       notifType,
+			Title:      notifTitle,
+			Message:    notifMsg,
+		})
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if pushNotifier != nil && len(pushDeliveries) > 0 {
+		if err := pushNotifier.DeliverBatch(ctx, pushDeliveries); err != nil {
+			log.Printf("[NOTIFICATION] push_delivery_error issue=%s event=%d error=%v", issueID, eventID, err)
+		}
+	}
+
+	return nil
 }
 
 // NotificationRepository reads notification data for a given follower.

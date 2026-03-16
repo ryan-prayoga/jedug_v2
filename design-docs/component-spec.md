@@ -23,6 +23,8 @@ Dokumen ini bukan sumber utama token desain.
 - Notification bell:
   - badge unread tampil dari jumlah item dengan `read_at = null`
   - panel dropdown tetap nyaman di mobile (`<= 340px` lebar efektif)
+  - panel menampilkan card ringan `Notifikasi Browser` sebelum daftar item
+  - CTA browser push tidak boleh auto-trigger permission prompt; prompt hanya muncul setelah user tap tombolnya
   - tiap item punya area tap utama untuk membuka issue dan action hapus terpisah yang tetap mudah disentuh
   - action hapus tidak boleh ikut memicu navigasi item
   - item unread memakai tint ringan merah muda agar cepat dibedakan
@@ -150,6 +152,18 @@ Dokumen ini bukan sumber utama token desain.
   - tombol disable saat request berlangsung
   - label tombol berubah menjadi state progres
 - Copy UX harus menegaskan bahwa satu browser/device anonim dihitung sebagai satu follower.
+- Jika browser ini sudah follow issue:
+  - card boleh menampilkan sub-card `Aktifkan Notifikasi Browser`
+  - state copy minimum:
+    - browser tidak mendukung
+    - izin ditolak
+    - izin granted tapi subscription belum aktif
+    - notifikasi browser aktif
+    - subscription gagal
+- Tombol browser push:
+  - min-height 48px
+  - tetap memakai brand red `#E5484D`
+  - jangan tampil sebagai modal agresif atau interstitial
 
 ## Notification-Driven Issue Refresh
 

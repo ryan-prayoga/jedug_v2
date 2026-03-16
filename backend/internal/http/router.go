@@ -10,6 +10,7 @@ import (
 	"jedug_backend/internal/config"
 	"jedug_backend/internal/http/handlers"
 	"jedug_backend/internal/http/middleware"
+	"jedug_backend/internal/push"
 	"jedug_backend/internal/repository"
 	"jedug_backend/internal/service"
 	"jedug_backend/internal/storage"
@@ -55,11 +56,23 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceRepo := repository.NewDeviceRepository(db)
 	issueRepo := repository.NewIssueRepository(db)
 	issueFollowRepo := repository.NewIssueFollowRepository(db)
+	pushRepo := repository.NewPushSubscriptionRepository(db)
+	pushNotifier := push.NewNotifier(push.Config{
+		Enabled:         cfg.WebPushVAPIDPublicKey != "",
+		SiteURL:         cfg.WebPushSiteURL,
+		Subscriber:      cfg.WebPushSubscriber,
+		VAPIDPublicKey:  cfg.WebPushVAPIDPublicKey,
+		VAPIDPrivateKey: cfg.WebPushVAPIDPrivateKey,
+		TTLSeconds:      cfg.WebPushTTLSeconds,
+	}, pushRepo)
 	statsRepo := repository.NewStatsRepository(db)
 	reportRepo := repository.NewReportRepository(db, repository.ReportRepositoryConfig{
 		DuplicateRadiusM: cfg.DuplicateRadiusM,
+		PushNotifier:     pushNotifier,
 	})
-	adminRepo := repository.NewAdminRepository(db)
+	adminRepo := repository.NewAdminRepository(db, repository.AdminRepositoryConfig{
+		PushNotifier: pushNotifier,
+	})
 	flagRepo := repository.NewFlagRepository(db)
 	locationRepo := repository.NewLocationRepository(db)
 
@@ -68,6 +81,10 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueFollowSvc := service.NewIssueFollowService(issueRepo, issueFollowRepo)
 	notifRepo := repository.NewNotificationRepository(db)
 	notifSvc := service.NewNotificationService(notifRepo)
+	pushSvc := service.NewPushService(pushRepo, service.PushServiceConfig{
+		Enabled:        cfg.WebPushVAPIDPublicKey != "",
+		VAPIDPublicKey: cfg.WebPushVAPIDPublicKey,
+	})
 	statsSvc := service.NewStatsService(statsRepo)
 	reverseGeocoder := service.NewHTTPReverseGeocoder(
 		cfg.ReverseGeocodeEnabled,
@@ -87,6 +104,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
 	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc)
 	notifHandler := handlers.NewNotificationHandler(notifSvc)
+	pushHandler := handlers.NewPushHandler(pushSvc)
 	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
@@ -101,6 +119,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	rlReport := middleware.RateLimit(5, 1*time.Minute)
 	rlFlag := middleware.RateLimit(10, 1*time.Minute)
 	rlFollow := middleware.RateLimit(30, 1*time.Minute)
+	rlPush := middleware.RateLimit(20, 1*time.Minute)
 
 	// Routes
 	api := app.Group("/api/v1")
@@ -138,6 +157,9 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	api.Get("/notifications/stream", notifHandler.Stream)
 	api.Patch("/notifications/:id/read", notifHandler.MarkRead)
 	api.Delete("/notifications/:id", notifHandler.Delete)
+	api.Get("/push/status", pushHandler.Status)
+	api.Post("/push/subscribe", rlPush, pushHandler.Subscribe)
+	api.Post("/push/unsubscribe", rlPush, pushHandler.Unsubscribe)
 
 	api.Get("/stats", statsHandler.Get)
 

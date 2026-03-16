@@ -86,6 +86,19 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - backend wajib memvalidasi UUID dan memakai unique constraint `(issue_id, follower_id)` agar follow idempotent dan tidak mudah spam.
   - tabel `issue_followers` bisa menjadi pondasi lookup subscriber dan notifikasi di step berikutnya tanpa mengubah kontrak publik yang sudah ada.
 
+## 2026-03-16 - Browser Web Push sebagai Channel Tambahan di Atas In-App Notifications
+
+- Keputusan:
+  - browser push dibangun sebagai channel tambahan yang berjalan paralel dengan tabel `notifications` dan SSE in-app, bukan menggantikan keduanya.
+  - subscription disimpan per `follower_id` anonim di tabel `push_subscriptions`.
+  - permission prompt tidak dipicu saat first paint; CTA hanya muncul di notification panel dan follow card issue detail.
+- Konteks:
+  - user perlu menerima update issue walau tab JEDUG tidak sedang aktif, tetapi UX harus tetap rendah gangguan.
+- Konsekuensi:
+  - pipeline final menjadi `issue_events -> notifications -> SSE + Web Push`.
+  - backend membutuhkan konfigurasi VAPID + `WEB_PUSH_SITE_URL`.
+  - service worker menjadi bagian runtime frontend yang wajib tersedia di origin produksi.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.
