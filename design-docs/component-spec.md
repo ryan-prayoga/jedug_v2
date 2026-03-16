@@ -24,10 +24,17 @@ Dokumen ini bukan sumber utama token desain.
   - badge unread tampil dari jumlah item dengan `read_at = null`
   - panel dropdown tetap nyaman di mobile (`<= 340px` lebar efektif)
   - panel menampilkan card ringan `Notifikasi Browser` sebelum daftar item
+  - panel juga menampilkan section `Preferensi Notifikasi` yang bisa expand/collapse tanpa pindah halaman
+  - section preferensi minimum berisi:
+    - master switch
+    - toggle channel in-app
+    - toggle channel push
+    - toggle per event type
   - CTA browser push tidak boleh auto-trigger permission prompt; prompt hanya muncul setelah user tap tombolnya
   - tiap item punya area tap utama untuk membuka issue dan action hapus terpisah yang tetap mudah disentuh
   - action hapus tidak boleh ikut memicu navigasi item
   - item unread memakai tint ringan merah muda agar cepat dibedakan
+  - jika browser push belum aktif, toggle push boleh disabled selama ada status/CTA yang jelas untuk mengaktifkannya
 
 ## IssueMap
 
@@ -172,6 +179,18 @@ Dokumen ini bukan sumber utama token desain.
   - jangan noop
   - refresh detail issue, timeline, dan state follow/follower count
   - tampilkan micro-feedback ringan bahwa laporan diperbarui
+
+## NotificationPreferencesPanel
+
+- Ditempatkan di notification center, bukan halaman settings baru.
+- Default state boleh collapse agar dropdown tetap ringkas.
+- Copy harus manusiawi dan anonim-friendly; hindari istilah teknis seperti `event_type`.
+- Jika follower/browser belum punya binding notif yang sah:
+  - tampilkan helper text yang menjelaskan user perlu follow setidaknya satu issue dulu
+  - jangan tampilkan toggle yang terasa broken
+- Jika `notifications_enabled = false`:
+  - child toggle tetap terlihat
+  - child toggle boleh dibuat disabled untuk menegaskan bahwa master switch sedang mematikan semuanya
 
 ## IssueGallery
 

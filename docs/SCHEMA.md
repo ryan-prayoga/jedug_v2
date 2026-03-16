@@ -179,6 +179,24 @@ Dokumen ini disusun dari:
   - `follower_token` sendiri tidak disimpan di DB; ia stateless dan diverifikasi via signature + keberadaan binding row.
 - Migration: `backend/migrations/202603160002_create_follower_auth_bindings.sql` — WAJIB DIJALANKAN DI PROD.
 
+### `notification_preferences`
+
+- Fungsi: menyimpan preferensi notifikasi minimum per follower anonim tanpa menambah login/account baru.
+- Relasi: `follower_id` UUID anonim client-side yang sama dengan `issue_followers`, `notifications`, `push_subscriptions`, dan `follower_auth_bindings` (tanpa FK ke tabel lain).
+- Kolom penting:
+  - master switch: `notifications_enabled`
+  - channel: `in_app_enabled`, `push_enabled`
+  - event type: `notify_on_photo_added`, `notify_on_status_updated`, `notify_on_severity_changed`, `notify_on_casualty_reported`
+  - audit: `created_at`, `updated_at`
+- Business meaning:
+  - follower anonim bisa mengatur channel dan jenis event mana yang masih ingin diterima agar update tidak terasa spammy.
+  - nilai child preference tidak dihapus saat `notifications_enabled=false`; master switch hanya membuat semuanya dianggap off sampai user mengaktifkannya lagi.
+- Rawan salah paham:
+  - `GET /notification-preferences` dapat mengembalikan default sintetis tanpa menulis row; row baru materialized saat user pertama kali menyimpan preference.
+  - `push_enabled` boleh `true` meski browser saat ini belum punya subscription aktif; delivery push tetap tidak terjadi tanpa row aktif di `push_subscriptions`.
+  - dispatcher notifikasi memakai tabel ini sebagai filter sebelum membuat row `notifications` atau mengantrekan browser push.
+- Migration: `backend/migrations/202603160003_create_notification_preferences.sql` — WAJIB DIJALANKAN DI PROD.
+
 ### `moderation_actions`
 
 - Fungsi: audit log tindakan moderasi admin/system.

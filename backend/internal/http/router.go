@@ -86,6 +86,8 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	})
 	notifRepo := repository.NewNotificationRepository(db)
 	notifSvc := service.NewNotificationService(notifRepo)
+	notifPrefsRepo := repository.NewNotificationPreferencesRepository(db)
+	notifPrefsSvc := service.NewNotificationPreferencesService(notifPrefsRepo)
 	pushSvc := service.NewPushService(pushRepo, service.PushServiceConfig{
 		Enabled:        cfg.WebPushVAPIDPublicKey != "",
 		VAPIDPublicKey: cfg.WebPushVAPIDPublicKey,
@@ -110,6 +112,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc, followerAuthSvc)
 	followerAuthHandler := handlers.NewFollowerAuthHandler(followerAuthSvc)
 	notifHandler := handlers.NewNotificationHandler(notifSvc, followerAuthSvc)
+	notifPrefsHandler := handlers.NewNotificationPreferencesHandler(notifPrefsSvc, followerAuthSvc)
 	pushHandler := handlers.NewPushHandler(pushSvc, followerAuthSvc)
 	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(store)
@@ -164,6 +167,8 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	api.Get("/notifications/stream", notifHandler.Stream)
 	api.Patch("/notifications/:id/read", notifHandler.MarkRead)
 	api.Delete("/notifications/:id", notifHandler.Delete)
+	api.Get("/notification-preferences", notifPrefsHandler.Get)
+	api.Patch("/notification-preferences", notifPrefsHandler.Patch)
 	api.Get("/push/status", pushHandler.Status)
 	api.Post("/push/subscribe", rlPush, pushHandler.Subscribe)
 	api.Post("/push/unsubscribe", rlPush, pushHandler.Unsubscribe)

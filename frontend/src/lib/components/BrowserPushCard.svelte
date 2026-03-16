@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browserPushState } from '$lib/stores/browser-push';
+	import { notificationPreferencesState } from '$lib/stores/notification-preferences';
 
 	type Variant = 'card' | 'compact';
 
@@ -69,10 +70,16 @@
 	async function handleAction() {
 		if (blocked && pushState.status !== 'subscribed') return;
 		if (pushState.status === 'subscribed') {
-			await browserPushState.disable();
+			const disabled = await browserPushState.disable();
+			if (disabled) {
+				await notificationPreferencesState.refresh();
+			}
 			return;
 		}
-		await browserPushState.enable();
+		const enabled = await browserPushState.enable();
+		if (enabled) {
+			await notificationPreferencesState.refresh();
+		}
 	}
 </script>
 
