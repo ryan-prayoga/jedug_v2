@@ -75,6 +75,48 @@ Area yang selalu wajib update docs bila berubah:
 - `design-docs/component-spec.md`
 - `design-docs/guide.md`
 
+## 2026-03-16 - Notification Hardening: Follower Token Auth, Push SSRF Guard, Async Delivery
+
+- Scope: menutup temuan audit P1/P2 utama pada notifikasi tanpa menambah login penuh.
+
+### Backend
+
+1. Menambah tabel `follower_auth_bindings` via `backend/migrations/202603160002_create_follower_auth_bindings.sql`.
+2. Menambah endpoint `POST /api/v1/followers/auth` untuk refresh `follower_token` memakai `X-Device-Token`.
+3. Follow/status kini mengikat `follower_id` ke browser anonim yang sama dan mengembalikan `follower_token` + `follower_token_expires_at`.
+4. Endpoint notification dan push kini memakai `follower_token`, bukan `follower_id` mentah:
+   - `GET /api/v1/notifications?follower_token=...`
+   - `PATCH /api/v1/notifications/:id/read?follower_token=...`
+   - `DELETE /api/v1/notifications/:id?follower_token=...`
+   - `GET /api/v1/notifications/stream?follower_token=...`
+   - `GET /api/v1/push/status?follower_token=...`
+   - `POST /api/v1/push/subscribe`
+   - `POST /api/v1/push/unsubscribe`
+5. `PushService` sekarang memvalidasi endpoint Web Push via allowlist host/path + wajib HTTPS + reject credential/IP host + validasi panjang key `p256dh/auth` untuk menutup SSRF endpoint arbitrary.
+6. `internal/push/notifier.go` sekarang memakai queue in-process + worker goroutine agar submit report / moderasi tidak menunggu delivery push selesai.
+
+### Frontend
+
+7. Menambah helper `frontend/src/lib/utils/follower-auth.ts` dan API `frontend/src/lib/api/follower-auth.ts`.
+8. Notification store sekarang:
+   - refresh `follower_token` bila perlu
+   - memperbaiki reconnect SSE (tidak hard-stop, timer dibersihkan sebelum reconnect)
+   - melakukan fallback refresh ringan saat gagal berulang
+   - sinkron read/delete antar tab via `BroadcastChannel` + `storage` event
+9. Browser push store sekarang memakai `follower_token` untuk status/subscribe/unsubscribe dan menolak enable bila browser belum punya binding follower yang sah.
+
+### Env / Docs
+
+10. Env backend baru:
+    - `FOLLOWER_TOKEN_SECRET`
+    - `FOLLOWER_TOKEN_TTL_SEC`
+11. Update docs:
+    - `docs/BACKEND.md`
+    - `docs/FRONTEND.md`
+    - `docs/SCHEMA.md`
+    - `docs/DEPLOYMENT.md`
+    - `docs/DECISIONS.md`
+
 ## 2026-03-15 - Notification Delete UX + Smart Same-Issue Refresh
 
 - Scope: menambah delete notification end-to-end dan membuat klik notification pada issue aktif melakukan refresh lokal, bukan navigate sia-sia.

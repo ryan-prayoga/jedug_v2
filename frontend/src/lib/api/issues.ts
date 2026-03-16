@@ -1,5 +1,6 @@
 import { ApiError, apiDelete, apiGet, apiPost } from "./client";
 import type { ApiResponse } from "./types";
+import { getAnonToken } from "$lib/utils/storage";
 import type {
   Issue,
   IssueDetail,
@@ -48,30 +49,46 @@ async function with404Fallback<T>(
 
 export async function followIssue(id: string, followerId: string) {
   const encodedId = encodeURIComponent(id);
+  const anonToken = getAnonToken() ?? undefined;
 
   return with404Fallback(
     () =>
-      apiPost<IssueFollowState>(`/api/v1/issues/${encodedId}/follow`, {
-        follower_id: followerId,
-      }),
+      apiPost<IssueFollowState>(
+        `/api/v1/issues/${encodedId}/follow`,
+        {
+          follower_id: followerId,
+        },
+        anonToken,
+      ),
     () =>
-      apiPost<IssueFollowState>(`/api/v1/issues/${encodedId}/followers`, {
-        follower_id: followerId,
-      }),
+      apiPost<IssueFollowState>(
+        `/api/v1/issues/${encodedId}/followers`,
+        {
+          follower_id: followerId,
+        },
+        anonToken,
+      ),
   );
 }
 
 export async function unfollowIssue(id: string, followerId: string) {
   const encodedId = encodeURIComponent(id);
+  const anonToken = getAnonToken() ?? undefined;
 
   return with404Fallback(
     () =>
-      apiDelete<IssueFollowState>(`/api/v1/issues/${encodedId}/follow`, {
-        follower_id: followerId,
-      }),
+      apiDelete<IssueFollowState>(
+        `/api/v1/issues/${encodedId}/follow`,
+        {
+          follower_id: followerId,
+        },
+        anonToken,
+      ),
     () =>
       apiDelete<IssueFollowState>(
         `/api/v1/issues/${encodedId}/followers?follower_id=${encodeURIComponent(followerId)}`,
+        undefined,
+        anonToken,
       ),
   );
 }
@@ -91,15 +108,18 @@ export async function getIssueFollowerCount(id: string) {
 export async function getIssueFollowStatus(id: string, followerId: string) {
   const query = new URLSearchParams({ follower_id: followerId });
   const encodedId = encodeURIComponent(id);
+  const anonToken = getAnonToken() ?? undefined;
 
   return with404Fallback(
     () =>
       apiGet<IssueFollowState>(
         `/api/v1/issues/${encodedId}/follow-status?${query.toString()}`,
+        anonToken,
       ),
     () =>
       apiGet<IssueFollowState>(
         `/api/v1/issues/${encodedId}/follow/status?${query.toString()}`,
+        anonToken,
       ),
   );
 }

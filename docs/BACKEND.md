@@ -35,8 +35,9 @@
 - `DELETE /api/v1/issues/:id/follow`
 - `GET /api/v1/issues/:id/followers/count`
 - `GET /api/v1/issues/:id/follow-status?follower_id=...`
+- `POST /api/v1/followers/auth`
 - `POST /api/v1/issues/:id/flag`
-- `GET /api/v1/push/status?follower_id=...`
+- `GET /api/v1/push/status?follower_token=...`
 - `POST /api/v1/push/subscribe`
 - `POST /api/v1/push/unsubscribe`
 - `GET /api/v1/stats`
@@ -126,11 +127,16 @@
 
 - Tabel follower anonim: `issue_followers`.
 - Identity follower memakai `follower_id` UUID dari browser (tanpa login).
+- Hardening tambahan:
+  - backend mengikat `follower_id` ke `X-Device-Token` anonim lewat tabel `follower_auth_bindings`
+  - response `follow` / `unfollow` / `follow-status` kini juga dapat mengembalikan `follower_token` bertanda tangan server + `follower_token_expires_at`
+  - endpoint `POST /api/v1/followers/auth` dipakai frontend untuk refresh token notifikasi secara aman tanpa login penuh
 - Endpoint publik additive:
   - `POST /api/v1/issues/:id/follow`
   - `DELETE /api/v1/issues/:id/follow`
   - `GET /api/v1/issues/:id/followers/count`
   - `GET /api/v1/issues/:id/follow-status?follower_id=...`
+  - `POST /api/v1/followers/auth`
 - Alias kompatibilitas yang juga dilayani agar caller lama/tidak sinkron tidak jatuh ke 404:
   - `POST /api/v1/issues/:id/followers`
   - `DELETE /api/v1/issues/:id/followers`
@@ -140,6 +146,7 @@
   - `issue_id` harus UUID valid
   - `follower_id` harus UUID valid dan non-nil
   - `DELETE` / `POST` menerima `follower_id` dari body, dan fallback query param untuk kompatibilitas client/proxy yang tidak mengirim body DELETE dengan stabil
+  - `follow` / `unfollow` / `follow-status` sekarang juga memerlukan `X-Device-Token` agar `follower_id` tidak lagi menjadi bearer secret mentah
 - Service memastikan issue target masih issue publik (`FindByID`), sehingga hidden/rejected/merged tidak bisa di-follow dari endpoint publik.
 - Repository menggunakan:
   - `INSERT ... ON CONFLICT (issue_id, follower_id) DO NOTHING` agar follow idempotent dan conflict-safe
@@ -157,16 +164,17 @@
 - Tabel notifikasi: `notifications` — di-populate otomatis oleh `DispatchNotificationsForEvent` setiap kali event berhasil diinsert.
 - Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, pushNotifier, issueID, eventID, eventType, excludeFollowerID)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
 - Endpoint notifikasi in-app publik:
-  - `GET /api/v1/notifications?follower_id=...&limit=50`
-  - `PATCH /api/v1/notifications/:id/read?follower_id=...`
-  - `DELETE /api/v1/notifications/:id?follower_id=...`
-  - `GET /api/v1/notifications/stream?follower_id=...` — **SSE stream** (text/event-stream)
+  - `GET /api/v1/notifications?follower_token=...&limit=50`
+  - `PATCH /api/v1/notifications/:id/read?follower_token=...`
+  - `DELETE /api/v1/notifications/:id?follower_token=...`
+  - `GET /api/v1/notifications/stream?follower_token=...` — **SSE stream** (text/event-stream)
 - Endpoint browser push publik:
-  - `GET /api/v1/push/status?follower_id=...`
+  - `GET /api/v1/push/status?follower_token=...`
   - `POST /api/v1/push/subscribe`
   - `POST /api/v1/push/unsubscribe`
-- Mark-as-read dikunci oleh pasangan `notification_id + follower_id` agar browser anonim hanya bisa menandai notifikasi miliknya sendiri. Endpoint mengembalikan `read_at` persisten dari DB; jika row tidak ditemukan, response `404`.
-- Delete notification juga dikunci oleh pasangan `notification_id + follower_id`; response `deleted: true|false` dibuat aman/idempotent tanpa membocorkan ownership follower lain.
+- Semua endpoint notifikasi/push sekarang mengekstrak `follower_id` dari `follower_token` bertanda tangan server; ownership tidak lagi bergantung pada UUID mentah dari caller.
+- Mark-as-read tetap dikunci di DB oleh pasangan `notification_id + follower_id` dan mengembalikan `read_at` persisten; jika row tidak ditemukan, response `404`.
+- Delete notification tetap dikunci oleh pasangan `notification_id + follower_id`; response `deleted: true|false` dibuat aman/idempotent tanpa membocorkan ownership follower lain.
 - Self-notify prevention:
   - endpoint submit report menerima field opsional `actor_follower_id`.
   - dispatcher skip follower yang sama dengan actor (`excludeFollowerID`) agar pengirim update tidak menerima notifikasi untuk event yang ia buat sendiri.
@@ -183,10 +191,11 @@
   - Format event: `event: notification\ndata: {id,issue_id,event_id,type,title,message,created_at}\n\n`
 - **Web Push notifier** (`internal/push/notifier.go`):
   - browser push tetap additive di atas tabel `notifications` + SSE.
-  - dispatcher mengumpulkan row notifikasi baru lalu memanggil notifier batch per follower.
+  - dispatcher mengumpulkan row notifikasi baru lalu mengantrekan batch ke worker in-process; request submit/moderation tidak lagi menunggu seluruh delivery selesai.
   - payload push minimal: `title`, `body`, `issue_id`, `url`, `type`.
   - `url` dibentuk dari `WEB_PUSH_SITE_URL + /issues/{issue_id}` agar klik notifikasi selalu menuju issue publik yang benar.
   - response `404/410` dari push service dianggap subscription invalid/expired dan row ditandai `disabled_at`.
+  - subscribe memvalidasi endpoint Web Push hanya untuk host/path provider yang dikenal (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `push.services.mozilla.com`, `web.push.apple.com`), wajib `https`, tanpa credential, dan kunci `p256dh/auth` harus valid.
 - Event dibuat otomatis saat:
   - issue baru dibuat (`issue_created`)
   - submission membawa foto (`photo_added`)
@@ -199,7 +208,7 @@
 
 - Tabel `push_subscriptions` menyimpan endpoint Web Push aktif per `follower_id`.
 - Endpoint subscribe menerima:
-  - `follower_id`
+  - `follower_token`
   - `subscription.endpoint`
   - `subscription.keys.p256dh`
   - `subscription.keys.auth`
@@ -215,6 +224,7 @@
 - Konfigurasi:
   - jika seluruh env Web Push kosong, backend tetap hidup dan fitur browser push dianggap disabled.
   - jika env Web Push hanya terisi sebagian, startup gagal cepat untuk mencegah half-config di production.
+  - `FOLLOWER_TOKEN_SECRET` wajib ada dan minimal 32 karakter; backend memakai secret ini untuk menandatangani `follower_token`.
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)
 

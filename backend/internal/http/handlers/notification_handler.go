@@ -14,18 +14,19 @@ import (
 )
 
 type NotificationHandler struct {
-	svc service.NotificationService
+	svc     service.NotificationService
+	authSvc service.FollowerAuthService
 }
 
-func NewNotificationHandler(svc service.NotificationService) *NotificationHandler {
-	return &NotificationHandler{svc: svc}
+func NewNotificationHandler(svc service.NotificationService, authSvc service.FollowerAuthService) *NotificationHandler {
+	return &NotificationHandler{svc: svc, authSvc: authSvc}
 }
 
-// GET /api/v1/notifications?follower_id=<uuid>&limit=50
+// GET /api/v1/notifications?follower_token=<token>&limit=50
 func (h *NotificationHandler) List(c *fiber.Ctx) error {
-	followerID, err := uuid.Parse(c.Query("follower_id"))
+	followerID, err := authenticateFollowerToken(c, h.authSvc)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
+		return mapFollowerAuthError(c, err)
 	}
 
 	limit := c.QueryInt("limit", 50)
@@ -39,16 +40,16 @@ func (h *NotificationHandler) List(c *fiber.Ctx) error {
 	})
 }
 
-// PATCH /api/v1/notifications/:id/read?follower_id=<uuid>
+// PATCH /api/v1/notifications/:id/read?follower_token=<token>
 func (h *NotificationHandler) MarkRead(c *fiber.Ctx) error {
 	notificationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return response.Error(c, fiber.StatusBadRequest, "notification id must be a valid UUID")
 	}
 
-	followerID, err := uuid.Parse(c.Query("follower_id"))
+	followerID, err := authenticateFollowerToken(c, h.authSvc)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
+		return mapFollowerAuthError(c, err)
 	}
 
 	readAt, updated, err := h.svc.MarkAsRead(c.Context(), notificationID, followerID)
@@ -64,16 +65,16 @@ func (h *NotificationHandler) MarkRead(c *fiber.Ctx) error {
 	})
 }
 
-// DELETE /api/v1/notifications/:id?follower_id=<uuid>
+// DELETE /api/v1/notifications/:id?follower_token=<token>
 func (h *NotificationHandler) Delete(c *fiber.Ctx) error {
 	notificationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return response.Error(c, fiber.StatusBadRequest, "notification id must be a valid UUID")
 	}
 
-	followerID, err := uuid.Parse(c.Query("follower_id"))
+	followerID, err := authenticateFollowerToken(c, h.authSvc)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
+		return mapFollowerAuthError(c, err)
 	}
 
 	deleted, err := h.svc.Delete(c.Context(), notificationID, followerID)
@@ -86,14 +87,14 @@ func (h *NotificationHandler) Delete(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/notifications/stream?follower_id=<uuid>
+// GET /api/v1/notifications/stream?follower_token=<token>
 // Opens a Server-Sent Events stream.  The connection is kept alive via 30-second
 // ping events.  When the client disconnects, the cleanup function removes the
 // subscription from the in-process SSE hub.
 func (h *NotificationHandler) Stream(c *fiber.Ctx) error {
-	followerID, err := uuid.Parse(c.Query("follower_id"))
+	followerID, err := authenticateFollowerToken(c, h.authSvc)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "follower_id must be a valid UUID")
+		return mapFollowerAuthError(c, err)
 	}
 
 	c.Set("Content-Type", "text/event-stream")

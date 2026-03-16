@@ -2,6 +2,8 @@ const TOKEN_KEY = "jedug_anon_token";
 const CONSENT_KEY = "jedug_terms_accepted";
 const ADMIN_TOKEN_KEY = "jedug_admin_token";
 const ISSUE_FOLLOWER_ID_KEY = "jedug_issue_follower_id";
+const ISSUE_FOLLOWER_TOKEN_KEY = "jedug_issue_follower_token";
+const ISSUE_FOLLOWER_TOKEN_EXP_KEY = "jedug_issue_follower_token_exp";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -56,8 +58,40 @@ export function getOrCreateIssueFollowerId(): string | null {
   }
 
   const followerId = generateBrowserUUID();
+  clearIssueFollowerAuthToken();
   localStorage.setItem(ISSUE_FOLLOWER_ID_KEY, followerId);
   return followerId;
+}
+
+export function getIssueFollowerAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const token = localStorage.getItem(ISSUE_FOLLOWER_TOKEN_KEY);
+  const expiresAt = localStorage.getItem(ISSUE_FOLLOWER_TOKEN_EXP_KEY);
+  if (!token || !expiresAt) {
+    return null;
+  }
+
+  const expiresAtMs = Date.parse(expiresAt);
+  if (Number.isNaN(expiresAtMs) || expiresAtMs <= Date.now() + 30_000) {
+    clearIssueFollowerAuthToken();
+    return null;
+  }
+
+  return token;
+}
+
+export function setIssueFollowerAuthToken(
+  token: string,
+  expiresAt: string,
+): void {
+  localStorage.setItem(ISSUE_FOLLOWER_TOKEN_KEY, token);
+  localStorage.setItem(ISSUE_FOLLOWER_TOKEN_EXP_KEY, expiresAt);
+}
+
+export function clearIssueFollowerAuthToken(): void {
+  localStorage.removeItem(ISSUE_FOLLOWER_TOKEN_KEY);
+  localStorage.removeItem(ISSUE_FOLLOWER_TOKEN_EXP_KEY);
 }
 
 function generateBrowserUUID(): string {

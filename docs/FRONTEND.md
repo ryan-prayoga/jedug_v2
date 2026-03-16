@@ -135,6 +135,11 @@
   - fetch follower count: `GET /api/v1/issues/:id/followers/count`
   - follow: `POST /api/v1/issues/:id/follow`
   - unfollow: `DELETE /api/v1/issues/:id/follow`
+- Semua request follow/status dikirim bersama `X-Device-Token` anonim yang sudah ada dari bootstrap device.
+- Response follow/status kini juga bisa membawa:
+  - `follower_token`
+  - `follower_token_expires_at`
+- Frontend menyimpan `follower_token` di localStorage dan memakainya khusus untuk endpoint notification/push.
 - Untuk bugfix kompatibilitas, helper frontend follow sekarang memiliki fallback 404 terarah ke alias backend lama/alternatif:
   - status fallback: `/api/v1/issues/:id/follow/status`
   - count fallback: `/api/v1/issues/:id/count`
@@ -153,14 +158,16 @@
 - Notifikasi in-app ditampilkan di `AppHeader` (ikon lonceng + badge unread).
 - Data notifikasi dikelola store bersama:
   - `src/lib/stores/notifications.ts`
-  - state: `items`, `loading`, `error`, `followerID`, `initialized`
+  - state: `items`, `loading`, `error`, `followerID`, `followerToken`, `initialized`
   - derived: `unreadNotificationCount`
 - Saat app publik pertama kali mount (`routes/+layout.svelte`), frontend menjalankan `notificationsState.init()` setelah bootstrap device.
+- Jika `follower_token` belum ada/expired, frontend mencoba refresh lewat `POST /api/v1/followers/auth` memakai `X-Device-Token`.
 - Endpoint yang dipakai:
-  - list: `GET /api/v1/notifications?follower_id=...&limit=50`
-  - mark read: `PATCH /api/v1/notifications/:id/read?follower_id=...`
-  - delete: `DELETE /api/v1/notifications/:id?follower_id=...`
-  - stream realtime: `GET /api/v1/notifications/stream?follower_id=...` (SSE)
+  - auth refresh: `POST /api/v1/followers/auth`
+  - list: `GET /api/v1/notifications?follower_token=...&limit=50`
+  - mark read: `PATCH /api/v1/notifications/:id/read?follower_token=...`
+  - delete: `DELETE /api/v1/notifications/:id?follower_token=...`
+  - stream realtime: `GET /api/v1/notifications/stream?follower_token=...` (SSE)
 - UX behavior:
   - badge menampilkan jumlah item dengan `read_at = null`
   - dropdown panel menampilkan title/message/waktu + action hapus ringan per item
@@ -170,6 +177,8 @@
   - delete item menghapus row lokal tanpa full reload; unread badge ikut turun jika item yang dihapus masih unread
   - jika mark-read gagal sinkron ke backend, store menampilkan error ringan dan refresh ulang list dari server agar unread badge tetap konsisten dengan DB
   - jika delete gagal sinkron ke backend, store menampilkan copy `Belum bisa menghapus notifikasi. Coba lagi.` lalu refresh snapshot server agar state tetap akurat
+  - read/delete juga disiarkan antar tab via `BroadcastChannel` + fallback `storage` event agar badge/list tetap sinkron
+  - reconnect SSE tidak lagi hard-stop setelah beberapa kegagalan; store membersihkan pending timer sebelum reconnect dan melakukan fallback refresh ringan bila gangguan berulang
 ## Browser Push Notification
 
 - Browser push dikelola store terpisah:
@@ -186,7 +195,8 @@
   - tidak memunculkan permission prompt otomatis
   - hanya memeriksa capability browser, permission saat ini, status backend, dan existing subscription bila permission sudah `granted`
 - Endpoint yang dipakai:
-  - `GET /api/v1/push/status?follower_id=...`
+  - `POST /api/v1/followers/auth`
+  - `GET /api/v1/push/status?follower_token=...`
   - `POST /api/v1/push/subscribe`
   - `POST /api/v1/push/unsubscribe`
 - CTA UI:
@@ -197,11 +207,12 @@
   2. browser memanggil `Notification.requestPermission()`
   3. bila `granted`, frontend register `/sw.js`
   4. frontend subscribe ke `PushManager` memakai `vapid_public_key` dari backend
-  5. subscription dikirim ke backend bersama `follower_id`
+  5. subscription dikirim ke backend bersama `follower_token`
 - Flow disable:
   1. ambil subscription aktif dari service worker registration
-  2. kirim `endpoint` + `follower_id` ke backend
+  2. kirim `endpoint` + `follower_token` ke backend
   3. unsubscribe lokal dari browser
+- Jika browser belum punya `follower_token` yang valid, CTA enable gagal dengan copy ringan yang mengarahkan user untuk follow issue dulu dari browser yang sama.
 - Service worker:
   - file statis: `frontend/static/sw.js`
   - menerima event `push`

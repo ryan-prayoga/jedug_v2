@@ -21,8 +21,9 @@
 	import LoadingState from '$lib/components/LoadingState.svelte';
 	import ShareActions from '$lib/components/ShareActions.svelte';
 	import { formatDate, relativeTime } from '$lib/utils/date';
-	import { onIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
-	import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
+		import { onIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
+		import { persistFollowerAuthFromIssueState } from '$lib/utils/follower-auth';
+		import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
 	import {
 		buildIssueDetailSeo,
 		formatCoordinates,
@@ -286,10 +287,11 @@
 			const statusResult = await getIssueFollowStatus(issueID, currentFollowerID);
 			const statusData = statusResult.data;
 
-			if (statusData) {
-				return {
-					following: statusData.following,
-					followersCount: statusData.followers_count,
+				if (statusData) {
+					persistFollowerAuthFromIssueState(statusData);
+					return {
+						following: statusData.following,
+						followersCount: statusData.followers_count,
 					errorMessage: null
 				};
 			}
@@ -324,10 +326,11 @@
 				? await unfollowIssue(issue.id, followerID)
 				: await followIssue(issue.id, followerID);
 
-			if (result.data) {
-				isFollowing = result.data.following;
-				followersCount = result.data.followers_count;
-			}
+				if (result.data) {
+					persistFollowerAuthFromIssueState(result.data);
+					isFollowing = result.data.following;
+					followersCount = result.data.followers_count;
+				}
 		} catch {
 			followErrorMessage = isFollowing
 				? 'Belum bisa berhenti mengikuti. Coba lagi.'

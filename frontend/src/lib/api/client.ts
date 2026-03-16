@@ -3,17 +3,23 @@ import type { ApiResponse } from "./types";
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  errorCode?: string;
+  constructor(message: string, status: number, errorCode?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.errorCode = errorCode;
   }
 }
 
 async function parseResponse<T>(res: Response): Promise<ApiResponse<T>> {
   const json: ApiResponse<T> = await res.json();
   if (!json.success) {
-    throw new ApiError(json.message || "Request failed", res.status);
+    throw new ApiError(
+      json.message || "Request failed",
+      res.status,
+      json.error_code,
+    );
   }
   return json;
 }

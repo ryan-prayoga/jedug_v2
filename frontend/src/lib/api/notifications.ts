@@ -25,11 +25,11 @@ export interface NotificationDeleteResult {
 }
 
 export async function getNotifications(
-  followerID: string,
+  followerToken: string,
   limit = 50,
 ): Promise<ApiResponse<NotificationList>> {
   const params = new URLSearchParams({
-    follower_id: followerID,
+    follower_token: followerToken,
     limit: String(limit),
   });
   return apiGet<NotificationList>(`/api/v1/notifications?${params}`);
@@ -37,9 +37,9 @@ export async function getNotifications(
 
 export async function markNotificationRead(
   notificationID: string,
-  followerID: string,
+  followerToken: string,
 ): Promise<ApiResponse<NotificationReadResult>> {
-  const params = new URLSearchParams({ follower_id: followerID });
+  const params = new URLSearchParams({ follower_token: followerToken });
   return apiPatch<NotificationReadResult>(
     `/api/v1/notifications/${notificationID}/read?${params}`,
   );
@@ -47,9 +47,9 @@ export async function markNotificationRead(
 
 export async function deleteNotification(
   notificationID: string,
-  followerID: string,
+  followerToken: string,
 ): Promise<ApiResponse<NotificationDeleteResult>> {
-  const params = new URLSearchParams({ follower_id: followerID });
+  const params = new URLSearchParams({ follower_token: followerToken });
   return apiDelete<NotificationDeleteResult>(
     `/api/v1/notifications/${notificationID}?${params}`,
   );

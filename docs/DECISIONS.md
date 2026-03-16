@@ -99,6 +99,19 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - backend membutuhkan konfigurasi VAPID + `WEB_PUSH_SITE_URL`.
   - service worker menjadi bagian runtime frontend yang wajib tersedia di origin produksi.
 
+## 2026-03-16 - Notification Auth Hardened dengan Device-Bound Signed Follower Token
+
+- Keputusan:
+  - endpoint notifikasi dan browser push tidak lagi percaya pada `follower_id` mentah dari caller.
+  - backend mengikat `follower_id` ke hash `X-Device-Token` anonim dan menerbitkan `follower_token` bertanda tangan HMAC dengan TTL.
+  - follow/status tetap semi-anonim, tetapi membutuhkan `X-Device-Token` untuk membuktikan kepemilikan follower di browser yang sama.
+- Konteks:
+  - audit menemukan UUID follower bertindak seperti bearer secret dan membuka akses lintas owner untuk list/stream/read/delete/push status/unsubscribe.
+- Konsekuensi:
+  - frontend perlu refresh `follower_token` sebelum mengakses notification center atau Web Push.
+  - SSE memakai `follower_token` di query string karena `EventSource` tidak bisa mengirim custom header.
+  - rollout lama tanpa binding mungkin perlu re-bind dari browser asli melalui flow follow yang sama.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.

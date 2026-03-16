@@ -6,6 +6,7 @@ import {
   markNotificationRead,
   type Notification,
 } from "$lib/api/notifications";
+import { ensureFollowerAuthToken } from "$lib/utils/follower-auth";
 import { getOrCreateIssueFollowerId } from "$lib/utils/storage";
 
 interface NotificationState {
@@ -13,43 +14,184 @@ interface NotificationState {
   loading: boolean;
   error: string | null;
   followerID: string | null;
+  followerToken: string | null;
   initialized: boolean;
   deletingIDs: string[];
 }
+
+type CrossTabMessage =
+  | { type: "mark-read"; notificationID: string; readAt: string }
+  | { type: "delete"; notificationID: string };
 
 const initialState: NotificationState = {
   items: [],
   loading: false,
   error: null,
   followerID: null,
+  followerToken: null,
   initialized: false,
   deletingIDs: [],
 };
 
 const state = writable<NotificationState>(initialState);
 
-// ── SSE state (module-level, not part of the Svelte store) ───────────────────
 let _es: EventSource | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let _reconnectDelay = 1_000; // ms, doubles on each failure up to MAX
+let _reconnectDelay = 1_000;
 const _maxReconnectDelay = 30_000;
 let _reconnectAttempts = 0;
-const _maxReconnectAttempts = 10; // give up after 10 consecutive failures
+const NOTIFICATION_SYNC_KEY = "jedug_notification_sync";
+const channel =
+  typeof window !== "undefined" && "BroadcastChannel" in window
+    ? new BroadcastChannel("jedug-notifications")
+    : null;
 
-function _connectSSE(followerID: string) {
-  if (typeof EventSource === "undefined") return; // SSR or unsupported browser
+function applyMarkRead(notificationID: string, readAt: string) {
+  state.update((prev) => ({
+    ...prev,
+    items: prev.items.map((item) =>
+      item.id === notificationID
+        ? { ...item, read_at: item.read_at ?? readAt }
+        : item,
+    ),
+  }));
+}
 
+function applyDelete(notificationID: string) {
+  state.update((prev) => ({
+    ...prev,
+    deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
+    items: prev.items.filter((item) => item.id !== notificationID),
+  }));
+}
+
+function publishCrossTab(message: CrossTabMessage) {
+  if (typeof window === "undefined") return;
+
+  if (channel) {
+    channel.postMessage(message);
+    return;
+  }
+
+  localStorage.setItem(
+    NOTIFICATION_SYNC_KEY,
+    JSON.stringify({ ...message, ts: Date.now() }),
+  );
+  localStorage.removeItem(NOTIFICATION_SYNC_KEY);
+}
+
+function handleCrossTabMessage(message: CrossTabMessage) {
+  if (message.type === "mark-read") {
+    applyMarkRead(message.notificationID, message.readAt);
+    return;
+  }
+
+  applyDelete(message.notificationID);
+}
+
+if (typeof window !== "undefined") {
+  channel?.addEventListener("message", (event) => {
+    const data = event.data as CrossTabMessage | undefined;
+    if (!data || typeof data !== "object") return;
+    handleCrossTabMessage(data);
+  });
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== NOTIFICATION_SYNC_KEY || !event.newValue) return;
+    try {
+      const parsed = JSON.parse(event.newValue) as CrossTabMessage;
+      handleCrossTabMessage(parsed);
+    } catch {
+      // ignore malformed sync payload
+    }
+  });
+}
+
+function clearReconnectTimer() {
+  if (_reconnectTimer !== null) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
+}
+
+function setSnapshot(
+  followerID: string,
+  followerToken: string,
+  items: Notification[],
+  loading: boolean,
+) {
+  state.update((prev) => ({
+    ...prev,
+    items,
+    loading,
+    error: null,
+    followerID,
+    followerToken,
+  }));
+}
+
+async function fetchSnapshot(
+  followerID: string,
+  followerToken: string,
+  loading: boolean,
+) {
+  if (loading) {
+    state.update((prev) => ({
+      ...prev,
+      loading: true,
+      error: null,
+      followerID,
+      followerToken,
+    }));
+  }
+
+  const result = await getNotifications(followerToken, 50);
+  setSnapshot(followerID, followerToken, result.data?.items ?? [], false);
+}
+
+function scheduleReconnect(followerID: string) {
+  clearReconnectTimer();
+
+  const delay = _reconnectDelay;
+  _reconnectDelay = Math.min(_reconnectDelay * 2, _maxReconnectDelay);
+
+  _reconnectTimer = setTimeout(async () => {
+    _reconnectTimer = null;
+
+    try {
+      if (_reconnectAttempts >= 3) {
+        await refreshState(false, false, true);
+      }
+    } catch {
+      // best-effort fallback refresh
+    }
+
+    const latestToken = await ensureFollowerAuthToken();
+    if (!latestToken) {
+      _disconnectSSE();
+      return;
+    }
+
+    _connectSSE(followerID, latestToken);
+  }, delay);
+}
+
+function _connectSSE(followerID: string, followerToken: string) {
+  if (typeof EventSource === "undefined") return;
+
+  clearReconnectTimer();
   if (_es) {
     _es.close();
     _es = null;
   }
 
-  const url = `${PUBLIC_API_BASE_URL}/api/v1/notifications/stream?follower_id=${encodeURIComponent(followerID)}`;
-  const es = new EventSource(url);
+  const params = new URLSearchParams({ follower_token: followerToken });
+  const es = new EventSource(
+    `${PUBLIC_API_BASE_URL}/api/v1/notifications/stream?${params.toString()}`,
+  );
   _es = es;
 
   es.addEventListener("connected", () => {
-    // Reset backoff on successful connection
     _reconnectDelay = 1_000;
     _reconnectAttempts = 0;
   });
@@ -58,47 +200,31 @@ function _connectSSE(followerID: string) {
     try {
       const incoming = JSON.parse(e.data) as Notification;
       state.update((prev) => {
-        // Deduplicate by id
         if (prev.items.some((item) => item.id === incoming.id)) return prev;
         return { ...prev, items: [incoming, ...prev.items] };
       });
-      // Also reset backoff — we're clearly connected fine
       _reconnectDelay = 1_000;
       _reconnectAttempts = 0;
     } catch {
-      // malformed event — ignore
+      // ignore malformed notification payload
     }
   });
 
-  // ping events are heartbeats; no action needed
   es.addEventListener("ping", () => {});
 
   es.onerror = () => {
     es.close();
-    _es = null;
-
-    _reconnectAttempts++;
-    if (_reconnectAttempts > _maxReconnectAttempts) {
-      // Stop reconnecting — fall back to the already-fetched snapshot.
-      // The user can manually refresh or the next page load will retry.
-      return;
+    if (_es === es) {
+      _es = null;
     }
 
-    const delay = _reconnectDelay;
-    _reconnectDelay = Math.min(_reconnectDelay * 2, _maxReconnectDelay);
-
-    _reconnectTimer = setTimeout(() => {
-      _reconnectTimer = null;
-      _connectSSE(followerID);
-    }, delay);
+    _reconnectAttempts += 1;
+    scheduleReconnect(followerID);
   };
 }
 
 function _disconnectSSE() {
-  if (_reconnectTimer !== null) {
-    clearTimeout(_reconnectTimer);
-    _reconnectTimer = null;
-  }
+  clearReconnectTimer();
   if (_es) {
     _es.close();
     _es = null;
@@ -107,7 +233,57 @@ function _disconnectSSE() {
   _reconnectAttempts = 0;
 }
 
-// ── Public store API ─────────────────────────────────────────────────────────
+async function refreshState(
+  showLoading: boolean,
+  reconnectStream = true,
+  forceAuthRefresh = false,
+) {
+  const followerID = getOrCreateIssueFollowerId();
+  if (!followerID) {
+    _disconnectSSE();
+    state.update((prev) => ({
+      ...prev,
+      loading: false,
+      error: null,
+      followerID: null,
+      followerToken: null,
+      items: [],
+    }));
+    return;
+  }
+
+  const followerToken = await ensureFollowerAuthToken({
+    forceRefresh: forceAuthRefresh,
+  });
+
+  if (!followerToken) {
+    _disconnectSSE();
+    state.update((prev) => ({
+      ...prev,
+      loading: false,
+      error: null,
+      followerID,
+      followerToken: null,
+      items: [],
+    }));
+    return;
+  }
+
+  try {
+    await fetchSnapshot(followerID, followerToken, showLoading);
+    if (reconnectStream) {
+      _connectSSE(followerID, followerToken);
+    }
+  } catch {
+    state.update((prev) => ({
+      ...prev,
+      loading: false,
+      error: "Belum bisa memuat notifikasi.",
+      followerID,
+      followerToken,
+    }));
+  }
+}
 
 export const notificationsState = {
   subscribe: state.subscribe,
@@ -123,93 +299,50 @@ export const notificationsState = {
     });
 
     if (!shouldInit) return;
-    await this.refresh();
+    await refreshState(true, true);
   },
 
   async refresh() {
-    const followerID = getOrCreateIssueFollowerId();
-    if (!followerID) {
-      state.update((prev) => ({
-        ...prev,
-        loading: false,
-        error: null,
-        followerID: null,
-      }));
-      return;
-    }
-
-    state.update((prev) => ({
-      ...prev,
-      loading: true,
-      error: null,
-      followerID,
-    }));
-    try {
-      const result = await getNotifications(followerID, 50);
-      const items = result.data?.items ?? [];
-      state.update((prev) => ({
-        ...prev,
-        items,
-        loading: false,
-        error: null,
-        followerID,
-      }));
-    } catch {
-      state.update((prev) => ({
-        ...prev,
-        loading: false,
-        error: "Belum bisa memuat notifikasi.",
-      }));
-    }
-
-    // Open SSE stream after the initial fetch so we don't miss events that
-    // arrive between page load and the HTTP response.
-    _connectSSE(followerID);
+    await refreshState(false, true);
   },
 
   async markRead(notificationID: string) {
-    let followerID: string | null = null;
+    let followerToken: string | null = null;
     state.update((prev) => {
-      followerID = prev.followerID;
+      followerToken = prev.followerToken;
       return prev;
     });
-    if (!followerID) {
+
+    followerToken =
+      followerToken ?? (await ensureFollowerAuthToken().catch(() => null));
+    if (!followerToken) {
       return;
     }
 
     try {
-      const result = await markNotificationRead(notificationID, followerID);
+      const result = await markNotificationRead(notificationID, followerToken);
       const readAt = result.data?.read_at ?? new Date().toISOString();
-      state.update((prev) => ({
-        ...prev,
-        error: null,
-        items: prev.items.map((item) =>
-          item.id === notificationID
-            ? { ...item, read_at: item.read_at ?? readAt }
-            : item,
-        ),
-      }));
+      applyMarkRead(notificationID, readAt);
+      publishCrossTab({ type: "mark-read", notificationID, readAt });
     } catch {
       state.update((prev) => ({
         ...prev,
         error: "Gagal sinkronisasi status dibaca. Coba lagi.",
       }));
-      // Pull latest state so badge/list stays consistent with persisted DB state.
-      await this.refresh();
+      await refreshState(false, false, true);
     }
   },
 
   async delete(notificationID: string) {
-    let followerID: string | null = null;
+    let followerToken: string | null = null;
     let shouldDelete = false;
     state.update((prev) => {
-      followerID = prev.followerID;
+      followerToken = prev.followerToken;
       if (prev.deletingIDs.includes(notificationID)) {
         return prev;
       }
 
       shouldDelete = true;
-
       return {
         ...prev,
         error: null,
@@ -221,7 +354,9 @@ export const notificationsState = {
       return false;
     }
 
-    if (!followerID) {
+    followerToken =
+      followerToken ?? (await ensureFollowerAuthToken().catch(() => null));
+    if (!followerToken) {
       state.update((prev) => ({
         ...prev,
         deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
@@ -230,16 +365,16 @@ export const notificationsState = {
     }
 
     try {
-      const result = await deleteNotification(notificationID, followerID);
-
-      state.update((prev) => ({
-        ...prev,
-        error: null,
-        deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
-        items: result.data?.deleted
-          ? prev.items.filter((item) => item.id !== notificationID)
-          : prev.items,
-      }));
+      const result = await deleteNotification(notificationID, followerToken);
+      if (result.data?.deleted) {
+        applyDelete(notificationID);
+        publishCrossTab({ type: "delete", notificationID });
+      } else {
+        state.update((prev) => ({
+          ...prev,
+          deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
+        }));
+      }
 
       return Boolean(result.data?.deleted);
     } catch {
@@ -248,12 +383,11 @@ export const notificationsState = {
         error: "Belum bisa menghapus notifikasi. Coba lagi.",
         deletingIDs: prev.deletingIDs.filter((id) => id !== notificationID),
       }));
-      await this.refresh();
+      await refreshState(false, false, true);
       return false;
     }
   },
 
-  /** Disconnect the SSE stream (call on page/component destroy if needed). */
   disconnect: _disconnectSSE,
 };
 
