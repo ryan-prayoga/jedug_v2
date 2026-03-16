@@ -13,10 +13,19 @@
   );
   const pushAvailable = $derived(pushState.status === "subscribed");
   const pushToggleDisabled = $derived(
-    channelsDisabled || pushState.busy || (!pushAvailable && !preferences?.push_enabled),
+    channelsDisabled ||
+      pushState.busy ||
+      pushState.needsFollowerRebind ||
+      (!pushAvailable && !preferences?.push_enabled),
   );
   const pushHint = $derived.by(() => {
     if (!preferences) return "";
+    if (pushState.needsFollowerRebind) {
+      return (
+        pushState.followerAuthMessage ||
+        "Browser ini perlu di-reset lalu consent JEDUG perlu diulang sebelum channel push bisa dipakai lagi."
+      );
+    }
     if (pushAvailable) {
       return "Update akan dikirim ke browser ini saat langganan push masih aktif.";
     }

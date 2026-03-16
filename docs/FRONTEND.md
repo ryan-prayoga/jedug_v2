@@ -251,6 +251,10 @@
     - UI menampilkan copy bahwa Web Push hanya aktif jika app ditambahkan ke Home Screen lalu dibuka dari ikon app
     - card menampilkan langkah singkat `Share -> Add to Home Screen -> buka ulang dari ikon`
     - flow permission/subscription baru dijalankan setelah app memang berada di mode standalone/Home Screen
+  - jika backend mengembalikan `follower_binding_not_found` saat refresh `follower_token`:
+    - `BrowserPushCard` masuk state recovery khusus
+    - card menjelaskan bahwa browser lokal perlu di-reset lalu consent JEDUG perlu diulang
+    - tombol `Reset browser ini` menghapus identitas anonim lokal (`anon_token`, consent flag, follower id/token) lalu reload agar popup consent muncul lagi
   - notification center juga menampilkan panel `Nearby Alerts` dengan UX minimum:
     - tambah lokasi pantauan baru
     - isi otomatis koordinat dari browser jika user mengizinkan

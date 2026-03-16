@@ -9,6 +9,35 @@ import {
 } from "$lib/utils/storage";
 
 let refreshPromise: Promise<string | null> | null = null;
+let followerAuthProblem: {
+  code: "binding_reset_required" | null;
+  message: string | null;
+} = {
+  code: null,
+  message: null,
+};
+
+function clearFollowerAuthProblem() {
+  followerAuthProblem = {
+    code: null,
+    message: null,
+  };
+}
+
+function setFollowerAuthProblem(
+  code: "binding_reset_required",
+  message: string,
+) {
+  followerAuthProblem = { code, message };
+}
+
+export function getFollowerAuthProblem() {
+  return followerAuthProblem;
+}
+
+export function getFollowerAuthUnavailableMessage(fallback: string): string {
+  return followerAuthProblem.message ?? fallback;
+}
 
 export async function ensureFollowerAuthToken(
   options: { forceRefresh?: boolean } = {},
@@ -44,13 +73,20 @@ export async function ensureFollowerAuthToken(
         return null;
       }
 
+      clearFollowerAuthProblem();
       setIssueFollowerAuthToken(token, expiresAt);
       return token;
     } catch (error) {
-      if (
-        error instanceof ApiError &&
-        (error.status === 401 || error.status === 403)
-      ) {
+      if (error instanceof ApiError && error.errorCode === "follower_binding_not_found") {
+        clearIssueFollowerAuthToken();
+        setFollowerAuthProblem(
+          "binding_reset_required",
+          "Sesi notifikasi browser ini sudah tidak cocok dengan data server. Reset browser ini, setujui ulang JEDUG, lalu aktifkan notifikasi lagi.",
+        );
+        return null;
+      }
+
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         clearIssueFollowerAuthToken();
         return null;
       }

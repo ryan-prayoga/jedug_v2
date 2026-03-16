@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browserPushState } from '$lib/stores/browser-push';
 	import { notificationPreferencesState } from '$lib/stores/notification-preferences';
+	import { resetAnonymousBrowserIdentity } from '$lib/utils/storage';
 
 	type Variant = 'card' | 'compact';
 
@@ -19,13 +20,19 @@
 	} = $props();
 
 	const pushState = $derived($browserPushState);
+	const requiresRepair = $derived(pushState.needsFollowerRebind);
 
 	const canEnable = $derived(
 		!blocked &&
+			!requiresRepair &&
 			(pushState.status === 'default' || pushState.status === 'granted')
 	);
-	const canDisable = $derived(pushState.status === 'subscribed');
+	const canDisable = $derived(!requiresRepair && pushState.status === 'subscribed');
 	const statusTone = $derived.by(() => {
+		if (requiresRepair) {
+			return 'warning';
+		}
+
 		switch (pushState.status) {
 			case 'subscribed':
 				return 'success';
@@ -41,6 +48,13 @@
 	});
 
 	const summary = $derived.by(() => {
+		if (requiresRepair) {
+			return (
+				pushState.followerAuthMessage ||
+				'Sesi notifikasi browser ini perlu di-reset dari browser yang sama sebelum bisa dipakai lagi.'
+			);
+		}
+
 		if (blocked && pushState.status !== 'subscribed') {
 			return blockedMessage;
 		}
@@ -71,6 +85,9 @@
 		if (pushState.busy) {
 			return pushState.status === 'subscribed' ? 'Mematikan...' : 'Mengaktifkan...';
 		}
+		if (requiresRepair) {
+			return 'Reset browser ini';
+		}
 		if (pushState.status === 'subscribed') {
 			return 'Matikan di perangkat ini';
 		}
@@ -78,6 +95,11 @@
 	});
 
 	async function handleAction() {
+		if (requiresRepair) {
+			resetAnonymousBrowserIdentity();
+			window.location.reload();
+			return;
+		}
 		if (blocked && pushState.status !== 'subscribed') return;
 		if (pushState.status === 'subscribed') {
 			const disabled = await browserPushState.disable();
@@ -114,7 +136,13 @@
 
 		<p>{summary}</p>
 
-		{#if pushState.status === 'ios_browser_tab'}
+		{#if requiresRepair}
+			<ol class="push-steps">
+				<li>Tekan tombol reset di bawah.</li>
+				<li>Setujui ulang popup consent JEDUG setelah halaman reload.</li>
+				<li>Ikuti laporan lagi bila diperlukan, lalu aktifkan notifikasi browser.</li>
+			</ol>
+		{:else if pushState.status === 'ios_browser_tab'}
 			<ol class="push-steps">
 				{#each installSteps as step}
 					<li>{step}</li>
@@ -130,7 +158,7 @@
 		{/if}
 	</div>
 
-	{#if canEnable || canDisable}
+	{#if requiresRepair || canEnable || canDisable}
 		<button class="push-button" disabled={pushState.busy} type="button" onclick={handleAction}>
 			{buttonLabel}
 		</button>

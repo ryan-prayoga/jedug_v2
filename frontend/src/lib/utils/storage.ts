@@ -16,6 +16,10 @@ export function setAnonToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function clearAnonToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 export function isConsentGiven(): boolean {
   if (typeof window === "undefined") return false;
   return localStorage.getItem(CONSENT_KEY) === "true";
@@ -23,6 +27,10 @@ export function isConsentGiven(): boolean {
 
 export function setConsentGiven(): void {
   localStorage.setItem(CONSENT_KEY, "true");
+}
+
+export function clearConsentGiven(): void {
+  localStorage.removeItem(CONSENT_KEY);
 }
 
 export function getAdminToken(): string | null {
@@ -92,6 +100,17 @@ export function setIssueFollowerAuthToken(
 export function clearIssueFollowerAuthToken(): void {
   localStorage.removeItem(ISSUE_FOLLOWER_TOKEN_KEY);
   localStorage.removeItem(ISSUE_FOLLOWER_TOKEN_EXP_KEY);
+}
+
+export function clearIssueFollowerIdentity(): void {
+  localStorage.removeItem(ISSUE_FOLLOWER_ID_KEY);
+  clearIssueFollowerAuthToken();
+}
+
+export function resetAnonymousBrowserIdentity(): void {
+  clearAnonToken();
+  clearConsentGiven();
+  clearIssueFollowerIdentity();
 }
 
 function generateBrowserUUID(): string {
