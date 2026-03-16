@@ -64,6 +64,9 @@ export interface LocationLabelData {
   region_level: string | null;
   parent_name: string | null;
   grandparent_name: string | null;
+  district_name: string | null;
+  regency_name: string | null;
+  province_name: string | null;
   source: string;
 }
 
@@ -188,6 +191,18 @@ export interface PublicStatsRegionOption {
   name: string;
   issue_count: number;
   report_count: number;
+}
+
+export interface PublicStatsProvinceOption {
+  id: number;
+  name: string;
+  issue_count: number;
+  report_count: number;
+  regencies: PublicStatsRegionOption[];
+}
+
+export interface PublicStatsRegionOptionsData {
+  provinces: PublicStatsProvinceOption[];
 }
 
 export interface PublicStatsFilters {

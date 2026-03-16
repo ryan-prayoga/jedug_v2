@@ -46,6 +46,7 @@
 - `GET /api/v1/push/status?follower_token=...`
 - `POST /api/v1/push/subscribe`
 - `POST /api/v1/push/unsubscribe`
+- `GET /api/v1/stats/regions/options`
 - `GET /api/v1/stats`
 
 ### Admin API
@@ -87,6 +88,7 @@
   - reverse geocoding memakai timeout + cache in-memory agar ringan, dan gagal geocode tidak memblok submit report
 - Repository `ReportRepository` (transactional):
   - resolve region internal terbaik (prioritas district, fallback smallest covering region)
+  - prioritas level wilayah kini juga mengenali alias Indonesia (`provinsi`, `kabupaten`, `kota`, `kecamatan`) agar `region_id` issue/submission baru tidak jatuh ke level yang terlalu bawah hanya karena label level berbeda
   - duplicate detection issue aktif publik (`open|verified|in_progress`, `is_hidden=false`) dalam radius configurable (default 30m)
   - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
   - create issue baru jika tidak ada kandidat relevan
@@ -274,10 +276,19 @@
 - Endpoint menerima query opsional:
   - `province_id`
   - `regency_id`
+- Endpoint opsi wilayah terpisah:
+  - `GET /api/v1/stats/regions/options`
+  - payload mengembalikan daftar `provinces[]` dengan `regencies[]` per provinsi agar frontend bisa merender dropdown manual tanpa bergantung pada snapshot `/stats` saat itu
 - `StatsService` memakai cache in-memory thread-safe (`sync.RWMutex`) dengan TTL 45 detik.
-- Cache stats sekarang dibedakan per kombinasi `province_id + regency_id` agar scope wilayah tidak saling tertukar.
+- Cache stats dibedakan per kombinasi `province_id + regency_id` agar scope wilayah tidak saling tertukar.
+- Cache terpisah juga dipakai untuk endpoint opsi wilayah agar dropdown publik tetap ringan.
 - Jika query DB gagal sesaat, service fallback ke cache stale agar endpoint tetap responsif.
 - `StatsRepository` menjalankan query agregasi ringan berbasis tabel `issues` + join hirarki `regions`:
+  - sumber region issue stats sekarang memakai prioritas:
+    1. `issues.region_id`
+    2. `latest issue_submissions.region_id`
+    3. spatial fallback dari `issues.public_location`
+  - normalisasi level wilayah mengenali bentuk English + Indonesia (`province/provinsi`, `city/kota`, `regency/kabupaten`, `district/kecamatan`) dan menelusuri ancestor sampai level provinsi walau `base_region_id` issue lama berada di level desa/kelurahan
   - global stats:
     - `total_issues`
     - `total_issues_this_week`
@@ -297,16 +308,18 @@
     - `filters.regency_options` untuk provinsi aktif
     - `filters.active_province_id`, `filters.active_regency_id`
     - `filters.scope_label`
-    - jika query filter kosong, backend otomatis fallback ke provinsi + kabupaten/kota teratas agar frontend selalu punya default yang masuk akal
+    - jika query filter kosong, backend fallback ke provinsi + kabupaten/kota teratas agar frontend selalu punya default yang masuk akal
+    - jika caller hanya mengirim `province_id`, backend mempertahankan scope level provinsi dan tidak lagi memaksa memilih kabupaten/kota pertama
   - region leaderboard:
     - daftar kecamatan/subdistrict administratif di scope wilayah aktif
     - ranking berdasarkan `issue_count`, lalu `report_count`, lalu `casualty_count`
-    - fallback label terakhir memakai nama region administratif mentah (`raw_region_name`) dan hanya jatuh ke copy generik bila data admin memang kosong
+    - hanya memakai label administratif yang usable (`district_name -> regency_name -> province_name -> raw region name`) dan tidak membuat row pseudo-lokasi generik
   - top issues:
     - issue dengan laporan terbanyak di scope wilayah aktif
     - issue dengan korban terbanyak di scope wilayah aktif
     - issue paling lama belum diperbaiki di scope wilayah aktif
-    - payload issue kini membawa `district_name`, `regency_name`, `province_name` selain `region_name` fallback
+    - payload issue membawa `district_name`, `regency_name`, `province_name`, serta `region_name` administratif fallback
+    - `region_name` tidak lagi jatuh ke copy `Sekitar Jalan ...`; title issue tetap memakai `road_name` terpisah
 - Semua query stats hanya memakai data publik issue:
   - `is_hidden = false`
   - status `rejected` dan `merged` dikecualikan
@@ -331,9 +344,10 @@
 - `LocationService` memanggil repository untuk lookup wilayah internal dari tabel `regions`, lalu fallback ke reverse geocoding jika tidak ada match.
 - Repository memilih polygon wilayah terkecil yang menutupi titik (`ST_Covers` + `ORDER BY ST_Area ASC LIMIT 1`) agar label lebih manusiawi.
 - Response selalu aman untuk UX:
-  - jika internal region ketemu: kirim `label`, `region_name`, `region_level`, parent chain, `source=internal_regions`.
+  - jika internal region ketemu: kirim `label`, `region_name`, `region_level`, parent chain, serta additive `district_name`, `regency_name`, `province_name`, `source=internal_regions`.
   - jika internal region miss tapi reverse geocode berhasil: kirim label fallback manusiawi (`source=reverse_geocode`).
   - jika semua sumber miss: field label bernilai `null`, `source=unresolved`, tanpa memblok submit report.
+- `region_level` kini dinormalisasi ke bentuk kanonik (`province`, `city`, `regency`, `district`, `subdistrict`, `village`) meski data master memakai alias Indonesia.
 - Debug log pipeline location label:
   - request masuk + koordinat
   - hasil query internal (`hit/miss/error`)

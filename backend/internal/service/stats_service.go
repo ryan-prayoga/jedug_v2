@@ -17,6 +17,7 @@ const (
 
 type StatsService interface {
 	GetPublicStats(ctx context.Context, query domain.PublicStatsQuery) (*domain.PublicStats, error)
+	GetPublicRegionOptions(ctx context.Context) (*domain.PublicRegionOptions, error)
 }
 
 type statsService struct {
@@ -27,10 +28,17 @@ type statsService struct {
 
 	mu    sync.RWMutex
 	cache map[string]cachedPublicStats
+
+	regionOptions cachedPublicRegionOptions
 }
 
 type cachedPublicStats struct {
 	stats     *domain.PublicStats
+	expiresAt time.Time
+}
+
+type cachedPublicRegionOptions struct {
+	options   *domain.PublicRegionOptions
 	expiresAt time.Time
 }
 
@@ -100,6 +108,42 @@ func (s *statsService) GetPublicStats(ctx context.Context, query domain.PublicSt
 	}
 
 	return stats, nil
+}
+
+func (s *statsService) GetPublicRegionOptions(ctx context.Context) (*domain.PublicRegionOptions, error) {
+	now := s.now()
+
+	s.mu.RLock()
+	cached := s.regionOptions
+	s.mu.RUnlock()
+
+	if cached.options != nil && now.Before(cached.expiresAt) {
+		return cached.options, nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now = s.now()
+	cached = s.regionOptions
+	if cached.options != nil && now.Before(cached.expiresAt) {
+		return cached.options, nil
+	}
+
+	options, err := s.repo.GetPublicRegionOptions(ctx)
+	if err != nil {
+		if cached.options != nil {
+			return cached.options, nil
+		}
+		return nil, err
+	}
+
+	s.regionOptions = cachedPublicRegionOptions{
+		options:   options,
+		expiresAt: now.Add(s.cacheTTL),
+	}
+
+	return options, nil
 }
 
 func buildStatsCacheKey(query domain.PublicStatsQuery) string {

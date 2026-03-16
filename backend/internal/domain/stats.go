@@ -11,6 +11,10 @@ type PublicStatsQuery struct {
 	RegencyID  *int64
 }
 
+type PublicRegionOptions struct {
+	Provinces []*PublicProvinceOption `json:"provinces"`
+}
+
 // PublicStats is the response payload for GET /api/v1/stats.
 // All fields are derived from public-safe issue data only.
 type PublicStats struct {
@@ -62,6 +66,14 @@ type PublicStatsFilters struct {
 	ActiveRegencyID  *int64                `json:"active_regency_id,omitempty"`
 	ActiveRegency    *string               `json:"active_regency,omitempty"`
 	ScopeLabel       *string               `json:"scope_label,omitempty"`
+}
+
+type PublicProvinceOption struct {
+	ID          int64                 `json:"id"`
+	Name        string                `json:"name"`
+	IssueCount  int64                 `json:"issue_count"`
+	ReportCount int64                 `json:"report_count"`
+	Regencies   []*PublicRegionOption `json:"regencies"`
 }
 
 type PublicRegionOption struct {

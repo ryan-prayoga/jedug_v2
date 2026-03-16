@@ -19,6 +19,9 @@ type LocationLabelResult struct {
 	RegionLevel     *string `json:"region_level"`
 	ParentName      *string `json:"parent_name"`
 	GrandparentName *string `json:"grandparent_name"`
+	DistrictName    *string `json:"district_name"`
+	RegencyName     *string `json:"regency_name"`
+	ProvinceName    *string `json:"province_name"`
 	Source          string  `json:"source"`
 }
 
@@ -54,6 +57,9 @@ func (s *locationService) ResolveLabel(ctx context.Context, longitude, latitude 
 			RegionLevel:     &regionLevel,
 			ParentName:      region.ParentName,
 			GrandparentName: region.GrandparentName,
+			DistrictName:    region.DistrictName,
+			RegencyName:     region.RegencyName,
+			ProvinceName:    region.ProvinceName,
 			Source:          "internal_regions",
 		}
 		return out, nil
@@ -73,6 +79,9 @@ func (s *locationService) ResolveLabel(ctx context.Context, longitude, latitude 
 				RegionLevel:     &regionLevel,
 				ParentName:      reverse.CityName,
 				GrandparentName: nil,
+				DistrictName:    reverse.RegionName,
+				RegencyName:     reverse.CityName,
+				ProvinceName:    nil,
 				Source:          "reverse_geocode",
 			}
 			return out, nil
@@ -86,6 +95,9 @@ func (s *locationService) ResolveLabel(ctx context.Context, longitude, latitude 
 		RegionLevel:     nil,
 		ParentName:      nil,
 		GrandparentName: nil,
+		DistrictName:    nil,
+		RegencyName:     nil,
+		ProvinceName:    nil,
 		Source:          "unresolved",
 	}
 	return out, nil
@@ -131,4 +143,3 @@ func buildHumanLabelFromPtrs(primary, parent, grandparent *string) *string {
 	}
 	return buildHumanLabel(primaryValue, parent, grandparent)
 }
-

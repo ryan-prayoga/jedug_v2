@@ -181,6 +181,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	api.Post("/push/subscribe", rlPush, pushHandler.Subscribe)
 	api.Post("/push/unsubscribe", rlPush, pushHandler.Unsubscribe)
 
+	api.Get("/stats/regions/options", statsHandler.GetRegionOptions)
 	api.Get("/stats", statsHandler.Get)
 
 	// Admin routes

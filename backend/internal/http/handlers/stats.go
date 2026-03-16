@@ -41,6 +41,16 @@ func (h *StatsHandler) Get(c *fiber.Ctx) error {
 	return response.OK(c, stats)
 }
 
+func (h *StatsHandler) GetRegionOptions(c *fiber.Ctx) error {
+	options, err := h.svc.GetPublicRegionOptions(c.Context())
+	if err != nil {
+		return response.Error(c, fiber.StatusInternalServerError, "failed to fetch stats region options")
+	}
+
+	c.Set("Cache-Control", "public, max-age=60, stale-while-revalidate=60")
+	return response.OK(c, options)
+}
+
 func parseOptionalInt64(raw string) (*int64, error) {
 	if raw == "" {
 		return nil, nil

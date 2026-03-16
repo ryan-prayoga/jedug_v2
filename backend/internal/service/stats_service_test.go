@@ -15,6 +15,10 @@ type statsRepoMock struct {
 	err        error
 	regionArgs []int
 	queries    []domain.PublicStatsQuery
+
+	optionCalls   int
+	optionsResult *domain.PublicRegionOptions
+	optionsErr    error
 }
 
 func (m *statsRepoMock) GetPublicStats(_ context.Context, query domain.PublicStatsQuery, regionLimit int) (*domain.PublicStats, error) {
@@ -25,6 +29,14 @@ func (m *statsRepoMock) GetPublicStats(_ context.Context, query domain.PublicSta
 		return nil, m.err
 	}
 	return m.result, nil
+}
+
+func (m *statsRepoMock) GetPublicRegionOptions(_ context.Context) (*domain.PublicRegionOptions, error) {
+	m.optionCalls++
+	if m.optionsErr != nil {
+		return nil, m.optionsErr
+	}
+	return m.optionsResult, nil
 }
 
 func TestStatsServiceReturnsCachedDataWithinTTL(t *testing.T) {
@@ -126,5 +138,35 @@ func TestStatsServiceCachesPerScope(t *testing.T) {
 
 	if repo.calls != 2 {
 		t.Fatalf("expected repository to be called twice for two scopes, got %d", repo.calls)
+	}
+}
+
+func TestStatsServiceCachesRegionOptionsWithinTTL(t *testing.T) {
+	now := time.Date(2026, 3, 16, 9, 0, 0, 0, time.UTC)
+
+	repo := &statsRepoMock{
+		optionsResult: &domain.PublicRegionOptions{
+			Provinces: []*domain.PublicProvinceOption{
+				{ID: 31, Name: "DKI Jakarta"},
+			},
+		},
+	}
+
+	svc := newStatsService(repo, 60*time.Second, 8, func() time.Time { return now })
+
+	first, err := svc.GetPublicRegionOptions(context.Background())
+	if err != nil {
+		t.Fatalf("first region options fetch error: %v", err)
+	}
+	second, err := svc.GetPublicRegionOptions(context.Background())
+	if err != nil {
+		t.Fatalf("second region options fetch error: %v", err)
+	}
+
+	if repo.optionCalls != 1 {
+		t.Fatalf("expected region options repository to be called once, got %d", repo.optionCalls)
+	}
+	if first != second {
+		t.Fatalf("expected cached region options pointer to be reused")
 	}
 }
