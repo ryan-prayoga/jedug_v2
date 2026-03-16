@@ -35,12 +35,17 @@
   - notification center
   - CTA ringan browser push di dalam panel notifikasi
   - panel `Preferensi Notifikasi` ringan di dropdown yang sama
+  - panel `Nearby Alerts` ringan di dropdown yang sama untuk mengelola area pantauan
 - `BrowserPushCard.svelte`
   - surface reusable untuk state `unsupported/default/granted/denied/subscribed`
   - dipakai di panel notifikasi dan follow card detail issue
 - `NotificationPreferencesPanel.svelte`
   - panel setting ringan untuk master/channel/event toggles
   - tetap memakai notification center, bukan halaman settings terpisah
+- `NearbyAlertsPanel.svelte`
+  - panel ringan untuk create/list/update/delete watched locations
+  - lazy-load data hanya saat panel dibuka agar app init tetap ringan
+  - mendukung autofill koordinat dari geolocation browser + input manual
 - `IssueMap.svelte`
   - inisialisasi MapLibre
   - marker publik via `GeoJSON source + layers`
@@ -172,8 +177,19 @@
     - `savingKeys`
     - `error`
     - `unavailableMessage`
+- Nearby alerts dikelola store terpisah:
+  - `src/lib/stores/nearby-alerts.ts`
+  - state utama:
+    - `items`
+    - `loading`
+    - `creating`
+    - `savingKeys`
+    - `deletingIDs`
+    - `error`
+    - `unavailableMessage`
 - Saat app publik pertama kali mount (`routes/+layout.svelte`), frontend menjalankan `notificationsState.init()` setelah bootstrap device.
 - Setelah store notif + browser push init, frontend menjalankan `notificationPreferencesState.init()` sekali agar panel settings tidak fetch berulang.
+- Nearby alerts tidak ikut di-init pada first paint; panel melakukan fetch lazy saat user benar-benar membuka section tersebut.
 - Jika `follower_token` belum ada/expired, frontend mencoba refresh lewat `POST /api/v1/followers/auth` memakai `X-Device-Token`.
 - Endpoint yang dipakai:
   - auth refresh: `POST /api/v1/followers/auth`
@@ -183,6 +199,10 @@
   - stream realtime: `GET /api/v1/notifications/stream?follower_token=...` (SSE)
   - preferences get: `GET /api/v1/notification-preferences?follower_token=...`
   - preferences patch: `PATCH /api/v1/notification-preferences`
+  - nearby alerts list: `GET /api/v1/nearby-alerts?follower_token=...`
+  - nearby alerts create: `POST /api/v1/nearby-alerts`
+  - nearby alerts patch: `PATCH /api/v1/nearby-alerts/:id`
+  - nearby alerts delete: `DELETE /api/v1/nearby-alerts/:id`
 - UX behavior:
   - badge menampilkan jumlah item dengan `read_at = null`
   - dropdown panel menampilkan title/message/waktu + action hapus ringan per item
@@ -225,6 +245,14 @@
   - `AppHeader` notification panel memakai `BrowserPushCard.svelte` versi compact
   - detail issue menampilkan `BrowserPushCard.svelte` di bawah follow card setelah browser anonim mengikuti issue
   - panel preferensi menampilkan toggle push, tetapi saat browser push belum aktif toggle dapat dinonaktifkan dan user diarahkan ke `BrowserPushCard`
+  - notification center juga menampilkan panel `Nearby Alerts` dengan UX minimum:
+    - tambah lokasi pantauan baru
+    - isi otomatis koordinat dari browser jika user mengizinkan
+    - input manual latitude/longitude
+    - edit label + radius
+    - aktif/nonaktifkan watched location
+    - hapus watched location
+  - Nearby Alerts tetap memakai `follower_token` yang sama dengan notifikasi/push sehingga tidak menambah auth flow baru.
 - Flow enable:
   1. user klik `Aktifkan notifikasi browser`
   2. browser memanggil `Notification.requestPermission()`

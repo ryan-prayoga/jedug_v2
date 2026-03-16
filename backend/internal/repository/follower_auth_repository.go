@@ -65,6 +65,8 @@ func (r *followerAuthRepository) HasFootprint(ctx context.Context, followerID uu
 			SELECT 1 FROM notifications WHERE follower_id = $1
 			UNION ALL
 			SELECT 1 FROM push_subscriptions WHERE follower_id = $1
+			UNION ALL
+			SELECT 1 FROM nearby_alert_subscriptions WHERE follower_id = $1
 		)
 	`, followerID).Scan(&exists)
 	return exists, err

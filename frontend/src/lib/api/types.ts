@@ -129,6 +129,18 @@ export interface IssueFollowState {
   follower_token_expires_at?: string;
 }
 
+export interface NearbyAlertSubscription {
+  id: string;
+  follower_id: string;
+  label: string | null;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface IssueFollowersCount {
   followers_count: number;
 }

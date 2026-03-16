@@ -15,6 +15,7 @@ type NotificationPreferences struct {
 	NotifyOnStatusUpdated    bool      `json:"notify_on_status_updated"`
 	NotifyOnSeverityChanged  bool      `json:"notify_on_severity_changed"`
 	NotifyOnCasualtyReported bool      `json:"notify_on_casualty_reported"`
+	NotifyOnNearbyIssueCreated bool    `json:"notify_on_nearby_issue_created"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
 }
@@ -27,6 +28,7 @@ type NotificationPreferencesPatch struct {
 	NotifyOnStatusUpdated    *bool
 	NotifyOnSeverityChanged  *bool
 	NotifyOnCasualtyReported *bool
+	NotifyOnNearbyIssueCreated *bool
 }
 
 func (p NotificationPreferencesPatch) IsEmpty() bool {
@@ -36,5 +38,6 @@ func (p NotificationPreferencesPatch) IsEmpty() bool {
 		p.NotifyOnPhotoAdded == nil &&
 		p.NotifyOnStatusUpdated == nil &&
 		p.NotifyOnSeverityChanged == nil &&
-		p.NotifyOnCasualtyReported == nil
+		p.NotifyOnCasualtyReported == nil &&
+		p.NotifyOnNearbyIssueCreated == nil
 }

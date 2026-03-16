@@ -112,6 +112,22 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - SSE memakai `follower_token` di query string karena `EventSource` tidak bisa mengirim custom header.
   - rollout lama tanpa binding mungkin perlu re-bind dari browser asli melalui flow follow yang sama.
 
+## 2026-03-16 - Nearby Alerts Reuse Follower Identity + Issue-Created Pipeline
+
+- Keputusan:
+  - Nearby Alerts tidak menambah auth/login baru; feature ini reuse `follower_id`, `follower_token`, dan device-bound follower auth yang sudah dipakai notification center.
+  - matching hanya berjalan untuk event `issue_created`, bukan seluruh update issue.
+  - dedupe dilakukan dua lapis:
+    1. `nearby_alert_deliveries` unique `(subscription_id, issue_id)` untuk mencegah repeat per lokasi pantauan
+    2. notifikasi akhir digabung per follower agar satu follower menerima maksimal satu nearby alert untuk satu issue baru meski beberapa lokasi overlap
+- Konteks:
+  - user ingin memantau area sekitar rumah/kantor tanpa follow issue satu per satu.
+  - sistem notifikasi existing sudah stabil dan sebaiknya dipakai ulang, bukan digandakan.
+- Konsekuensi:
+  - pipeline nearby alert tetap ringan karena hanya hook saat issue baru dibuat.
+  - preferences/channel global tetap dihormati melalui `notification_preferences`, termasuk toggle baru `notify_on_nearby_issue_created`.
+  - overlap watched locations tidak menghasilkan spam notifikasi ganda untuk issue yang sama.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.

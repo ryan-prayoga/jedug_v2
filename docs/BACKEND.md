@@ -36,6 +36,10 @@
 - `GET /api/v1/issues/:id/followers/count`
 - `GET /api/v1/issues/:id/follow-status?follower_id=...`
 - `POST /api/v1/followers/auth`
+- `GET /api/v1/nearby-alerts?follower_token=...`
+- `POST /api/v1/nearby-alerts`
+- `PATCH /api/v1/nearby-alerts/:id`
+- `DELETE /api/v1/nearby-alerts/:id`
 - `GET /api/v1/notification-preferences?follower_token=...`
 - `PATCH /api/v1/notification-preferences`
 - `POST /api/v1/issues/:id/flag`
@@ -173,6 +177,11 @@
 - Endpoint preferensi notifikasi publik:
   - `GET /api/v1/notification-preferences?follower_token=...`
   - `PATCH /api/v1/notification-preferences`
+- Endpoint nearby alerts publik:
+  - `GET /api/v1/nearby-alerts?follower_token=...`
+  - `POST /api/v1/nearby-alerts`
+  - `PATCH /api/v1/nearby-alerts/:id`
+  - `DELETE /api/v1/nearby-alerts/:id`
 - Endpoint browser push publik:
   - `GET /api/v1/push/status?follower_token=...`
   - `POST /api/v1/push/subscribe`
@@ -188,7 +197,7 @@
     - `notifications_enabled = true`
     - `in_app_enabled = true`
     - `push_enabled = true` hanya jika follower sudah punya subscription push aktif ketika row pertama dibuat
-    - seluruh event preference default `true`
+    - seluruh event preference default `true`, termasuk `notify_on_nearby_issue_created`
 - Integrasi pipeline paling aman tetap di `DispatchNotificationsForEvent(...)`:
   - dispatcher sekarang mengevaluasi preference follower sekali untuk setiap event issue
   - row tabel `notifications` hanya dibuat untuk follower yang lolos `notifications_enabled + event_pref + in_app_enabled`
@@ -199,6 +208,20 @@
   - endpoint submit report menerima field opsional `actor_follower_id`.
   - dispatcher skip follower yang sama dengan actor (`excludeFollowerID`) agar pengirim update tidak menerima notifikasi untuk event yang ia buat sendiri.
   - behavior ini hanya diterapkan pada event dari flow submit report; event admin tetap broadcast ke seluruh follower.
+- **Nearby Alerts** (`nearby_alert_subscriptions` + `nearby_alert_deliveries`):
+  - memakai identity yang sama dengan notification center: `follower_id` + `follower_token` + device-bound follower auth.
+  - subscription minimum menyimpan `latitude`, `longitude`, `radius_m`, `label`, `enabled`.
+  - guard service:
+    - maksimum `10` watched locations per follower/browser
+    - radius valid `100..5000m`
+    - latitude/longitude wajib valid, dan patch koordinat harus dikirim berpasangan
+  - dispatch flow saat `issue_created` berhasil ditulis ke `issue_events`:
+    1. cari subscription `enabled` yang memenuhi `ST_DWithin(issue.public_location, subscription_point, radius_m)`
+    2. insert dedupe row ke `nearby_alert_deliveries` dengan unique `(subscription_id, issue_id)`
+    3. group hasil per follower agar satu follower hanya menerima satu notif untuk satu issue baru meski beberapa lokasi pantauan overlap
+    4. buat notification type `nearby_issue_created` + push payload bila preference/channel mengizinkan
+  - `nearby_alert_deliveries` sengaja tetap diisi walau preference/channel saat itu off, agar issue lama tidak dikirim retroaktif ketika user menyalakan setting lagi.
+  - self-notify juga di-skip untuk `issue_created` jika `actor_follower_id` sama dengan follower pemilik nearby alert.
 - Copy notifikasi sekarang kontekstual lokasi issue:
   - prioritas label: `issues.road_name` → `regions.name` dari issue → `regions.name` dari submission terbaru → fallback `Issue #<short-id>`.
   - contoh: `Foto baru ditambahkan pada laporan di Jalan ...`.

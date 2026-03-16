@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import BrowserPushCard from '$lib/components/BrowserPushCard.svelte';
+	import NearbyAlertsPanel from '$lib/components/NearbyAlertsPanel.svelte';
 	import NotificationPreferencesPanel from '$lib/components/NotificationPreferencesPanel.svelte';
 	import { requestIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
 	import {
@@ -109,6 +110,7 @@
 						lead="Aktifkan notifikasi browser agar update issue tetap masuk walau tab JEDUG tidak sedang dibuka."
 					/>
 					<NotificationPreferencesPanel />
+					<NearbyAlertsPanel />
 					{#if notifState.loading}
 						<div class="notif-empty">Memuat...</div>
 					{:else if notifState.error}
@@ -249,7 +251,7 @@
 		right: 0;
 		top: calc(100% + 8px);
 		width: min(92vw, 340px);
-		max-height: 420px;
+		max-height: 520px;
 		overflow: auto;
 		background: #fff;
 		border: 1px solid #E2E8F0;

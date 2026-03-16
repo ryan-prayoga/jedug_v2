@@ -56,6 +56,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceRepo := repository.NewDeviceRepository(db)
 	issueRepo := repository.NewIssueRepository(db)
 	issueFollowRepo := repository.NewIssueFollowRepository(db)
+	nearbyAlertRepo := repository.NewNearbyAlertRepository(db)
 	pushRepo := repository.NewPushSubscriptionRepository(db)
 	followerAuthRepo := repository.NewFollowerAuthRepository(db)
 	pushNotifier := push.NewNotifier(push.Config{
@@ -80,6 +81,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	issueSvc := service.NewIssueService(issueRepo)
 	issueFollowSvc := service.NewIssueFollowService(issueRepo, issueFollowRepo)
+	nearbyAlertSvc := service.NewNearbyAlertService(nearbyAlertRepo)
 	followerAuthSvc := service.NewFollowerAuthService(followerAuthRepo, issueFollowRepo, service.FollowerAuthServiceConfig{
 		Secret: []byte(cfg.FollowerTokenSecret),
 		TTL:    cfg.FollowerTokenTTL,
@@ -110,6 +112,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
 	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc, followerAuthSvc)
+	nearbyAlertHandler := handlers.NewNearbyAlertHandler(nearbyAlertSvc, followerAuthSvc)
 	followerAuthHandler := handlers.NewFollowerAuthHandler(followerAuthSvc)
 	notifHandler := handlers.NewNotificationHandler(notifSvc, followerAuthSvc)
 	notifPrefsHandler := handlers.NewNotificationPreferencesHandler(notifPrefsSvc, followerAuthSvc)
@@ -129,6 +132,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	rlFlag := middleware.RateLimit(10, 1*time.Minute)
 	rlFollow := middleware.RateLimit(30, 1*time.Minute)
 	rlPush := middleware.RateLimit(20, 1*time.Minute)
+	rlNearbyAlerts := middleware.RateLimit(30, 1*time.Minute)
 
 	// Routes
 	api := app.Group("/api/v1")
@@ -163,6 +167,10 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issues.Post("/:id/flag", rlFlag, flagHandler.FlagIssue)
 
 	api.Post("/followers/auth", rlFollow, followerAuthHandler.Issue)
+	api.Get("/nearby-alerts", nearbyAlertHandler.List)
+	api.Post("/nearby-alerts", rlNearbyAlerts, nearbyAlertHandler.Create)
+	api.Patch("/nearby-alerts/:id", rlNearbyAlerts, nearbyAlertHandler.Patch)
+	api.Delete("/nearby-alerts/:id", rlNearbyAlerts, nearbyAlertHandler.Delete)
 	api.Get("/notifications", notifHandler.List)
 	api.Get("/notifications/stream", notifHandler.Stream)
 	api.Patch("/notifications/:id/read", notifHandler.MarkRead)
