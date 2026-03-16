@@ -32,29 +32,39 @@ Area yang selalu wajib update docs bila berubah:
 ### Backend
 
 1. Menambah migration `backend/migrations/202603160004_create_nearby_alerts.sql` untuk:
-  - tabel `nearby_alert_subscriptions`
-  - tabel `nearby_alert_deliveries`
-  - kolom preference baru `notification_preferences.notify_on_nearby_issue_created`
+
+- tabel `nearby_alert_subscriptions`
+- tabel `nearby_alert_deliveries`
+- kolom preference baru `notification_preferences.notify_on_nearby_issue_created`
+
 2. Menambah endpoint:
-  - `GET /api/v1/nearby-alerts?follower_token=...`
-  - `POST /api/v1/nearby-alerts`
-  - `PATCH /api/v1/nearby-alerts/:id`
-  - `DELETE /api/v1/nearby-alerts/:id`
+
+- `GET /api/v1/nearby-alerts?follower_token=...`
+- `POST /api/v1/nearby-alerts`
+- `PATCH /api/v1/nearby-alerts/:id`
+- `DELETE /api/v1/nearby-alerts/:id`
+
 3. Nearby Alerts memakai auth yang sama dengan notif/push existing:
-  - `follower_id` tetap browser-scoped
-  - ownership diverifikasi via `follower_token`
-  - tidak ada login/account baru
+
+- `follower_id` tetap browser-scoped
+- ownership diverifikasi via `follower_token`
+- tidak ada login/account baru
+
 4. Guard service minimum:
-  - maksimum `10` lokasi pantauan per follower/browser
-  - radius valid `100..5000m`
-  - patch koordinat harus mengirim latitude/longitude berpasangan
+
+- maksimum `10` lokasi pantauan per follower/browser
+- radius valid `100..5000m`
+- patch koordinat harus mengirim latitude/longitude berpasangan
+
 5. Dispatch nearby alert sekarang di-hook dari `report_repository.insertTimelineEvents()` hanya saat event `issue_created`.
 6. `DispatchNearbyAlertsForIssueCreated(...)` melakukan:
-  - lookup subscription `enabled` via `ST_DWithin`
-  - insert dedupe row ke `nearby_alert_deliveries` (`UNIQUE(subscription_id, issue_id)`)
-  - group hasil per follower agar overlap beberapa lokasi pantauan tidak menghasilkan notif ganda
-  - create in-app notification type `nearby_issue_created`
-  - enqueue browser push bila channel push aktif
+
+- lookup subscription `enabled` via `ST_DWithin`
+- insert dedupe row ke `nearby_alert_deliveries` (`UNIQUE(subscription_id, issue_id)`)
+- group hasil per follower agar overlap beberapa lokasi pantauan tidak menghasilkan notif ganda
+- create in-app notification type `nearby_issue_created`
+- enqueue browser push bila channel push aktif
+
 7. Self-notify prevention ikut berlaku: reporter yang sama (`actor_follower_id`) tidak menerima nearby alert untuk issue baru yang ia buat sendiri.
 
 ### Frontend
@@ -62,12 +72,14 @@ Area yang selalu wajib update docs bila berubah:
 8. Menambah helper API `frontend/src/lib/api/nearby-alerts.ts`.
 9. Menambah store lazy `frontend/src/lib/stores/nearby-alerts.ts`.
 10. Menambah `NearbyAlertsPanel.svelte` di notification center header, dengan UX minimum:
-   - tambah lokasi pantauan
-   - autofill lokasi browser opsional
-   - input manual latitude/longitude
-   - edit label + radius
-   - aktif/nonaktifkan
-   - hapus lokasi pantauan
+
+- tambah lokasi pantauan
+- autofill lokasi browser opsional
+- input manual latitude/longitude
+- edit label + radius
+- aktif/nonaktifkan
+- hapus lokasi pantauan
+
 11. Panel preferensi notifikasi kini juga menambah toggle event `notify_on_nearby_issue_created`.
 
 ### Doc Updates
@@ -112,8 +124,10 @@ Area yang selalu wajib update docs bila berubah:
    - toggle push
    - toggle per event type
 10. Toggle push dibuat state-aware:
-   - jika browser push belum aktif, user diarahkan ke `BrowserPushCard`
-   - jika push sudah aktif, toggle preference bisa diubah tanpa halaman settings baru
+
+- jika browser push belum aktif, user diarahkan ke `BrowserPushCard`
+- jika push sudah aktif, toggle preference bisa diubah tanpa halaman settings baru
+
 11. Update preference disiarkan antar tab via `BroadcastChannel` + fallback `storage` event.
 12. Jika in-app dimatikan, `notificationsState` memutus koneksi SSE realtime agar browser tidak mempertahankan stream yang tidak dipakai.
 

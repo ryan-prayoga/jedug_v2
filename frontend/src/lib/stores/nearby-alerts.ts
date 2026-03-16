@@ -84,14 +84,17 @@ async function resolveFollowerContext(forceAuthRefresh = false) {
     return null;
   }
 
-  const followerToken = await ensureFollowerAuthToken({ forceRefresh: forceAuthRefresh });
+  const followerToken = await ensureFollowerAuthToken({
+    forceRefresh: forceAuthRefresh,
+  });
   if (!followerToken) {
     state.update((prev) => ({
       ...prev,
       loading: false,
       followerID,
       followerToken: null,
-      unavailableMessage: "Sesi notifikasi belum siap. Coba lagi sebentar lagi.",
+      unavailableMessage:
+        "Sesi notifikasi belum siap. Coba lagi sebentar lagi.",
     }));
     return null;
   }
@@ -122,7 +125,10 @@ async function refreshState(showLoading: boolean, forceAuthRefresh = false) {
     state.update((prev) => ({
       ...prev,
       loading: false,
-      error: humanizeNearbyAlertError(error, "Belum bisa memuat lokasi pantauan."),
+      error: humanizeNearbyAlertError(
+        error,
+        "Belum bisa memuat lokasi pantauan.",
+      ),
       followerID: context.followerID,
       followerToken: context.followerToken,
     }));
@@ -157,7 +163,9 @@ export const nearbyAlertsState = {
       return { ...prev, creating: true, error: null };
     });
 
-    followerToken = followerToken ?? (await ensureFollowerAuthToken({ forceRefresh: true }).catch(() => null));
+    followerToken =
+      followerToken ??
+      (await ensureFollowerAuthToken({ forceRefresh: true }).catch(() => null));
     if (!followerToken) {
       state.update((prev) => ({
         ...prev,
@@ -177,7 +185,10 @@ export const nearbyAlertsState = {
         ...prev,
         creating: false,
         followerToken,
-        items: [created, ...prev.items.filter((item) => item.id !== created.id)],
+        items: [
+          created,
+          ...prev.items.filter((item) => item.id !== created.id),
+        ],
         error: null,
       }));
       return true;
@@ -185,13 +196,20 @@ export const nearbyAlertsState = {
       state.update((prev) => ({
         ...prev,
         creating: false,
-        error: humanizeNearbyAlertError(error, "Belum bisa menambah lokasi pantauan."),
+        error: humanizeNearbyAlertError(
+          error,
+          "Belum bisa menambah lokasi pantauan.",
+        ),
       }));
       return false;
     }
   },
 
-  async update(id: string, patch: NearbyAlertPatch, savingKey?: string): Promise<boolean> {
+  async update(
+    id: string,
+    patch: NearbyAlertPatch,
+    savingKey?: string,
+  ): Promise<boolean> {
     let followerToken: string | null = null;
     let previousItems: NearbyAlertSubscription[] = [];
     let shouldContinue = true;
@@ -207,19 +225,27 @@ export const nearbyAlertsState = {
       return {
         ...prev,
         error: null,
-        savingKeys: savingKey ? [...prev.savingKeys, savingKey] : prev.savingKeys,
-        items: prev.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+        savingKeys: savingKey
+          ? [...prev.savingKeys, savingKey]
+          : prev.savingKeys,
+        items: prev.items.map((item) =>
+          item.id === id ? { ...item, ...patch } : item,
+        ),
       };
     });
 
     if (!shouldContinue) return false;
 
-    followerToken = followerToken ?? (await ensureFollowerAuthToken({ forceRefresh: true }).catch(() => null));
+    followerToken =
+      followerToken ??
+      (await ensureFollowerAuthToken({ forceRefresh: true }).catch(() => null));
     if (!followerToken) {
       state.update((prev) => ({
         ...prev,
         items: previousItems,
-        savingKeys: savingKey ? prev.savingKeys.filter((key) => key !== savingKey) : prev.savingKeys,
+        savingKeys: savingKey
+          ? prev.savingKeys.filter((key) => key !== savingKey)
+          : prev.savingKeys,
         unavailableMessage: "Sesi notifikasi perlu diperbarui. Coba lagi.",
       }));
       return false;
@@ -235,15 +261,22 @@ export const nearbyAlertsState = {
         ...prev,
         followerToken,
         items: prev.items.map((item) => (item.id === id ? updated : item)),
-        savingKeys: savingKey ? prev.savingKeys.filter((key) => key !== savingKey) : prev.savingKeys,
+        savingKeys: savingKey
+          ? prev.savingKeys.filter((key) => key !== savingKey)
+          : prev.savingKeys,
       }));
       return true;
     } catch (error) {
       state.update((prev) => ({
         ...prev,
         items: previousItems,
-        error: humanizeNearbyAlertError(error, "Belum bisa menyimpan perubahan lokasi pantauan."),
-        savingKeys: savingKey ? prev.savingKeys.filter((key) => key !== savingKey) : prev.savingKeys,
+        error: humanizeNearbyAlertError(
+          error,
+          "Belum bisa menyimpan perubahan lokasi pantauan.",
+        ),
+        savingKeys: savingKey
+          ? prev.savingKeys.filter((key) => key !== savingKey)
+          : prev.savingKeys,
       }));
       return false;
     }
@@ -264,7 +297,9 @@ export const nearbyAlertsState = {
       };
     });
 
-    followerToken = followerToken ?? (await ensureFollowerAuthToken({ forceRefresh: true }).catch(() => null));
+    followerToken =
+      followerToken ??
+      (await ensureFollowerAuthToken({ forceRefresh: true }).catch(() => null));
     if (!followerToken) {
       state.update((prev) => ({
         ...prev,
@@ -289,7 +324,10 @@ export const nearbyAlertsState = {
       state.update((prev) => ({
         ...prev,
         items: previousItems,
-        error: humanizeNearbyAlertError(error, "Belum bisa menghapus lokasi pantauan."),
+        error: humanizeNearbyAlertError(
+          error,
+          "Belum bisa menghapus lokasi pantauan.",
+        ),
         deletingIDs: prev.deletingIDs.filter((itemID) => itemID !== id),
       }));
       return false;
