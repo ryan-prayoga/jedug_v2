@@ -133,11 +133,16 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Halaman harus mobile-first dan ringan (tanpa grafik berat) agar aman untuk perangkat low-end.
 - Hero section memakai brand red `#E5484D` sebagai accent untuk konteks civic storytelling.
 - Struktur konten tetap konsisten dan mudah di-scan:
-  1. Global stats card grid
-  2. Status breakdown card + bar sederhana
-  3. Time stats (rata-rata umur issue + issue tertua unresolved)
-  4. Region leaderboard list
-  5. Top issue cards
+  1. Filter wilayah administratif (`provinsi` + `kabupaten/kota`)
+  2. Global stats card grid
+  3. Status breakdown card + bar sederhana
+  4. Time stats (rata-rata umur issue + issue tertua unresolved)
+  5. Region leaderboard list berbasis kecamatan
+  6. Top issue cards
+- Default filter harus mencoba memakai lokasi user saat ini.
+- Jika geolocation gagal atau belum tersedia, halaman boleh memakai scope default backend asalkan user tetap bisa mengganti wilayah manual.
+- Region leaderboard tidak lagi memakai label pseudo-lokasi seperti `Sekitar Jalan ...`; prioritasnya nama wilayah administratif.
+- Top issue card harus menampilkan konteks lokasi ringkas `kecamatan, kabupaten/kota, provinsi` bila data tersedia.
 - Top issue wajib menyediakan link cepat ke detail `/issues/{id}`.
 - State wajib:
   - loading
@@ -173,6 +178,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - panel tidak boleh terasa berat atau memaksa reload penuh
   - card `Notifikasi Browser` boleh muncul di atas list sebagai CTA ringan, bukan popup agresif
   - CTA ini harus menjelaskan bahwa browser push adalah channel tambahan di atas notifikasi dalam aplikasi
+  - khusus iPhone/iOS tab browser biasa, CTA harus menjelaskan syarat Home Screen app sebelum push bisa aktif
   - tambahkan panel `Preferensi Notifikasi` ringan di dropdown yang sama agar user tidak perlu masuk halaman settings baru
   - tambahkan panel `Nearby Alerts` ringan di dropdown yang sama agar user bisa memantau area lokal tanpa follow issue satu per satu
   - preferensi minimum:

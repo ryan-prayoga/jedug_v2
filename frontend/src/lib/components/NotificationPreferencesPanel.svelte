@@ -20,6 +20,9 @@
     if (pushAvailable) {
       return "Update akan dikirim ke browser ini saat langganan push masih aktif.";
     }
+    if (pushState.status === "ios_browser_tab") {
+      return "Di iPhone, buka JEDUG dari Home Screen dulu sebelum channel push bisa dipakai.";
+    }
     if (pushState.status === "denied") {
       return "Izin browser ditolak. Aktifkan lagi dari pengaturan browser jika perlu.";
     }

@@ -14,11 +14,13 @@ type statsRepoMock struct {
 	result     *domain.PublicStats
 	err        error
 	regionArgs []int
+	queries    []domain.PublicStatsQuery
 }
 
-func (m *statsRepoMock) GetPublicStats(_ context.Context, regionLimit int) (*domain.PublicStats, error) {
+func (m *statsRepoMock) GetPublicStats(_ context.Context, query domain.PublicStatsQuery, regionLimit int) (*domain.PublicStats, error) {
 	m.calls++
 	m.regionArgs = append(m.regionArgs, regionLimit)
+	m.queries = append(m.queries, query)
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -36,12 +38,12 @@ func TestStatsServiceReturnsCachedDataWithinTTL(t *testing.T) {
 
 	svc := newStatsService(repo, 60*time.Second, 8, func() time.Time { return now })
 
-	first, err := svc.GetPublicStats(context.Background())
+	first, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{})
 	if err != nil {
 		t.Fatalf("first fetch error: %v", err)
 	}
 
-	second, err := svc.GetPublicStats(context.Background())
+	second, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{})
 	if err != nil {
 		t.Fatalf("second fetch error: %v", err)
 	}
@@ -69,7 +71,7 @@ func TestStatsServiceFallsBackToStaleCacheOnError(t *testing.T) {
 
 	svc := newStatsService(repo, 30*time.Second, 10, nowFn)
 
-	cached, err := svc.GetPublicStats(context.Background())
+	cached, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{})
 	if err != nil {
 		t.Fatalf("initial fetch error: %v", err)
 	}
@@ -77,7 +79,7 @@ func TestStatsServiceFallsBackToStaleCacheOnError(t *testing.T) {
 	current = current.Add(31 * time.Second)
 	repo.err = errors.New("db down")
 
-	got, err := svc.GetPublicStats(context.Background())
+	got, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{})
 	if err != nil {
 		t.Fatalf("expected stale cache fallback, got error: %v", err)
 	}
@@ -93,8 +95,36 @@ func TestStatsServiceReturnsErrorWhenNoCacheAndRepoFails(t *testing.T) {
 
 	svc := newStatsService(repo, 45*time.Second, 10, time.Now)
 
-	_, err := svc.GetPublicStats(context.Background())
+	_, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{})
 	if err == nil {
 		t.Fatalf("expected error when repository fails without cache")
+	}
+}
+
+func TestStatsServiceCachesPerScope(t *testing.T) {
+	provinceA := int64(11)
+	provinceB := int64(12)
+	now := time.Date(2026, 3, 12, 10, 0, 0, 0, time.UTC)
+
+	repo := &statsRepoMock{
+		result: &domain.PublicStats{
+			Global: domain.PublicGlobalStats{TotalIssues: 7},
+		},
+	}
+
+	svc := newStatsService(repo, 60*time.Second, 8, func() time.Time { return now })
+
+	if _, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{ProvinceID: &provinceA}); err != nil {
+		t.Fatalf("first scoped fetch error: %v", err)
+	}
+	if _, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{ProvinceID: &provinceA}); err != nil {
+		t.Fatalf("second scoped fetch error: %v", err)
+	}
+	if _, err := svc.GetPublicStats(context.Background(), domain.PublicStatsQuery{ProvinceID: &provinceB}); err != nil {
+		t.Fatalf("third scoped fetch error: %v", err)
+	}
+
+	if repo.calls != 2 {
+		t.Fatalf("expected repository to be called twice for two scopes, got %d", repo.calls)
 	}
 }

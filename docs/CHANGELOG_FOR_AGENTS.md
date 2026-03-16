@@ -25,6 +25,32 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-16 - iPhone Push UX + Stats Wilayah Administratif
+
+- Scope:
+  - memperbaiki UX browser push di iPhone/iOS agar membedakan Safari tab biasa vs Home Screen app.
+  - merombak `/stats` supaya leaderboard + top issue berbasis wilayah administratif (`provinsi` / `kabupaten-kota` / `kecamatan`), bukan fallback `Sekitar Jalan ...`.
+- Dampak area:
+  - `frontend/src/lib/stores/browser-push.ts`
+  - `frontend/src/lib/components/BrowserPushCard.svelte`
+  - `frontend/src/lib/components/NotificationPreferencesPanel.svelte`
+  - `backend/internal/domain/stats.go`
+  - `backend/internal/repository/stats_repository.go`
+  - `backend/internal/service/stats_service.go`
+  - `backend/internal/service/stats_service_test.go`
+  - `backend/internal/http/handlers/stats.go`
+  - `frontend/src/lib/api/stats.ts`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/routes/stats/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `design-docs/component-spec.md`
+  - `design-docs/guide.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - geolocation default di `/stats` masih mengandalkan `GET /api/v1/location/label` + pencocokan nama region, jadi akurasi fallback terbaik terjadi saat data `regions` internal tersedia dan konsisten.
+
 ## 2026-03-16 - Nearby Alerts untuk Area Pantauan Lokal
 
 - Scope: menambah watched locations anonim agar follower bisa menerima notifikasi issue baru di sekitar area pilihan tanpa follow issue satu per satu.
