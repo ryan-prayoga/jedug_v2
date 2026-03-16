@@ -8,7 +8,10 @@ import {
   type BrowserPushStatusResponse,
 } from "$lib/api/push";
 import { requestIssueDetailRefresh } from "$lib/utils/issue-detail-refresh";
-import { ensureFollowerAuthToken } from "$lib/utils/follower-auth";
+import {
+  ensureFollowerAuthToken,
+  getFollowerAuthProblem,
+} from "$lib/utils/follower-auth";
 import { getOrCreateIssueFollowerId } from "$lib/utils/storage";
 
 export type BrowserPushStatus =
@@ -28,6 +31,8 @@ interface BrowserPushState {
   isIOS: boolean;
   isStandalone: boolean;
   requiresHomeScreen: boolean;
+  needsFollowerRebind: boolean;
+  followerAuthMessage: string | null;
   enabled: boolean;
   subscribed: boolean;
   subscriptionCount: number;
@@ -62,6 +67,8 @@ const initialState: BrowserPushState = {
   isIOS: false,
   isStandalone: false,
   requiresHomeScreen: false,
+  needsFollowerRebind: false,
+  followerAuthMessage: null,
   enabled: false,
   subscribed: false,
   subscriptionCount: 0,
@@ -309,6 +316,8 @@ async function refreshState(showLoading: boolean) {
       isIOS: false,
       isStandalone: false,
       requiresHomeScreen: false,
+      needsFollowerRebind: false,
+      followerAuthMessage: null,
       followerID: null,
       loading: false,
       busy: false,
@@ -317,6 +326,7 @@ async function refreshState(showLoading: boolean) {
   }
 
   const followerToken = await ensureFollowerAuthToken();
+  const authProblem = getFollowerAuthProblem();
 
   if (showLoading) {
     state.update((prev) => ({
@@ -326,6 +336,8 @@ async function refreshState(showLoading: boolean) {
       success: null,
       followerID,
       followerToken,
+      needsFollowerRebind: authProblem.code === "binding_reset_required",
+      followerAuthMessage: authProblem.message,
     }));
   }
 
@@ -347,6 +359,8 @@ async function refreshState(showLoading: boolean) {
       isIOS: snapshot.isIOS,
       isStandalone: snapshot.isStandalone,
       requiresHomeScreen: snapshot.requiresHomeScreen,
+      needsFollowerRebind: authProblem.code === "binding_reset_required",
+      followerAuthMessage: authProblem.message,
       enabled: snapshot.enabled,
       subscribed,
       subscriptionCount: snapshot.subscriptionCount,
@@ -409,6 +423,8 @@ export const browserPushState = {
         isIOS: detectIOS(),
         isStandalone: detectStandaloneMode(),
         requiresHomeScreen: false,
+        needsFollowerRebind: false,
+        followerAuthMessage: null,
         supported: false,
         permission: "unsupported",
         status: "unsupported",
@@ -444,10 +460,14 @@ export const browserPushState = {
 
     const followerToken = await ensureFollowerAuthToken({ forceRefresh: true });
     if (!followerToken) {
+      const authProblem = getFollowerAuthProblem();
       state.update((prev) => ({
         ...prev,
         busy: false,
+        needsFollowerRebind: authProblem.code === "binding_reset_required",
+        followerAuthMessage: authProblem.message,
         error:
+          authProblem.message ??
           "Ikuti setidaknya satu laporan dari browser ini dulu agar notifikasi browser bisa diamankan.",
       }));
       return false;
@@ -456,6 +476,8 @@ export const browserPushState = {
     state.update((prev) => ({
       ...prev,
       busy: true,
+      needsFollowerRebind: false,
+      followerAuthMessage: null,
       error: null,
       success: null,
       followerID,
@@ -490,8 +512,8 @@ export const browserPushState = {
           busy: false,
           permission,
           enabled: backendStatus?.enabled ?? false,
-        status: "granted",
-        error: "Browser push belum siap di server. Coba lagi beberapa saat.",
+          status: "granted",
+          error: "Browser push belum siap di server. Coba lagi beberapa saat.",
         }));
         return false;
       }

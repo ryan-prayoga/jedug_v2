@@ -6,7 +6,10 @@ import {
   type NotificationPreferencesPatch,
 } from "$lib/api/notification-preferences";
 import { notificationsState } from "$lib/stores/notifications";
-import { ensureFollowerAuthToken } from "$lib/utils/follower-auth";
+import {
+  ensureFollowerAuthToken,
+  getFollowerAuthUnavailableMessage,
+} from "$lib/utils/follower-auth";
 import { getOrCreateIssueFollowerId } from "$lib/utils/storage";
 
 interface NotificationPreferencesState {
@@ -130,8 +133,9 @@ async function refreshState(showLoading: boolean, forceAuthRefresh = false) {
       preferences: null,
       followerID,
       followerToken: null,
-      unavailableMessage:
+      unavailableMessage: getFollowerAuthUnavailableMessage(
         "Ikuti setidaknya satu laporan di browser ini untuk mengatur notifikasi.",
+      ),
     }));
     return;
   }
@@ -244,8 +248,9 @@ export const notificationPreferencesState = {
         savingKeys: savingKey
           ? prev.savingKeys.filter((key) => key !== savingKey)
           : prev.savingKeys,
-        unavailableMessage:
+        unavailableMessage: getFollowerAuthUnavailableMessage(
           "Sesi notifikasi perlu diperbarui. Coba lagi dari browser ini.",
+        ),
       }));
       return false;
     }
@@ -281,4 +286,3 @@ export const notificationPreferencesState = {
     }
   },
 };
-

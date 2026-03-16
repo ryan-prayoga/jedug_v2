@@ -34,6 +34,9 @@ Area yang selalu wajib update docs bila berubah:
   - `frontend/src/lib/stores/browser-push.ts`
   - `frontend/src/lib/components/BrowserPushCard.svelte`
   - `frontend/src/lib/components/NotificationPreferencesPanel.svelte`
+  - `frontend/src/lib/utils/follower-auth.ts`
+  - `frontend/src/lib/utils/storage.ts`
+  - `frontend/src/lib/stores/notification-preferences.ts`
   - `backend/internal/domain/stats.go`
   - `backend/internal/repository/stats_repository.go`
   - `backend/internal/service/stats_service.go`
@@ -50,6 +53,7 @@ Area yang selalu wajib update docs bila berubah:
   - `docs/CHANGELOG_FOR_AGENTS.md`
 - Mismatch baru (jika ada):
   - geolocation default di `/stats` masih mengandalkan `GET /api/v1/location/label` + pencocokan nama region, jadi akurasi fallback terbaik terjadi saat data `regions` internal tersedia dan konsisten.
+  - recovery `follower_binding_not_found` saat ini di-handle di frontend dengan reset identitas anonim lokal + reload; belum ada endpoint backend khusus untuk repair tanpa reset storage.
 
 ## 2026-03-16 - Nearby Alerts untuk Area Pantauan Lokal
 

@@ -36,6 +36,9 @@ Dokumen ini bukan sumber utama token desain.
     - jangan tampilkan copy mentah `Tidak didukung`
     - tampilkan penjelasan bahwa push hanya aktif dari Home Screen app
     - tampilkan langkah singkat `Share -> Add to Home Screen -> buka dari ikon`
+  - jika binding follower browser putus (`follower_binding_not_found`):
+    - card harus menjelaskan bahwa browser lokal perlu di-reset
+    - tampilkan CTA reset yang memicu consent/setup ulang, bukan error buntu
   - tiap item punya area tap utama untuk membuka issue dan action hapus terpisah yang tetap mudah disentuh
   - action hapus tidak boleh ikut memicu navigasi item
   - item unread memakai tint ringan merah muda agar cepat dibedakan

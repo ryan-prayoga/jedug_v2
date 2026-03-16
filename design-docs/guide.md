@@ -179,6 +179,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - card `Notifikasi Browser` boleh muncul di atas list sebagai CTA ringan, bukan popup agresif
   - CTA ini harus menjelaskan bahwa browser push adalah channel tambahan di atas notifikasi dalam aplikasi
   - khusus iPhone/iOS tab browser biasa, CTA harus menjelaskan syarat Home Screen app sebelum push bisa aktif
+  - jika binding follower browser putus, CTA harus menyediakan jalan pulih yang jelas: reset browser lokal lalu consent ulang
   - tambahkan panel `Preferensi Notifikasi` ringan di dropdown yang sama agar user tidak perlu masuk halaman settings baru
   - tambahkan panel `Nearby Alerts` ringan di dropdown yang sama agar user bisa memantau area lokal tanpa follow issue satu per satu
   - preferensi minimum:
