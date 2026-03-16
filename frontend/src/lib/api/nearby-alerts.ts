@@ -51,17 +51,23 @@ export async function patchNearbyAlert(
   id: string,
   patch: NearbyAlertPatch,
 ): Promise<ApiResponse<NearbyAlertSubscription>> {
-  return apiPatch<NearbyAlertSubscription>(`/api/v1/nearby-alerts/${encodeURIComponent(id)}`, {
-    follower_token: followerToken,
-    ...patch,
-  });
+  return apiPatch<NearbyAlertSubscription>(
+    `/api/v1/nearby-alerts/${encodeURIComponent(id)}`,
+    {
+      follower_token: followerToken,
+      ...patch,
+    },
+  );
 }
 
 export async function deleteNearbyAlert(
   followerToken: string,
   id: string,
 ): Promise<ApiResponse<{ deleted: boolean }>> {
-  return apiDelete<{ deleted: boolean }>(`/api/v1/nearby-alerts/${encodeURIComponent(id)}`, {
-    follower_token: followerToken,
-  });
+  return apiDelete<{ deleted: boolean }>(
+    `/api/v1/nearby-alerts/${encodeURIComponent(id)}`,
+    {
+      follower_token: followerToken,
+    },
+  );
 }

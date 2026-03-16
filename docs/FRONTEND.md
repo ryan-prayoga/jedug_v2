@@ -221,6 +221,7 @@
   - reconnect SSE tidak lagi hard-stop setelah beberapa kegagalan; store membersihkan pending timer sebelum reconnect dan melakukan fallback refresh ringan bila gangguan berulang
   - preference update juga disiarkan antar tab via `BroadcastChannel` + fallback `storage` event agar toggle dan policy realtime tetap sinkron
   - saat `notifications_enabled=false` atau `in_app_enabled=false`, store notifikasi memutus SSE realtime agar browser tidak mempertahankan stream yang tidak lagi dipakai
+
 ## Browser Push Notification
 
 - Browser push dikelola store terpisah:
