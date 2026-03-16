@@ -32,6 +32,10 @@ Dokumen ini bukan sumber utama token desain.
     - toggle channel push
     - toggle per event type
   - CTA browser push tidak boleh auto-trigger permission prompt; prompt hanya muncul setelah user tap tombolnya
+  - jika device adalah iPhone/iOS dan app masih dibuka sebagai tab browser biasa:
+    - jangan tampilkan copy mentah `Tidak didukung`
+    - tampilkan penjelasan bahwa push hanya aktif dari Home Screen app
+    - tampilkan langkah singkat `Share -> Add to Home Screen -> buka dari ikon`
   - tiap item punya area tap utama untuk membuka issue dan action hapus terpisah yang tetap mudah disentuh
   - action hapus tidak boleh ikut memicu navigasi item
   - item unread memakai tint ringan merah muda agar cepat dibedakan
@@ -184,6 +188,7 @@ Dokumen ini bukan sumber utama token desain.
 - Jika browser ini sudah follow issue:
   - card boleh menampilkan sub-card `Aktifkan Notifikasi Browser`
   - state copy minimum:
+    - iPhone/iOS tab browser biasa (harus Add to Home Screen)
     - browser tidak mendukung
     - izin ditolak
     - izin granted tapi subscription belum aktif

@@ -176,10 +176,28 @@ export interface PublicStatsTime {
 }
 
 export interface PublicStatsRegion {
-  region_name: string;
+  district_id?: number | null;
+  district_name: string;
   issue_count: number;
   casualty_count: number;
   report_count: number;
+}
+
+export interface PublicStatsRegionOption {
+  id: number;
+  name: string;
+  issue_count: number;
+  report_count: number;
+}
+
+export interface PublicStatsFilters {
+  province_options: PublicStatsRegionOption[];
+  regency_options: PublicStatsRegionOption[];
+  active_province_id?: number | null;
+  active_province?: string | null;
+  active_regency_id?: number | null;
+  active_regency?: string | null;
+  scope_label?: string | null;
 }
 
 export interface PublicTopIssue {
@@ -191,6 +209,9 @@ export interface PublicTopIssue {
   status: string;
   road_name?: string | null;
   region_name?: string | null;
+  district_name?: string | null;
+  regency_name?: string | null;
+  province_name?: string | null;
   submission_count: number;
   casualty_count: number;
   age_days: number;
@@ -200,6 +221,7 @@ export interface PublicStats {
   global: PublicStatsGlobal;
   status: PublicStatsStatus;
   time: PublicStatsTime;
+  filters: PublicStatsFilters;
   regions: PublicStatsRegion[];
   top_issues: PublicTopIssue[];
   generated_at: string;

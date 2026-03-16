@@ -271,9 +271,13 @@
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)
 
+- Endpoint menerima query opsional:
+  - `province_id`
+  - `regency_id`
 - `StatsService` memakai cache in-memory thread-safe (`sync.RWMutex`) dengan TTL 45 detik.
+- Cache stats sekarang dibedakan per kombinasi `province_id + regency_id` agar scope wilayah tidak saling tertukar.
 - Jika query DB gagal sesaat, service fallback ke cache stale agar endpoint tetap responsif.
-- `StatsRepository` menjalankan query agregasi ringan berbasis tabel `issues` + join `regions`:
+- `StatsRepository` menjalankan query agregasi ringan berbasis tabel `issues` + join hirarki `regions`:
   - global stats:
     - `total_issues`
     - `total_issues_this_week`
@@ -288,14 +292,21 @@
     - `average_issue_age_days`
     - `oldest_open_issue_age_days`
     - metadata issue tertua unresolved (`oldest_open_issue_id`, lokasi, first seen) jika ada
+  - filter metadata:
+    - `filters.province_options`
+    - `filters.regency_options` untuk provinsi aktif
+    - `filters.active_province_id`, `filters.active_regency_id`
+    - `filters.scope_label`
+    - jika query filter kosong, backend otomatis fallback ke provinsi + kabupaten/kota teratas agar frontend selalu punya default yang masuk akal
   - region leaderboard:
-    - top wilayah berdasarkan `issue_count`, `casualty_count`, `report_count`
-    - fallback sumber wilayah: `issues.region_id -> regions.name` → `latest issue_submissions.region_id -> regions.name` → `Sekitar {road_name}` → `Area Lainnya`
+    - daftar kecamatan/subdistrict administratif di scope wilayah aktif
+    - ranking berdasarkan `issue_count`, lalu `report_count`, lalu `casualty_count`
+    - fallback label terakhir memakai nama region administratif mentah (`raw_region_name`) dan hanya jatuh ke copy generik bila data admin memang kosong
   - top issues:
-    - issue dengan laporan terbanyak
-    - issue dengan korban terbanyak
-    - issue paling lama belum diperbaiki
-    - region_name juga memakai fallback manusiawi (`Sekitar {road_name}` / `Area Lainnya`) agar card tidak jatuh ke `Wilayah Tidak Diketahui` terlalu cepat
+    - issue dengan laporan terbanyak di scope wilayah aktif
+    - issue dengan korban terbanyak di scope wilayah aktif
+    - issue paling lama belum diperbaiki di scope wilayah aktif
+    - payload issue kini membawa `district_name`, `regency_name`, `province_name` selain `region_name` fallback
 - Semua query stats hanya memakai data publik issue:
   - `is_hidden = false`
   - status `rejected` dan `merged` dikecualikan

@@ -227,7 +227,7 @@
 - Browser push dikelola store terpisah:
   - `src/lib/stores/browser-push.ts`
   - state utama:
-    - `status`: `unsupported | default | granted | denied | subscribed`
+    - `status`: `ios_browser_tab | unsupported | default | granted | denied | subscribed`
     - `enabled`
     - `subscribed`
     - `subscriptionCount`
@@ -236,7 +236,7 @@
 - Init flow:
   - dijalankan di `routes/+layout.svelte` setelah `notificationsState.init()`
   - tidak memunculkan permission prompt otomatis
-  - hanya memeriksa capability browser, permission saat ini, status backend, dan existing subscription bila permission sudah `granted`
+  - memeriksa capability browser, permission saat ini, status backend, existing subscription bila permission sudah `granted`, serta mode iOS `Home Screen` vs tab browser biasa
 - Endpoint yang dipakai:
   - `POST /api/v1/followers/auth`
   - `GET /api/v1/push/status?follower_token=...`
@@ -246,6 +246,11 @@
   - `AppHeader` notification panel memakai `BrowserPushCard.svelte` versi compact
   - detail issue menampilkan `BrowserPushCard.svelte` di bawah follow card setelah browser anonim mengikuti issue
   - panel preferensi menampilkan toggle push, tetapi saat browser push belum aktif toggle dapat dinonaktifkan dan user diarahkan ke `BrowserPushCard`
+  - khusus iPhone/iOS:
+    - jika JEDUG dibuka dari tab Safari biasa, card tidak memakai status `Tidak didukung`
+    - UI menampilkan copy bahwa Web Push hanya aktif jika app ditambahkan ke Home Screen lalu dibuka dari ikon app
+    - card menampilkan langkah singkat `Share -> Add to Home Screen -> buka ulang dari ikon`
+    - flow permission/subscription baru dijalankan setelah app memang berada di mode standalone/Home Screen
   - notification center juga menampilkan panel `Nearby Alerts` dengan UX minimum:
     - tambah lokasi pantauan baru
     - isi otomatis koordinat dari browser jika user mengizinkan
@@ -283,16 +288,30 @@
 
 - Halaman mobile-first untuk civic storytelling berbasis agregasi data issue publik.
 - Route melakukan fetch `GET /api/v1/stats` via `lib/api/stats.ts`.
+- Query yang dipakai frontend:
+  - initial/default: tanpa query agar backend mengembalikan scope default + options
+  - manual filter: `province_id`, `regency_id`
 - Struktur section:
+  - Filter Wilayah (provinsi + kabupaten/kota)
   - Global Stats (card grid)
   - Status Breakdown (card + progress bar)
   - Time Stats (rata-rata umur issue + issue tertua unresolved)
-  - Region Leaderboard (list berurutan)
+  - Region Leaderboard administratif (list kecamatan)
   - Top Issue (card list dengan link ke `/issues/[id]`)
 - State wajib:
   - loading
   - error + retry
   - empty
+- Default wilayah:
+  - backend selalu memberi `filters.active_province_id` + `filters.active_regency_id` fallback agar page punya scope awal yang stabil
+  - frontend kemudian mencoba geolocation browser + `GET /api/v1/location/label`
+  - jika lokasi berhasil dipetakan ke data stats, frontend override filter awal ke provinsi/kabupaten user
+  - jika geolocation gagal/tidak tersedia, page tetap memakai default backend dan user bisa ganti manual
+- Region leaderboard tidak lagi memakai label `Sekitar Jalan ...`; frontend merender `regions[].district_name`.
+- Top issue card sekarang menampilkan:
+  - judul issue (`road_name` bila ada)
+  - lokasi administratif ringkas dari `district_name`, `regency_name`, `province_name`
+  - metrik ringkas (`laporan`, `korban`, `umur issue`)
 - Halaman tetap memakai komponen state umum:
   - `LoadingState`
   - `ErrorState`

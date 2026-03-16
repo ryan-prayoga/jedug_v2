@@ -29,6 +29,8 @@
 		switch (pushState.status) {
 			case 'subscribed':
 				return 'success';
+			case 'ios_browser_tab':
+				return 'warning';
 			case 'denied':
 				return 'warning';
 			case 'unsupported':
@@ -44,6 +46,8 @@
 		}
 
 		switch (pushState.status) {
+			case 'ios_browser_tab':
+				return 'Di iPhone, notifikasi browser untuk JEDUG hanya bisa aktif jika aplikasi web ini ditambahkan ke Home Screen lalu dibuka dari ikon app.';
 			case 'unsupported':
 				return 'Browser ini belum mendukung Web Push.';
 			case 'denied':
@@ -56,6 +60,12 @@
 				return lead;
 		}
 	});
+
+	const installSteps = [
+		'Buka menu Share di Safari.',
+		'Pilih Add to Home Screen.',
+		'Buka JEDUG dari ikon yang terpasang, lalu aktifkan notifikasi lagi.'
+	];
 
 	const buttonLabel = $derived.by(() => {
 		if (pushState.busy) {
@@ -90,6 +100,8 @@
 			<span class:success={statusTone === 'success'} class:warning={statusTone === 'warning'}>
 				{pushState.status === 'subscribed'
 					? 'Aktif'
+					: pushState.status === 'ios_browser_tab'
+						? 'Buka dari Home Screen'
 					: pushState.status === 'denied'
 						? 'Ditolak'
 						: pushState.status === 'unsupported'
@@ -101,6 +113,14 @@
 		</div>
 
 		<p>{summary}</p>
+
+		{#if pushState.status === 'ios_browser_tab'}
+			<ol class="push-steps">
+				{#each installSteps as step}
+					<li>{step}</li>
+				{/each}
+			</ol>
+		{/if}
 
 		{#if pushState.error}
 			<p class="push-error">{pushState.error}</p>
@@ -176,6 +196,15 @@
 		font-size: 13px;
 		color: #475569;
 		line-height: 1.5;
+	}
+
+	.push-steps {
+		margin: 0;
+		padding-left: 18px;
+		display: grid;
+		gap: 4px;
+		color: #475569;
+		font-size: 12px;
 	}
 
 	.push-button {

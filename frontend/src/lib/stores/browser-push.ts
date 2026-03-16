@@ -12,6 +12,7 @@ import { ensureFollowerAuthToken } from "$lib/utils/follower-auth";
 import { getOrCreateIssueFollowerId } from "$lib/utils/storage";
 
 export type BrowserPushStatus =
+  | "ios_browser_tab"
   | "unsupported"
   | "default"
   | "granted"
@@ -24,6 +25,9 @@ interface BrowserPushState {
   status: BrowserPushStatus;
   supported: boolean;
   permission: PushPermission;
+  isIOS: boolean;
+  isStandalone: boolean;
+  requiresHomeScreen: boolean;
   enabled: boolean;
   subscribed: boolean;
   subscriptionCount: number;
@@ -55,6 +59,9 @@ const initialState: BrowserPushState = {
   status: "default",
   supported: false,
   permission: "default",
+  isIOS: false,
+  isStandalone: false,
+  requiresHomeScreen: false,
   enabled: false,
   subscribed: false,
   subscriptionCount: 0,
@@ -82,11 +89,39 @@ function isSupported(): boolean {
   );
 }
 
+function detectIOS(): boolean {
+  if (!browser) return false;
+
+  const userAgent = navigator.userAgent ?? "";
+  const platform = navigator.platform ?? "";
+
+  return (
+    /iPad|iPhone|iPod/.test(userAgent) ||
+    (platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function detectStandaloneMode(): boolean {
+  if (!browser) return false;
+
+  const navigatorStandalone =
+    "standalone" in navigator &&
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+  const displayModeStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.matchMedia("(display-mode: minimal-ui)").matches;
+
+  return navigatorStandalone || displayModeStandalone;
+}
+
 function deriveStatus(
+  requiresHomeScreen: boolean,
   supported: boolean,
   permission: PushPermission,
   subscribed: boolean,
 ): BrowserPushStatus {
+  if (requiresHomeScreen) return "ios_browser_tab";
   if (!supported) return "unsupported";
   if (permission === "denied") return "denied";
   if (subscribed) return "subscribed";
@@ -150,13 +185,19 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 async function loadSnapshot(followerID: string, followerToken: string | null) {
+  const isIOS = detectIOS();
+  const isStandalone = detectStandaloneMode();
+  const requiresHomeScreen = isIOS && !isStandalone;
   const supported = isSupported();
   const permission: PushPermission = supported
     ? Notification.permission
     : "unsupported";
 
-  if (!supported) {
+  if (requiresHomeScreen || !supported) {
     return {
+      isIOS,
+      isStandalone,
+      requiresHomeScreen,
       supported,
       permission,
       enabled: false,
@@ -183,6 +224,9 @@ async function loadSnapshot(followerID: string, followerToken: string | null) {
   }
 
   return {
+    isIOS,
+    isStandalone,
+    requiresHomeScreen,
     supported,
     permission,
     enabled: backendStatus?.enabled ?? false,
@@ -262,6 +306,9 @@ async function refreshState(showLoading: boolean) {
       supported: false,
       status: "unsupported",
       permission: "unsupported",
+      isIOS: false,
+      isStandalone: false,
+      requiresHomeScreen: false,
       followerID: null,
       loading: false,
       busy: false,
@@ -297,6 +344,9 @@ async function refreshState(showLoading: boolean) {
       ...prev,
       supported: snapshot.supported,
       permission: snapshot.permission,
+      isIOS: snapshot.isIOS,
+      isStandalone: snapshot.isStandalone,
+      requiresHomeScreen: snapshot.requiresHomeScreen,
       enabled: snapshot.enabled,
       subscribed,
       subscriptionCount: snapshot.subscriptionCount,
@@ -306,7 +356,12 @@ async function refreshState(showLoading: boolean) {
       loading: false,
       busy: false,
       initialized: true,
-      status: deriveStatus(snapshot.supported, snapshot.permission, subscribed),
+      status: deriveStatus(
+        snapshot.requiresHomeScreen,
+        snapshot.supported,
+        snapshot.permission,
+        subscribed,
+      ),
       error: null,
     }));
   } catch {
@@ -351,10 +406,29 @@ export const browserPushState = {
     if (!isSupported()) {
       state.update((prev) => ({
         ...prev,
+        isIOS: detectIOS(),
+        isStandalone: detectStandaloneMode(),
+        requiresHomeScreen: false,
         supported: false,
         permission: "unsupported",
         status: "unsupported",
         error: "Browser ini belum mendukung notifikasi browser.",
+      }));
+      return false;
+    }
+
+    const isIOS = detectIOS();
+    const isStandalone = detectStandaloneMode();
+    if (isIOS && !isStandalone) {
+      state.update((prev) => ({
+        ...prev,
+        isIOS,
+        isStandalone,
+        requiresHomeScreen: true,
+        busy: false,
+        status: "ios_browser_tab",
+        error:
+          "Di iPhone, notifikasi browser JEDUG hanya bisa aktif jika web app ini dibuka dari Home Screen.",
       }));
       return false;
     }
@@ -399,7 +473,7 @@ export const browserPushState = {
           ...prev,
           busy: false,
           permission,
-          status: deriveStatus(true, permission, false),
+          status: deriveStatus(false, true, permission, false),
           error:
             permission === "denied"
               ? "Izin notifikasi ditolak. Ubah pengaturan browser jika ingin mengaktifkannya lagi."
@@ -416,8 +490,8 @@ export const browserPushState = {
           busy: false,
           permission,
           enabled: backendStatus?.enabled ?? false,
-          status: "granted",
-          error: "Browser push belum siap di server. Coba lagi beberapa saat.",
+        status: "granted",
+        error: "Browser push belum siap di server. Coba lagi beberapa saat.",
         }));
         return false;
       }
@@ -442,6 +516,7 @@ export const browserPushState = {
       state.update((prev) => ({
         ...prev,
         busy: false,
+        requiresHomeScreen: false,
         enabled: true,
         subscribed: true,
         subscriptionCount: Math.max(prev.subscriptionCount, 1),
@@ -498,7 +573,7 @@ export const browserPushState = {
         subscribed: false,
         subscriptionCount: 0,
         permission,
-        status: deriveStatus(true, permission, false),
+        status: deriveStatus(false, true, permission, false),
         success: "Notifikasi browser dimatikan di perangkat ini.",
       }));
 
