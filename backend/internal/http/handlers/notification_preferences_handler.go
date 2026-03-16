@@ -23,6 +23,7 @@ type notificationPreferencesPatchBody struct {
 	NotifyOnStatusUpdated    *bool  `json:"notify_on_status_updated"`
 	NotifyOnSeverityChanged  *bool  `json:"notify_on_severity_changed"`
 	NotifyOnCasualtyReported *bool  `json:"notify_on_casualty_reported"`
+	NotifyOnNearbyIssueCreated *bool `json:"notify_on_nearby_issue_created"`
 }
 
 func NewNotificationPreferencesHandler(svc service.NotificationPreferencesService, authSvc service.FollowerAuthService) *NotificationPreferencesHandler {
@@ -71,6 +72,7 @@ func (h *NotificationPreferencesHandler) Patch(c *fiber.Ctx) error {
 		NotifyOnStatusUpdated:    body.NotifyOnStatusUpdated,
 		NotifyOnSeverityChanged:  body.NotifyOnSeverityChanged,
 		NotifyOnCasualtyReported: body.NotifyOnCasualtyReported,
+		NotifyOnNearbyIssueCreated: body.NotifyOnNearbyIssueCreated,
 	}
 	if patch.IsEmpty() {
 		return response.Error(c, fiber.StatusBadRequest, "at least one notification preference must be provided")

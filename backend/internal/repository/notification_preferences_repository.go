@@ -48,6 +48,7 @@ func (r *notificationPreferencesRepository) GetByFollowerID(ctx context.Context,
 		NotifyOnStatusUpdated:    true,
 		NotifyOnSeverityChanged:  true,
 		NotifyOnCasualtyReported: true,
+		NotifyOnNearbyIssueCreated: true,
 		CreatedAt:                now,
 		UpdatedAt:                now,
 	}, nil
@@ -68,6 +69,7 @@ func (r *notificationPreferencesRepository) Update(ctx context.Context, follower
 			notify_on_status_updated = COALESCE($6, notify_on_status_updated),
 			notify_on_severity_changed = COALESCE($7, notify_on_severity_changed),
 			notify_on_casualty_reported = COALESCE($8, notify_on_casualty_reported),
+			notify_on_nearby_issue_created = COALESCE($9, notify_on_nearby_issue_created),
 			updated_at = NOW()
 		WHERE follower_id = $1
 		RETURNING follower_id,
@@ -78,6 +80,7 @@ func (r *notificationPreferencesRepository) Update(ctx context.Context, follower
 			notify_on_status_updated,
 			notify_on_severity_changed,
 			notify_on_casualty_reported,
+			notify_on_nearby_issue_created,
 			created_at,
 			updated_at
 	`,
@@ -89,6 +92,7 @@ func (r *notificationPreferencesRepository) Update(ctx context.Context, follower
 		nullableBoolValue(patch.NotifyOnStatusUpdated),
 		nullableBoolValue(patch.NotifyOnSeverityChanged),
 		nullableBoolValue(patch.NotifyOnCasualtyReported),
+		nullableBoolValue(patch.NotifyOnNearbyIssueCreated),
 	).Scan(
 		&prefs.FollowerID,
 		&prefs.NotificationsEnabled,
@@ -98,6 +102,7 @@ func (r *notificationPreferencesRepository) Update(ctx context.Context, follower
 		&prefs.NotifyOnStatusUpdated,
 		&prefs.NotifyOnSeverityChanged,
 		&prefs.NotifyOnCasualtyReported,
+		&prefs.NotifyOnNearbyIssueCreated,
 		&prefs.CreatedAt,
 		&prefs.UpdatedAt,
 	)
@@ -149,6 +154,7 @@ func (r *notificationPreferencesRepository) findByFollowerID(ctx context.Context
 			notify_on_status_updated,
 			notify_on_severity_changed,
 			notify_on_casualty_reported,
+			notify_on_nearby_issue_created,
 			created_at,
 			updated_at
 		FROM notification_preferences
@@ -162,6 +168,7 @@ func (r *notificationPreferencesRepository) findByFollowerID(ctx context.Context
 		&prefs.NotifyOnStatusUpdated,
 		&prefs.NotifyOnSeverityChanged,
 		&prefs.NotifyOnCasualtyReported,
+		&prefs.NotifyOnNearbyIssueCreated,
 		&prefs.CreatedAt,
 		&prefs.UpdatedAt,
 	)

@@ -25,6 +25,7 @@ Dokumen ini bukan sumber utama token desain.
   - panel dropdown tetap nyaman di mobile (`<= 340px` lebar efektif)
   - panel menampilkan card ringan `Notifikasi Browser` sebelum daftar item
   - panel juga menampilkan section `Preferensi Notifikasi` yang bisa expand/collapse tanpa pindah halaman
+  - panel juga menampilkan section `Nearby Alerts` yang bisa expand/collapse tanpa pindah halaman atau modal baru
   - section preferensi minimum berisi:
     - master switch
     - toggle channel in-app
@@ -35,6 +36,27 @@ Dokumen ini bukan sumber utama token desain.
   - action hapus tidak boleh ikut memicu navigasi item
   - item unread memakai tint ringan merah muda agar cepat dibedakan
   - jika browser push belum aktif, toggle push boleh disabled selama ada status/CTA yang jelas untuk mengaktifkannya
+
+## NearbyAlertsPanel
+
+- Ditempatkan di notification center, bukan halaman settings baru.
+- Default state boleh collapse agar panel header tetap ringkas.
+- Harus mendukung flow minimum:
+  - tambah lokasi pantauan
+  - isi koordinat otomatis dari geolocation browser (opsional)
+  - input manual latitude/longitude
+  - edit label
+  - edit radius
+  - aktif/nonaktifkan watched location
+  - hapus watched location
+- Copy minimum:
+  - judul `Pantau area sekitar rumah`
+  - helper `Beri tahu saya jika ada laporan baru di sekitar lokasi ini`
+- Guard UI:
+  - tampilkan batas `maksimum 10 lokasi` secara jelas
+  - validasi radius `100..5000m`
+  - jangan memaksa permission prompt lokasi; tombol `Gunakan lokasi saya` baru meminta geolocation saat ditekan
+- Card item lokasi harus tetap nyaman disentuh di mobile dan menampilkan label + koordinat ringkas sebagai konteks.
 
 ## IssueMap
 

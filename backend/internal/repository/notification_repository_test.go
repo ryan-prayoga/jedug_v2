@@ -11,6 +11,7 @@ func TestNotificationEventPreferenceExpr(t *testing.T) {
 		{eventType: "status_updated", want: "COALESCE(p.notify_on_status_updated, TRUE)"},
 		{eventType: "severity_changed", want: "COALESCE(p.notify_on_severity_changed, TRUE)"},
 		{eventType: "casualty_reported", want: "COALESCE(p.notify_on_casualty_reported, TRUE)"},
+		{eventType: "nearby_issue_created", want: "COALESCE(p.notify_on_nearby_issue_created, TRUE)"},
 		{eventType: "issue_created", want: "TRUE"},
 	}
 

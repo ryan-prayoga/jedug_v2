@@ -25,6 +25,60 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-16 - Nearby Alerts untuk Area Pantauan Lokal
+
+- Scope: menambah watched locations anonim agar follower bisa menerima notifikasi issue baru di sekitar area pilihan tanpa follow issue satu per satu.
+
+### Backend
+
+1. Menambah migration `backend/migrations/202603160004_create_nearby_alerts.sql` untuk:
+  - tabel `nearby_alert_subscriptions`
+  - tabel `nearby_alert_deliveries`
+  - kolom preference baru `notification_preferences.notify_on_nearby_issue_created`
+2. Menambah endpoint:
+  - `GET /api/v1/nearby-alerts?follower_token=...`
+  - `POST /api/v1/nearby-alerts`
+  - `PATCH /api/v1/nearby-alerts/:id`
+  - `DELETE /api/v1/nearby-alerts/:id`
+3. Nearby Alerts memakai auth yang sama dengan notif/push existing:
+  - `follower_id` tetap browser-scoped
+  - ownership diverifikasi via `follower_token`
+  - tidak ada login/account baru
+4. Guard service minimum:
+  - maksimum `10` lokasi pantauan per follower/browser
+  - radius valid `100..5000m`
+  - patch koordinat harus mengirim latitude/longitude berpasangan
+5. Dispatch nearby alert sekarang di-hook dari `report_repository.insertTimelineEvents()` hanya saat event `issue_created`.
+6. `DispatchNearbyAlertsForIssueCreated(...)` melakukan:
+  - lookup subscription `enabled` via `ST_DWithin`
+  - insert dedupe row ke `nearby_alert_deliveries` (`UNIQUE(subscription_id, issue_id)`)
+  - group hasil per follower agar overlap beberapa lokasi pantauan tidak menghasilkan notif ganda
+  - create in-app notification type `nearby_issue_created`
+  - enqueue browser push bila channel push aktif
+7. Self-notify prevention ikut berlaku: reporter yang sama (`actor_follower_id`) tidak menerima nearby alert untuk issue baru yang ia buat sendiri.
+
+### Frontend
+
+8. Menambah helper API `frontend/src/lib/api/nearby-alerts.ts`.
+9. Menambah store lazy `frontend/src/lib/stores/nearby-alerts.ts`.
+10. Menambah `NearbyAlertsPanel.svelte` di notification center header, dengan UX minimum:
+   - tambah lokasi pantauan
+   - autofill lokasi browser opsional
+   - input manual latitude/longitude
+   - edit label + radius
+   - aktif/nonaktifkan
+   - hapus lokasi pantauan
+11. Panel preferensi notifikasi kini juga menambah toggle event `notify_on_nearby_issue_created`.
+
+### Doc Updates
+
+- `docs/BACKEND.md`
+- `docs/FRONTEND.md`
+- `docs/SCHEMA.md`
+- `docs/DECISIONS.md`
+- `design-docs/component-spec.md`
+- `design-docs/guide.md`
+
 ## 2026-03-16 - Notification Preferences for Anonymous Followers
 
 - Scope: menambah kontrol minimum agar follower anonim bisa mengatur channel dan jenis update notifikasi tanpa merombak arsitektur notif yang sudah ada.

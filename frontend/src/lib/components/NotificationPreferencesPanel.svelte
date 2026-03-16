@@ -187,6 +187,23 @@
                 )}
             />
           </label>
+
+          <label class="prefs-row">
+            <div class="prefs-copy">
+              <div>Laporan baru di area pantauan</div>
+              <p>Dipakai saat ada issue baru yang masuk ke radius lokasi Nearby Alerts milikmu.</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.notify_on_nearby_issue_created}
+              disabled={channelsDisabled || isSaving("notify_on_nearby_issue_created")}
+              onchange={(event) =>
+                toggle(
+                  "notify_on_nearby_issue_created",
+                  (event.currentTarget as HTMLInputElement).checked,
+                )}
+            />
+          </label>
         </div>
       {/if}
     </div>

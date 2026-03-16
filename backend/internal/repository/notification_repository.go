@@ -51,6 +51,8 @@ func notifTitleMessage(eventType, locationLabel string) (string, string) {
 	switch eventType {
 	case "issue_created":
 		return "Laporan Baru Dibuat", "Laporan baru terdeteksi di " + locationLabel + "."
+	case "nearby_issue_created":
+		return "Laporan Baru di Area Pantauan", "Ada laporan baru di sekitar area pantauanmu: " + locationLabel + "."
 	case "photo_added":
 		return "Foto Baru Ditambahkan", "Foto baru ditambahkan pada laporan di " + locationLabel + "."
 	case "severity_changed":
@@ -245,6 +247,8 @@ func notificationEventPreferenceExpr(eventType string) string {
 		return "COALESCE(p.notify_on_severity_changed, TRUE)"
 	case "casualty_reported":
 		return "COALESCE(p.notify_on_casualty_reported, TRUE)"
+	case "nearby_issue_created":
+		return "COALESCE(p.notify_on_nearby_issue_created, TRUE)"
 	default:
 		return "TRUE"
 	}

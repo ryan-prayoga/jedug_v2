@@ -10,6 +10,7 @@ export interface NotificationPreferences {
   notify_on_status_updated: boolean;
   notify_on_severity_changed: boolean;
   notify_on_casualty_reported: boolean;
+  notify_on_nearby_issue_created: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +23,7 @@ export interface NotificationPreferencesPatch {
   notify_on_status_updated?: boolean;
   notify_on_severity_changed?: boolean;
   notify_on_casualty_reported?: boolean;
+  notify_on_nearby_issue_created?: boolean;
 }
 
 export async function getNotificationPreferences(

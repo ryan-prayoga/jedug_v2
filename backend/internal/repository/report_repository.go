@@ -271,6 +271,11 @@ func (r *reportRepository) insertTimelineEvents(
 		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, r.pushNotifier, issueID, eventID, ev.eventType, input.ActorFollowerID); dispatchErr != nil {
 			log.Printf("[REPORT] notification_dispatch_error issue=%s event=%d error=%v", issueID, eventID, dispatchErr)
 		}
+		if ev.eventType == "issue_created" {
+			if nearbyErr := DispatchNearbyAlertsForIssueCreated(ctx, r.db, r.pushNotifier, issueID, eventID, input.ActorFollowerID); nearbyErr != nil {
+				log.Printf("[REPORT] nearby_alert_dispatch_error issue=%s event=%d error=%v", issueID, eventID, nearbyErr)
+			}
+		}
 	}
 }
 

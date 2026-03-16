@@ -186,7 +186,7 @@ Dokumen ini disusun dari:
 - Kolom penting:
   - master switch: `notifications_enabled`
   - channel: `in_app_enabled`, `push_enabled`
-  - event type: `notify_on_photo_added`, `notify_on_status_updated`, `notify_on_severity_changed`, `notify_on_casualty_reported`
+  - event type: `notify_on_photo_added`, `notify_on_status_updated`, `notify_on_severity_changed`, `notify_on_casualty_reported`, `notify_on_nearby_issue_created`
   - audit: `created_at`, `updated_at`
 - Business meaning:
   - follower anonim bisa mengatur channel dan jenis event mana yang masih ingin diterima agar update tidak terasa spammy.
@@ -196,6 +196,45 @@ Dokumen ini disusun dari:
   - `push_enabled` boleh `true` meski browser saat ini belum punya subscription aktif; delivery push tetap tidak terjadi tanpa row aktif di `push_subscriptions`.
   - dispatcher notifikasi memakai tabel ini sebagai filter sebelum membuat row `notifications` atau mengantrekan browser push.
 - Migration: `backend/migrations/202603160003_create_notification_preferences.sql` — WAJIB DIJALANKAN DI PROD.
+
+### `nearby_alert_subscriptions`
+
+- Fungsi: watched locations anonim per follower/browser untuk memantau issue baru di area tertentu tanpa follow issue satu per satu.
+- Relasi: `follower_id` UUID anonim client-side yang sama dengan notification/push/follower auth (tanpa FK ke tabel akun).
+- Kolom penting:
+  - `label`
+  - `latitude`
+  - `longitude`
+  - `radius_m`
+  - `enabled`
+  - audit: `created_at`, `updated_at`
+- Constraint/index penting:
+  - validasi koordinat (`latitude`/`longitude`) di level DB
+  - validasi radius `100..5000m`
+  - index `(follower_id, updated_at DESC)` untuk panel manajemen
+  - GiST expression index geography dari `(longitude, latitude)` untuk lookup radius `ST_DWithin`
+- Business meaning:
+  - satu follower anonim bisa menyimpan beberapa area seperti rumah/kantor/area kerja.
+  - feature ini tetap anonymous-first dan tidak menambah login/account baru.
+- Rawan salah paham:
+  - `enabled=false` tidak menghapus row; hanya menghentikan matching issue baru.
+  - lokasi disimpan eksplisit sebagai lat/lng agar payload CRUD ringan; index spatial tetap dibangun via expression geography.
+
+### `nearby_alert_deliveries`
+
+- Fungsi: dedupe subscription-level untuk memastikan issue baru yang sama tidak mengirim nearby alert berulang ke lokasi pantauan yang sama.
+- Relasi:
+  - FK `subscription_id -> nearby_alert_subscriptions.id`
+  - FK `issue_id -> issues.id`
+- Constraint/index penting:
+  - unique `(subscription_id, issue_id)` sebagai guard utama anti-duplikasi
+  - index `issue_id` untuk audit/debug delivery per issue
+  - index `(follower_id, created_at DESC)` untuk histori lightweight bila nanti dibutuhkan
+- Business meaning:
+  - satu follower bisa punya beberapa lokasi yang overlap; tabel ini memungkinkan backend dedupe per subscription dulu lalu menggabungkan delivery menjadi satu notif per follower.
+- Rawan salah paham:
+  - row delivery tetap boleh diinsert walau preference/channel sedang off; ini sengaja agar issue lama tidak terkirim retroaktif saat user mengaktifkan setting lagi.
+- Migration: `backend/migrations/202603160004_create_nearby_alerts.sql` — WAJIB DIJALANKAN DI PROD.
 
 ### `moderation_actions`
 
@@ -294,6 +333,8 @@ Dokumen ini disusun dari:
   - `backend/migrations/202603140001_create_issue_events.sql`
 - Browser push subscription sekarang juga punya migration versioned di repo:
   - `backend/migrations/202603160001_create_push_subscriptions.sql`
+- Nearby alerts sekarang juga punya migration versioned di repo:
+  - `backend/migrations/202603160004_create_nearby_alerts.sql`
 - Index performa yang dipakai timeline:
   - `idx_issue_events_issue_id_created_at (issue_id, created_at DESC, id DESC)`
 

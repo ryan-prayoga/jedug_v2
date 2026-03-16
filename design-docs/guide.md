@@ -174,6 +174,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - card `Notifikasi Browser` boleh muncul di atas list sebagai CTA ringan, bukan popup agresif
   - CTA ini harus menjelaskan bahwa browser push adalah channel tambahan di atas notifikasi dalam aplikasi
   - tambahkan panel `Preferensi Notifikasi` ringan di dropdown yang sama agar user tidak perlu masuk halaman settings baru
+  - tambahkan panel `Nearby Alerts` ringan di dropdown yang sama agar user bisa memantau area lokal tanpa follow issue satu per satu
   - preferensi minimum:
     1. master switch semua notifikasi
     2. channel in-app
@@ -182,7 +183,13 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
     5. event perubahan status
     6. event perubahan tingkat keparahan
     7. event laporan korban baru
+    8. event laporan baru di area pantauan
   - jika browser push belum aktif, status harus jelas dan user diarahkan ke CTA aktivasi browser push yang sudah ada
+  - Nearby Alerts di notification center harus mobile-first:
+    - form tambah lokasi ringkas
+    - tombol `Gunakan lokasi saya` opsional
+    - input manual tetap tersedia
+    - item lokasi bisa diaktif/nonaktifkan dan dihapus tanpa pindah halaman
 
 ### Detail Laporan (`/issues/[id]`)
 
