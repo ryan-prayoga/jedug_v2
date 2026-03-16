@@ -34,9 +34,13 @@
 - `AppHeader.svelte`
   - notification center
   - CTA ringan browser push di dalam panel notifikasi
+  - panel `Preferensi Notifikasi` ringan di dropdown yang sama
 - `BrowserPushCard.svelte`
   - surface reusable untuk state `unsupported/default/granted/denied/subscribed`
   - dipakai di panel notifikasi dan follow card detail issue
+- `NotificationPreferencesPanel.svelte`
+  - panel setting ringan untuk master/channel/event toggles
+  - tetap memakai notification center, bukan halaman settings terpisah
 - `IssueMap.svelte`
   - inisialisasi MapLibre
   - marker publik via `GeoJSON source + layers`
@@ -160,7 +164,16 @@
   - `src/lib/stores/notifications.ts`
   - state: `items`, `loading`, `error`, `followerID`, `followerToken`, `initialized`
   - derived: `unreadNotificationCount`
+- Preferensi notifikasi dikelola store terpisah:
+  - `src/lib/stores/notification-preferences.ts`
+  - state utama:
+    - `preferences`
+    - `loading`
+    - `savingKeys`
+    - `error`
+    - `unavailableMessage`
 - Saat app publik pertama kali mount (`routes/+layout.svelte`), frontend menjalankan `notificationsState.init()` setelah bootstrap device.
+- Setelah store notif + browser push init, frontend menjalankan `notificationPreferencesState.init()` sekali agar panel settings tidak fetch berulang.
 - Jika `follower_token` belum ada/expired, frontend mencoba refresh lewat `POST /api/v1/followers/auth` memakai `X-Device-Token`.
 - Endpoint yang dipakai:
   - auth refresh: `POST /api/v1/followers/auth`
@@ -168,9 +181,16 @@
   - mark read: `PATCH /api/v1/notifications/:id/read?follower_token=...`
   - delete: `DELETE /api/v1/notifications/:id?follower_token=...`
   - stream realtime: `GET /api/v1/notifications/stream?follower_token=...` (SSE)
+  - preferences get: `GET /api/v1/notification-preferences?follower_token=...`
+  - preferences patch: `PATCH /api/v1/notification-preferences`
 - UX behavior:
   - badge menampilkan jumlah item dengan `read_at = null`
   - dropdown panel menampilkan title/message/waktu + action hapus ringan per item
+  - dropdown panel juga menampilkan section `Preferensi Notifikasi` dengan:
+    - master switch
+    - toggle channel in-app
+    - toggle channel push
+    - toggle per event type
   - klik item menandai notifikasi sebagai read lalu:
     - navigasi normal ke `/issues/{issue_id}` bila target issue berbeda
     - memicu refresh lokal detail issue + timeline + follow state bila user sudah berada di `/issues/{issue_id}` yang sama
@@ -179,6 +199,8 @@
   - jika delete gagal sinkron ke backend, store menampilkan copy `Belum bisa menghapus notifikasi. Coba lagi.` lalu refresh snapshot server agar state tetap akurat
   - read/delete juga disiarkan antar tab via `BroadcastChannel` + fallback `storage` event agar badge/list tetap sinkron
   - reconnect SSE tidak lagi hard-stop setelah beberapa kegagalan; store membersihkan pending timer sebelum reconnect dan melakukan fallback refresh ringan bila gangguan berulang
+  - preference update juga disiarkan antar tab via `BroadcastChannel` + fallback `storage` event agar toggle dan policy realtime tetap sinkron
+  - saat `notifications_enabled=false` atau `in_app_enabled=false`, store notifikasi memutus SSE realtime agar browser tidak mempertahankan stream yang tidak lagi dipakai
 ## Browser Push Notification
 
 - Browser push dikelola store terpisah:
@@ -202,6 +224,7 @@
 - CTA UI:
   - `AppHeader` notification panel memakai `BrowserPushCard.svelte` versi compact
   - detail issue menampilkan `BrowserPushCard.svelte` di bawah follow card setelah browser anonim mengikuti issue
+  - panel preferensi menampilkan toggle push, tetapi saat browser push belum aktif toggle dapat dinonaktifkan dan user diarahkan ke `BrowserPushCard`
 - Flow enable:
   1. user klik `Aktifkan notifikasi browser`
   2. browser memanggil `Notification.requestPermission()`
@@ -213,6 +236,7 @@
   2. kirim `endpoint` + `follower_token` ke backend
   3. unsubscribe lokal dari browser
 - Jika browser belum punya `follower_token` yang valid, CTA enable gagal dengan copy ringan yang mengarahkan user untuk follow issue dulu dari browser yang sama.
+- `BrowserPushCard.svelte` sekarang me-refresh `notificationPreferencesState` setelah enable/disable agar toggle push di panel settings tetap sinkron.
 - Service worker:
   - file statis: `frontend/static/sw.js`
   - menerima event `push`

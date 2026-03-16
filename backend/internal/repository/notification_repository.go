@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -24,6 +25,12 @@ type PushDelivery struct {
 
 type NotificationPushNotifier interface {
 	DeliverBatch(ctx context.Context, deliveries []PushDelivery) error
+}
+
+type dispatchTarget struct {
+	FollowerID uuid.UUID
+	SendInApp  bool
+	SendPush   bool
 }
 
 func compactIssueLocationLabel(roadName, regionName *string, issueID uuid.UUID) string {
@@ -109,58 +116,71 @@ func DispatchNotificationsForEvent(
 
 	locationLabel := compactIssueLocationLabel(roadName, regionName, issueID)
 	title, message := notifTitleMessage(eventType, locationLabel)
-	rows, err := db.Query(ctx, `
-		INSERT INTO notifications (id, issue_id, follower_id, event_id, type, title, message)
-		SELECT gen_random_uuid(), $1, follower_id, $2, $3, $4, $5
-		FROM issue_followers
-		WHERE issue_id = $1
-		  AND ($6::uuid IS NULL OR follower_id <> $6::uuid)
-		ON CONFLICT (event_id, follower_id) DO NOTHING
-		RETURNING id, issue_id, follower_id, type, title, message, created_at
-	`, issueID, eventID, eventType, title, message, excludeFollowerID)
+	targets, err := listDispatchTargets(ctx, db, issueID, eventType, excludeFollowerID)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	pushDeliveries := make([]PushDelivery, 0)
-
-	for rows.Next() {
-		var (
-			notifID    uuid.UUID
-			issID      uuid.UUID
-			followerID uuid.UUID
-			notifType  string
-			notifTitle string
-			notifMsg   string
-			createdAt  time.Time
-		)
-		if scanErr := rows.Scan(&notifID, &issID, &followerID, &notifType, &notifTitle, &notifMsg, &createdAt); scanErr != nil {
-			continue
+	inAppFollowerIDs := make([]uuid.UUID, 0, len(targets))
+	pushDeliveries := make([]PushDelivery, 0, len(targets))
+	for _, target := range targets {
+		if target.SendInApp {
+			inAppFollowerIDs = append(inAppFollowerIDs, target.FollowerID)
 		}
-		payload, jsonErr := json.Marshal(ssePayload{
-			ID:        notifID.String(),
-			IssueID:   issID.String(),
-			EventID:   eventID,
-			Type:      notifType,
-			Title:     notifTitle,
-			Message:   notifMsg,
-			CreatedAt: createdAt,
-		})
-		if jsonErr != nil {
-			continue
+		if target.SendPush {
+			pushDeliveries = append(pushDeliveries, PushDelivery{
+				FollowerID: target.FollowerID,
+				IssueID:    issueID,
+				Type:       eventType,
+				Title:      title,
+				Message:    message,
+			})
 		}
-		sse.Default.Push(followerID.String(), "event: notification\ndata: "+string(payload)+"\n\n")
-		pushDeliveries = append(pushDeliveries, PushDelivery{
-			FollowerID: followerID,
-			IssueID:    issID,
-			Type:       notifType,
-			Title:      notifTitle,
-			Message:    notifMsg,
-		})
 	}
-	if err := rows.Err(); err != nil {
-		return err
+
+	if len(inAppFollowerIDs) > 0 {
+		rows, err := db.Query(ctx, `
+			INSERT INTO notifications (id, issue_id, follower_id, event_id, type, title, message)
+			SELECT gen_random_uuid(), $1, follower_id, $2, $3, $4, $5
+			FROM unnest($6::uuid[]) AS targets(follower_id)
+			ON CONFLICT (event_id, follower_id) DO NOTHING
+			RETURNING id, issue_id, follower_id, type, title, message, created_at
+		`, issueID, eventID, eventType, title, message, inAppFollowerIDs)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var (
+				notifID    uuid.UUID
+				issID      uuid.UUID
+				followerID uuid.UUID
+				notifType  string
+				notifTitle string
+				notifMsg   string
+				createdAt  time.Time
+			)
+			if scanErr := rows.Scan(&notifID, &issID, &followerID, &notifType, &notifTitle, &notifMsg, &createdAt); scanErr != nil {
+				continue
+			}
+			payload, jsonErr := json.Marshal(ssePayload{
+				ID:        notifID.String(),
+				IssueID:   issID.String(),
+				EventID:   eventID,
+				Type:      notifType,
+				Title:     notifTitle,
+				Message:   notifMsg,
+				CreatedAt: createdAt,
+			})
+			if jsonErr != nil {
+				continue
+			}
+			sse.Default.Push(followerID.String(), "event: notification\ndata: "+string(payload)+"\n\n")
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 	}
 
 	if pushNotifier != nil && len(pushDeliveries) > 0 {
@@ -170,6 +190,64 @@ func DispatchNotificationsForEvent(
 	}
 
 	return nil
+}
+
+func listDispatchTargets(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	issueID uuid.UUID,
+	eventType string,
+	excludeFollowerID *uuid.UUID,
+) ([]dispatchTarget, error) {
+	eventPreferenceExpr := notificationEventPreferenceExpr(eventType)
+	query := fmt.Sprintf(`
+		SELECT f.follower_id,
+			(COALESCE(p.notifications_enabled, TRUE)
+				AND %s
+				AND COALESCE(p.in_app_enabled, TRUE)) AS send_in_app,
+			(COALESCE(p.notifications_enabled, TRUE)
+				AND %s
+				AND COALESCE(p.push_enabled, TRUE)) AS send_push
+		FROM issue_followers f
+		LEFT JOIN notification_preferences p ON p.follower_id = f.follower_id
+		WHERE f.issue_id = $1
+		  AND ($2::uuid IS NULL OR f.follower_id <> $2::uuid)
+	`, eventPreferenceExpr, eventPreferenceExpr)
+
+	rows, err := db.Query(ctx, query, issueID, excludeFollowerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]dispatchTarget, 0)
+	for rows.Next() {
+		var target dispatchTarget
+		if err := rows.Scan(&target.FollowerID, &target.SendInApp, &target.SendPush); err != nil {
+			return nil, err
+		}
+		if !target.SendInApp && !target.SendPush {
+			continue
+		}
+		result = append(result, target)
+	}
+
+	return result, rows.Err()
+}
+
+func notificationEventPreferenceExpr(eventType string) string {
+	switch eventType {
+	case "photo_added":
+		return "COALESCE(p.notify_on_photo_added, TRUE)"
+	case "status_updated":
+		return "COALESCE(p.notify_on_status_updated, TRUE)"
+	case "severity_changed":
+		return "COALESCE(p.notify_on_severity_changed, TRUE)"
+	case "casualty_reported":
+		return "COALESCE(p.notify_on_casualty_reported, TRUE)"
+	default:
+		return "TRUE"
+	}
 }
 
 // NotificationRepository reads notification data for a given follower.

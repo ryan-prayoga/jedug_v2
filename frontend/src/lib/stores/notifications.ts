@@ -40,6 +40,7 @@ let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _reconnectDelay = 1_000;
 const _maxReconnectDelay = 30_000;
 let _reconnectAttempts = 0;
+let _realtimeEnabled = true;
 const NOTIFICATION_SYNC_KEY = "jedug_notification_sync";
 const channel =
   typeof window !== "undefined" && "BroadcastChannel" in window
@@ -271,8 +272,10 @@ async function refreshState(
 
   try {
     await fetchSnapshot(followerID, followerToken, showLoading);
-    if (reconnectStream) {
+    if (reconnectStream && _realtimeEnabled) {
       _connectSSE(followerID, followerToken);
+    } else if (!_realtimeEnabled) {
+      _disconnectSSE();
     }
   } catch {
     state.update((prev) => ({
@@ -389,6 +392,27 @@ export const notificationsState = {
   },
 
   disconnect: _disconnectSSE,
+
+  setRealtimeEnabled(enabled: boolean) {
+    _realtimeEnabled = enabled;
+    if (!enabled) {
+      _disconnectSSE();
+      return;
+    }
+
+    let shouldRefresh = false;
+    state.update((prev) => {
+      shouldRefresh =
+        prev.initialized &&
+        Boolean(prev.followerID) &&
+        Boolean(prev.followerToken);
+      return prev;
+    });
+
+    if (shouldRefresh) {
+      void refreshState(false, true);
+    }
+  },
 };
 
 export const unreadNotificationCount = derived(

@@ -173,6 +173,16 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - panel tidak boleh terasa berat atau memaksa reload penuh
   - card `Notifikasi Browser` boleh muncul di atas list sebagai CTA ringan, bukan popup agresif
   - CTA ini harus menjelaskan bahwa browser push adalah channel tambahan di atas notifikasi dalam aplikasi
+  - tambahkan panel `Preferensi Notifikasi` ringan di dropdown yang sama agar user tidak perlu masuk halaman settings baru
+  - preferensi minimum:
+    1. master switch semua notifikasi
+    2. channel in-app
+    3. channel push
+    4. event foto baru
+    5. event perubahan status
+    6. event perubahan tingkat keparahan
+    7. event laporan korban baru
+  - jika browser push belum aktif, status harus jelas dan user diarahkan ke CTA aktivasi browser push yang sudah ada
 
 ### Detail Laporan (`/issues/[id]`)
 

@@ -36,6 +36,8 @@
 - `GET /api/v1/issues/:id/followers/count`
 - `GET /api/v1/issues/:id/follow-status?follower_id=...`
 - `POST /api/v1/followers/auth`
+- `GET /api/v1/notification-preferences?follower_token=...`
+- `PATCH /api/v1/notification-preferences`
 - `POST /api/v1/issues/:id/flag`
 - `GET /api/v1/push/status?follower_token=...`
 - `POST /api/v1/push/subscribe`
@@ -168,13 +170,31 @@
   - `PATCH /api/v1/notifications/:id/read?follower_token=...`
   - `DELETE /api/v1/notifications/:id?follower_token=...`
   - `GET /api/v1/notifications/stream?follower_token=...` — **SSE stream** (text/event-stream)
+- Endpoint preferensi notifikasi publik:
+  - `GET /api/v1/notification-preferences?follower_token=...`
+  - `PATCH /api/v1/notification-preferences`
 - Endpoint browser push publik:
   - `GET /api/v1/push/status?follower_token=...`
   - `POST /api/v1/push/subscribe`
   - `POST /api/v1/push/unsubscribe`
 - Semua endpoint notifikasi/push sekarang mengekstrak `follower_id` dari `follower_token` bertanda tangan server; ownership tidak lagi bergantung pada UUID mentah dari caller.
+- Endpoint preferensi juga memakai `follower_token` yang sama; backend tidak menerima `follower_id` mentah sebagai bearer secret untuk mengubah settings.
 - Mark-as-read tetap dikunci di DB oleh pasangan `notification_id + follower_id` dan mengembalikan `read_at` persisten; jika row tidak ditemukan, response `404`.
 - Delete notification tetap dikunci oleh pasangan `notification_id + follower_id`; response `deleted: true|false` dibuat aman/idempotent tanpa membocorkan ownership follower lain.
+- Storage preferensi notifikasi:
+  - tabel `notification_preferences`
+  - `GET /notification-preferences` dapat mengembalikan default sintetis tanpa write DB; row baru dimaterialkan saat user pertama kali menyimpan preference
+  - default:
+    - `notifications_enabled = true`
+    - `in_app_enabled = true`
+    - `push_enabled = true` hanya jika follower sudah punya subscription push aktif ketika row pertama dibuat
+    - seluruh event preference default `true`
+- Integrasi pipeline paling aman tetap di `DispatchNotificationsForEvent(...)`:
+  - dispatcher sekarang mengevaluasi preference follower sekali untuk setiap event issue
+  - row tabel `notifications` hanya dibuat untuk follower yang lolos `notifications_enabled + event_pref + in_app_enabled`
+  - SSE hanya dikirim untuk row in-app yang benar-benar baru terbuat
+  - browser push diantrekan terpisah untuk follower yang lolos `notifications_enabled + event_pref + push_enabled`
+  - hasilnya: `in_app_enabled = false` tidak lagi ikut mematikan browser push, dan `push_enabled = false` tidak mencegah notifikasi in-app
 - Self-notify prevention:
   - endpoint submit report menerima field opsional `actor_follower_id`.
   - dispatcher skip follower yang sama dengan actor (`excludeFollowerID`) agar pengirim update tidak menerima notifikasi untuk event yang ia buat sendiri.

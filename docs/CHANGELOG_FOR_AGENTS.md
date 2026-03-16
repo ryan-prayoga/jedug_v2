@@ -25,6 +25,52 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-16 - Notification Preferences for Anonymous Followers
+
+- Scope: menambah kontrol minimum agar follower anonim bisa mengatur channel dan jenis update notifikasi tanpa merombak arsitektur notif yang sudah ada.
+
+### Backend
+
+1. Menambah tabel `notification_preferences` via `backend/migrations/202603160003_create_notification_preferences.sql`.
+2. Menambah endpoint:
+   - `GET /api/v1/notification-preferences?follower_token=...`
+   - `PATCH /api/v1/notification-preferences`
+3. Preference tetap memakai auth yang sama dengan notif/push sekarang:
+   - `follower_token`
+   - `follower_id` tidak diterima sebagai bearer secret untuk update settings
+4. `DispatchNotificationsForEvent` sekarang menjadi titik integrasi preference:
+   - filter global `notifications_enabled`
+   - filter per-event (`photo/status/severity/casualty`)
+   - filter channel `in_app_enabled`
+   - filter channel `push_enabled`
+5. In-app notification dan browser push tidak lagi dikunci ke keputusan channel yang sama:
+   - in-app bisa off, push tetap on
+   - push bisa off, in-app tetap on
+6. `GET /notification-preferences` mengembalikan default sintetis; row DB baru dibuat saat user pertama kali menyimpan preference. `push_enabled` default `true` hanya bila follower memang sudah punya subscription push aktif saat itu.
+
+### Frontend
+
+7. Menambah helper API `frontend/src/lib/api/notification-preferences.ts`.
+8. Menambah store `frontend/src/lib/stores/notification-preferences.ts`.
+9. Notification center header sekarang punya panel ringan `Preferensi Notifikasi`:
+   - master switch
+   - toggle in-app
+   - toggle push
+   - toggle per event type
+10. Toggle push dibuat state-aware:
+   - jika browser push belum aktif, user diarahkan ke `BrowserPushCard`
+   - jika push sudah aktif, toggle preference bisa diubah tanpa halaman settings baru
+11. Update preference disiarkan antar tab via `BroadcastChannel` + fallback `storage` event.
+12. Jika in-app dimatikan, `notificationsState` memutus koneksi SSE realtime agar browser tidak mempertahankan stream yang tidak dipakai.
+
+### Doc Updates
+
+- `docs/BACKEND.md`
+- `docs/FRONTEND.md`
+- `docs/SCHEMA.md`
+- `design-docs/component-spec.md`
+- `design-docs/guide.md`
+
 ## 2026-03-16 - Browser Web Push Notifications for Followed Issues
 
 - Scope: menambah channel browser push di atas notifikasi in-app yang sudah ada, lengkap dengan service worker, subscription storage, dan delivery backend.
