@@ -371,6 +371,7 @@ Di `/lapor`:
    - jika upload mode `local`, frontend wajib kirim header `X-Upload-Token`
    - jika upload R2 gagal, fallback ke endpoint local `/api/v1/uploads/file/{object_key}` dengan header `X-Upload-Token` yang sama
 6. Submit report dengan metadata media + `upload_token` + `client_request_id`.
+   - `client_request_id` dipertahankan stabil sepanjang satu sesi form agar retry submit yang sama bisa di-replay aman oleh backend.
 
 - payload juga mengirim `actor_follower_id` (identity follower anonim dari browser) untuk mencegah self-notify pada event yang dipicu user itu sendiri.
 - backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).
@@ -381,6 +382,7 @@ Hardening UX submit report:
 - sebelum submit, route `/lapor` selalu memastikan bootstrap device anonim selesai (`ensureDeviceBootstrap`)
 - bootstrap memakai guard promise bersama + retry ringan untuk mencegah race condition antar inisialisasi layout dan submit
 - bila backend mengembalikan indikasi token bootstrap tidak valid (`device not found; bootstrap first`), frontend melakukan refresh bootstrap sekali lalu retry submit otomatis
+- bila backend mengembalikan `409 IDEMPOTENCY_CONFLICT`, UI menampilkan pesan eksplisit bahwa key submit lama sudah dipakai untuk payload berbeda dan user perlu memulai submit baru
 - pesan error ke user dipoles agar manusiawi (tidak menampilkan error backend mentah)
 
 ## UX Lokasi di `/lapor`

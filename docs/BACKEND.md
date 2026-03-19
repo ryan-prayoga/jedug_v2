@@ -99,10 +99,12 @@
   - R2 tetap memakai presigned `PUT`, tetapi ownership tetap diverifikasi saat `/reports` lewat `upload_token` yang sama.
 - Handler validasi payload report + media.
 - Service `ReportService` enforce:
-  - device harus ada, tidak banned
-  - trust score minimal
-  - cooldown submit 2 menit/device
-  - idempotency via `client_request_id`
+  - device harus ada
+  - `client_request_id` divalidasi sebagai UUID dan diperlakukan sebagai idempotency key utama
+  - replay dengan `(device_id, client_request_id)` yang sama dicek sebelum ban/trust/cooldown/upload validation, sehingga retry request yang sama mengembalikan hasil lama dan tidak tersandung cooldown
+  - submission baru tetap harus lolos guard device banned + trust score minimal
+  - cooldown submit 2 menit/device hanya berlaku untuk submission baru
+  - payload reuse dengan `client_request_id` yang sama tetapi fingerprint request berbeda ditolak `409 IDEMPOTENCY_CONFLICT`
   - setiap `media[]` wajib membawa `upload_token`
   - `upload_token` harus cocok dengan `device_id`, `object_key`, `mime_type`, dan `size_bytes` dari media yang disubmit
   - object storage diverifikasi benar-benar memiliki file untuk `object_key` tersebut sebelum report diterima
@@ -113,12 +115,16 @@
     - fallback `Kawasan sekitar lat,lng` jika label manusiawi tidak tersedia
   - reverse geocoding memakai timeout + cache in-memory agar ringan, dan gagal geocode tidak memblok submit report
 - Repository `ReportRepository` (transactional):
+  - ambil advisory transaction lock ringan berbasis `(device_id, client_request_id)` untuk men-serialize retry paralel dari request yang sama tanpa menambah sistem idempotency terpisah
+  - re-check existing submission di dalam transaction; jika sudah ada:
+    - fingerprint sama -> return result existing
+    - fingerprint beda -> reject conflict
   - resolve region internal terbaik (prioritas district, fallback smallest covering region)
   - prioritas level wilayah kini juga mengenali alias Indonesia (`provinsi`, `kabupaten`, `kota`, `kecamatan`) agar `region_id` issue/submission baru tidak jatuh ke level yang terlalu bawah hanya karena label level berbeda
   - duplicate detection issue aktif publik (`open|verified|in_progress`, `is_hidden=false`) dalam radius configurable (default 30m)
   - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
   - create issue baru jika tidak ada kandidat relevan
-  - create `issue_submissions`
+  - create `issue_submissions` dengan `request_fingerprint` + `created_issue`
   - create `submission_media`
   - saat create issue baru:
     - isi `road_name` dari hasil normalisasi lokasi

@@ -25,6 +25,42 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Report Submit Idempotency Hardening
+
+- Scope:
+  - memperbaiki jalur `POST /api/v1/reports` agar retry request yang sama aman dari cooldown tidak semestinya, race retry paralel, dan response replay yang tidak konsisten.
+- Akar masalah:
+  - service mengecek cooldown sebelum lookup idempotency, sehingga retry request yang sudah sukses tetap bisa berakhir `429`.
+  - lookup `client_request_id` masih global, tidak di-scope ke `device_id`.
+  - hasil replay tidak konsisten karena backend tidak menyimpan apakah submission awal membuat issue baru atau tidak.
+  - retry paralel dengan key yang sama masih mengandalkan race terhadap unique constraint, sehingga salah satu request bisa jatuh ke error internal alih-alih replay hasil lama.
+- Perbaikan:
+  1. `ReportService` sekarang memvalidasi `client_request_id`, membangun `request_fingerprint`, lalu mengecek replay existing sebelum guard banned/trust/cooldown/upload validation.
+  2. `ReportRepository` sekarang mengambil advisory transaction lock ringan berbasis `(device_id, client_request_id)` lalu re-check existing submission di dalam transaction untuk menutup race retry paralel.
+  3. `issue_submissions` menyimpan `request_fingerprint` dan `created_issue` agar replay request yang sama mengembalikan `is_new_issue` yang identik dengan submit awal.
+  4. Unique constraint idempotency digeser dari global `client_request_id` menjadi composite `(device_id, client_request_id)`.
+  5. Reuse `client_request_id` dengan payload fingerprint berbeda sekarang ditolak `409 IDEMPOTENCY_CONFLICT`.
+  6. Handler report menambahkan validasi UUID `client_request_id` dan mapping error terstruktur untuk conflict idempotency.
+  7. UI `/lapor` menampilkan pesan conflict yang eksplisit bila backend mengembalikan `409`.
+- Dampak area:
+  - `backend/internal/service/report_service.go`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/http/handlers/report_handler.go`
+  - `backend/internal/service/report_service_test.go`
+  - `backend/internal/http/handlers/report_handler_test.go`
+  - `backend/internal/service/upload_service_test.go`
+  - `backend/migrations/202603200001_harden_report_idempotency.sql`
+  - `backend/schema/20260320_000000_baseline.sql`
+  - `frontend/src/routes/lapor/+page.svelte`
+  - `docs/BACKEND.md`
+  - `docs/SCHEMA.md`
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Action deploy wajib:
+  - jalankan migration `backend/migrations/202603200001_harden_report_idempotency.sql` sebelum backend baru menerima traffic penuh.
+  - verifikasi unique lama `issue_submissions_client_request_id_key` sudah hilang dan unique baru `(device_id, client_request_id)` aktif.
+  - smoke test retry submit yang sama pada koneksi buruk untuk memastikan replay kembali `issue_id/submission_id` yang sama tanpa 429.
+
 ## 2026-03-20 - Notification Auth Transport Hardening
 
 - Scope:

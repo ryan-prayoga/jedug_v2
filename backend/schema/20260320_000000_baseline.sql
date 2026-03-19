@@ -161,7 +161,7 @@ EXECUTE FUNCTION set_updated_at();
 CREATE TABLE IF NOT EXISTS issue_submissions (
     id UUID PRIMARY KEY,
     issue_id UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    client_request_id UUID NOT NULL UNIQUE,
+    client_request_id UUID NOT NULL,
     device_id UUID NOT NULL REFERENCES devices(id) ON DELETE RESTRICT,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'spam')),
@@ -175,6 +175,8 @@ CREATE TABLE IF NOT EXISTS issue_submissions (
     casualty_count INT NOT NULL DEFAULT 0 CHECK (casualty_count >= 0),
     note TEXT,
     source VARCHAR(20) NOT NULL DEFAULT 'web' CHECK (source IN ('web', 'pwa', 'admin')),
+    request_fingerprint CHAR(64) NOT NULL DEFAULT '',
+    created_issue BOOLEAN NOT NULL DEFAULT FALSE,
     moderation_note TEXT,
     moderated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     moderated_at TIMESTAMPTZ,
@@ -184,6 +186,8 @@ CREATE TABLE IF NOT EXISTS issue_submissions (
 
 CREATE INDEX IF NOT EXISTS idx_issue_submissions_issue_id ON issue_submissions(issue_id);
 CREATE INDEX IF NOT EXISTS idx_issue_submissions_device_id ON issue_submissions(device_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_issue_submissions_device_client_request
+    ON issue_submissions(device_id, client_request_id);
 CREATE INDEX IF NOT EXISTS idx_issue_submissions_user_id ON issue_submissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_issue_submissions_region_id ON issue_submissions(region_id);
 CREATE INDEX IF NOT EXISTS idx_issue_submissions_status ON issue_submissions(status);

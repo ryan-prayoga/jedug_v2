@@ -19,6 +19,7 @@ Dokumen ini disusun dari:
   - `backend/migrations/202603160002_create_follower_auth_bindings.sql`
   - `backend/migrations/202603160003_create_notification_preferences.sql`
   - `backend/migrations/202603160004_create_nearby_alerts.sql`
+  - `backend/migrations/202603200001_harden_report_idempotency.sql`
 - Helper operasional:
   - `backend/scripts/bootstrap_db.sh`
   - `backend/scripts/verify_schema_governance.sh`
@@ -84,11 +85,17 @@ Dokumen ini disusun dari:
 - Relasi: FK ke `issues`, `devices`, opsional `users`, `regions`.
 - Kolom penting:
   - idempotency: `client_request_id`
+  - replay safety: `request_fingerprint`, `created_issue`
   - lokasi: `location`, `gps_accuracy_m`, `captured_at`, `reported_at`
   - konten: `severity`, `has_casualty`, `casualty_count`, `note`
   - moderasi: `status`, `moderation_note`, `moderated_by`, `moderated_at`
 - Business meaning: bukti mentah yang membentuk/menambah issue.
-- Rawan salah paham: submission bisa `pending` meski issue sudah tampil publik (karena issue adalah agregat).
+- Constraint/index penting:
+  - unique `(device_id, client_request_id)` untuk menjaga idempotency submit per device tanpa bentrok lintas device
+- Rawan salah paham:
+  - submission bisa `pending` meski issue sudah tampil publik (karena issue adalah agregat).
+  - `created_issue=true` menyimpan hasil submit asli agar replay request yang sama bisa mengembalikan `is_new_issue` secara konsisten walau issue tersebut sudah punya submission tambahan setelahnya.
+  - `request_fingerprint` dipakai backend untuk menolak reuse `client_request_id` yang payload materialnya berbeda.
 
 ### `submission_media`
 
