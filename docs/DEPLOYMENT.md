@@ -155,6 +155,9 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
   - `REVERSE_GEOCODE_TIMEOUT_MS` (default `2000`)
   - `REVERSE_GEOCODE_CACHE_TTL_SEC` (default `300`)
 - `STORAGE_DRIVER`, `STORAGE_PUBLIC_BASE_URL`, `UPLOAD_DIR`
+- upload hardening:
+  - `UPLOAD_TOKEN_SECRET` (optional, default fallback ke `FOLLOWER_TOKEN_SECRET`, minimal 32 karakter jika diisi)
+  - `UPLOAD_TICKET_TTL_SEC` (optional, default `600`)
 - R2 vars saat mode R2 aktif:
   - `R2_ACCESS_KEY_ID`
   - `R2_SECRET_ACCESS_KEY`

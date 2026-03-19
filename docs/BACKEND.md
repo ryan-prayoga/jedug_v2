@@ -24,8 +24,8 @@
 - `GET /api/v1/health`
 - `POST /api/v1/device/bootstrap`
 - `POST /api/v1/device/consent`
-- `POST /api/v1/uploads/presign`
-- `POST /api/v1/uploads/file/*`
+- `POST /api/v1/uploads/presign` (`anon_token` wajib)
+- `POST /api/v1/uploads/file/*` (`X-Upload-Token` wajib untuk local upload)
 - `POST /api/v1/reports`
 - `GET /api/v1/location/label?latitude={lat}&longitude={lng}`
 - `GET /api/v1/issues`
@@ -75,12 +75,21 @@
 
 ### Report Submission
 
+- Upload hardening sebelum submit:
+  - `POST /api/v1/uploads/presign` sekarang wajib `anon_token` yang valid.
+  - backend menerbitkan `upload_token` bertanda tangan server untuk satu `object_key`, `mime_type`, `size_bytes`, dan `device_id` tertentu dengan TTL pendek (`UPLOAD_TICKET_TTL_SEC`, default 10 menit).
+  - local upload ke `POST /api/v1/uploads/file/{object_key}` sekarang wajib header `X-Upload-Token`; upload tanpa proof ini ditolak.
+  - R2 tetap memakai presigned `PUT`, tetapi ownership tetap diverifikasi saat `/reports` lewat `upload_token` yang sama.
 - Handler validasi payload report + media.
 - Service `ReportService` enforce:
   - device harus ada, tidak banned
   - trust score minimal
   - cooldown submit 2 menit/device
   - idempotency via `client_request_id`
+  - setiap `media[]` wajib membawa `upload_token`
+  - `upload_token` harus cocok dengan `device_id`, `object_key`, `mime_type`, dan `size_bytes` dari media yang disubmit
+  - object storage diverifikasi benar-benar memiliki file untuk `object_key` tersebut sebelum report diterima
+  - `object_key` yang sudah pernah masuk `submission_media` ditolak agar media tidak bisa dipakai ulang lintas report
   - normalisasi lokasi sekali per laporan:
     - lookup region internal (`regions`) sebagai sumber utama label wilayah
     - reverse geocoding ringan untuk melengkapi `road_name` jika kosong
@@ -269,6 +278,8 @@
 - Konfigurasi:
   - jika seluruh env Web Push kosong, backend tetap hidup dan fitur browser push dianggap disabled.
   - jika env Web Push hanya terisi sebagian, startup gagal cepat untuk mencegah half-config di production.
+  - `UPLOAD_TOKEN_SECRET` dipakai untuk menandatangani `upload_token`; jika kosong backend fallback ke `FOLLOWER_TOKEN_SECRET`.
+  - `UPLOAD_TICKET_TTL_SEC` mengatur TTL upload ticket (default `600` detik).
   - `FOLLOWER_TOKEN_SECRET` wajib ada dan minimal 32 karakter; backend memakai secret ini untuk menandatangani `follower_token`.
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)

@@ -2,11 +2,13 @@ import { apiPost, apiUploadBinary } from "./client";
 import type { PresignData } from "./types";
 
 export async function presignUpload(
+  anonToken: string,
   filename: string,
   contentType: string,
   sizeBytes: number,
 ) {
   return apiPost<PresignData>("/api/v1/uploads/presign", {
+    anon_token: anonToken,
     filename,
     content_type: contentType,
     size_bytes: sizeBytes,

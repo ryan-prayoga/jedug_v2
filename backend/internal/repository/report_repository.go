@@ -75,6 +75,7 @@ type ReportRepositoryConfig struct {
 type ReportRepository interface {
 	SubmitReport(ctx context.Context, input SubmitInput) (*SubmitResult, error)
 	FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error)
+	HasSubmissionMediaObjectKey(ctx context.Context, objectKey string) (bool, error)
 }
 
 type reportRepository struct {
@@ -184,6 +185,21 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		SubmissionID: submissionID,
 		IsNewIssue:   isNew,
 	}, nil
+}
+
+func (r *reportRepository) HasSubmissionMediaObjectKey(ctx context.Context, objectKey string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM submission_media
+			WHERE object_key = $1
+		)
+	`, objectKey).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // insertTimelineEvents records audit events for a completed submission.

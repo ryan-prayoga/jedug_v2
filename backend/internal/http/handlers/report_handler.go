@@ -23,13 +23,14 @@ func NewReportHandler(svc service.ReportService) *ReportHandler {
 }
 
 type reportMediaInput struct {
-	ObjectKey string  `json:"object_key"`
-	MimeType  string  `json:"mime_type"`
-	SizeBytes int     `json:"size_bytes"`
-	Width     *int    `json:"width"`
-	Height    *int    `json:"height"`
-	SHA256    *string `json:"sha256"`
-	IsPrimary bool    `json:"is_primary"`
+	ObjectKey   string  `json:"object_key"`
+	MimeType    string  `json:"mime_type"`
+	SizeBytes   int     `json:"size_bytes"`
+	UploadToken string  `json:"upload_token"`
+	Width       *int    `json:"width"`
+	Height      *int    `json:"height"`
+	SHA256      *string `json:"sha256"`
+	IsPrimary   bool    `json:"is_primary"`
 }
 
 type submitReportBody struct {
@@ -62,14 +63,15 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 	media := make([]service.MediaInput, len(body.Media))
 	for i, m := range body.Media {
 		media[i] = service.MediaInput{
-			ObjectKey: m.ObjectKey,
-			MimeType:  m.MimeType,
-			SizeBytes: m.SizeBytes,
-			Width:     m.Width,
-			Height:    m.Height,
-			SHA256:    m.SHA256,
-			IsPrimary: m.IsPrimary,
-			SortOrder: i,
+			ObjectKey:   m.ObjectKey,
+			MimeType:    m.MimeType,
+			SizeBytes:   m.SizeBytes,
+			UploadToken: m.UploadToken,
+			Width:       m.Width,
+			Height:      m.Height,
+			SHA256:      m.SHA256,
+			IsPrimary:   m.IsPrimary,
+			SortOrder:   i,
 		}
 	}
 
@@ -110,6 +112,18 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 		}
 		if errors.Is(err, service.ErrMediaPersist) {
 			return response.ErrorWithCode(c, fiber.StatusInternalServerError, "MEDIA_PERSIST_FAILED", "failed to persist submission media")
+		}
+		if errors.Is(err, service.ErrUploadTokenRequired) || errors.Is(err, service.ErrUploadTokenInvalid) || errors.Is(err, service.ErrUploadTokenExpired) {
+			return response.ErrorWithCode(c, fiber.StatusBadRequest, "UPLOAD_TOKEN_INVALID", "media upload proof is invalid or expired")
+		}
+		if errors.Is(err, service.ErrUploadOwnershipMismatch) {
+			return response.ErrorWithCode(c, fiber.StatusForbidden, "MEDIA_OWNERSHIP_MISMATCH", "media does not belong to this device")
+		}
+		if errors.Is(err, service.ErrUploadAlreadyUsed) {
+			return response.ErrorWithCode(c, fiber.StatusBadRequest, "MEDIA_ALREADY_USED", "media has already been attached to another report")
+		}
+		if errors.Is(err, service.ErrUploadObjectMissing) || errors.Is(err, service.ErrUploadedObjectMismatch) {
+			return response.ErrorWithCode(c, fiber.StatusBadRequest, "MEDIA_NOT_READY", "uploaded media is missing or does not match the issued upload ticket")
 		}
 		log.Printf("[REPORT] submit_internal_error ip=%s error=%v", c.IP(), err)
 		return response.ErrorWithCode(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "failed to submit report")
@@ -165,6 +179,9 @@ func validateReportBody(b *submitReportBody) error {
 	for i, m := range b.Media {
 		if m.ObjectKey == "" {
 			return errors.New("media[" + itoa(i) + "].object_key is required")
+		}
+		if strings.TrimSpace(m.UploadToken) == "" {
+			return errors.New("media[" + itoa(i) + "].upload_token is required")
 		}
 		if err := storage.ValidateSubmittedMedia(m.ObjectKey, m.MimeType, m.SizeBytes); err != nil {
 			return errors.New("media[" + itoa(i) + "]: " + err.Error())

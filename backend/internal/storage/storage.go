@@ -67,12 +67,18 @@ type PresignResult struct {
 	Headers      map[string]string `json:"headers,omitempty"`
 }
 
+type ObjectInfo struct {
+	SizeBytes   int64
+	ContentType string
+}
+
 type Driver interface {
 	Name() string
 	GenerateObjectKey(req UploadRequest) (string, error)
 	CreatePresign(ctx context.Context, req UploadRequest, objectKey string) (*PresignResult, error)
 	BuildPublicURL(objectKey string) string
 	Upload(ctx context.Context, objectKey, contentType string, body []byte) error
+	Stat(ctx context.Context, objectKey string) (*ObjectInfo, error)
 }
 
 func AllowedContentTypes() []string {
@@ -271,6 +277,19 @@ func (d *LocalDriver) Upload(_ context.Context, objectKey, _ string, body []byte
 		return err
 	}
 	return os.WriteFile(absPath, body, 0o644)
+}
+
+func (d *LocalDriver) Stat(_ context.Context, objectKey string) (*ObjectInfo, error) {
+	info, err := os.Stat(d.AbsPath(objectKey))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ObjectInfo{
+		SizeBytes: info.Size(),
+	}, nil
 }
 
 func (d *LocalDriver) AbsPath(objectKey string) string {

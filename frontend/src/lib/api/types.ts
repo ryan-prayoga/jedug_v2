@@ -22,6 +22,10 @@ export interface PresignData {
   upload_method?: string;
   public_url: string;
   headers?: Record<string, string>;
+  upload_token: string;
+  upload_expires_at: string;
+  upload_token_type: string;
+  upload_token_header?: string;
 }
 
 // Report
@@ -35,6 +39,7 @@ export interface ReportMediaInput {
   object_key: string;
   mime_type: string;
   size_bytes: number;
+  upload_token: string;
   width: number | null;
   height: number | null;
   sha256: string | null;

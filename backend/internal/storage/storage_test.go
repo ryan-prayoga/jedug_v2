@@ -41,6 +41,12 @@ func (d fakeDriver) Upload(_ context.Context, _ string, _ string, _ []byte) erro
 	return nil
 }
 
+func (d fakeDriver) Stat(_ context.Context, objectKey string) (*ObjectInfo, error) {
+	return &ObjectInfo{
+		SizeBytes: int64(len(objectKey)),
+	}, nil
+}
+
 func TestValidateObjectKey(t *testing.T) {
 	t.Parallel()
 
@@ -145,5 +151,22 @@ func TestR2DriverCreatePresign(t *testing.T) {
 	}
 	if result.PublicURL != "https://media.example.test/issues/2026/03/file.webp" {
 		t.Fatalf("unexpected public URL: %q", result.PublicURL)
+	}
+}
+
+func TestServiceStatUsesActiveDriver(t *testing.T) {
+	t.Parallel()
+
+	service := NewService(fakeDriver{name: "r2"}, nil)
+
+	info, err := service.Stat(context.Background(), "issues/2026/03/file.webp")
+	if err != nil {
+		t.Fatalf("Stat returned error: %v", err)
+	}
+	if info == nil {
+		t.Fatal("expected object info, got nil")
+	}
+	if info.SizeBytes == 0 {
+		t.Fatal("expected size info from active driver")
 	}
 }

@@ -103,7 +103,11 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 		cfg.ReverseGeocodeCacheTTL,
 	)
 	locationNormalizer := service.NewReportLocationNormalizer(locationRepo, reverseGeocoder)
-	reportSvc := service.NewReportService(deviceRepo, reportRepo, locationNormalizer)
+	uploadSvc := service.NewUploadService(deviceRepo, reportRepo, store, service.UploadServiceConfig{
+		Secret: []byte(cfg.UploadTokenSecret),
+		TTL:    cfg.UploadTicketTTL,
+	})
+	reportSvc := service.NewReportService(deviceRepo, reportRepo, locationNormalizer, uploadSvc)
 	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo)
 	flagSvc := service.NewFlagService(deviceRepo, flagRepo, adminRepo)
 	locationSvc := service.NewLocationService(locationRepo, reverseGeocoder)
@@ -118,7 +122,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	notifPrefsHandler := handlers.NewNotificationPreferencesHandler(notifPrefsSvc, followerAuthSvc)
 	pushHandler := handlers.NewPushHandler(pushSvc, followerAuthSvc)
 	statsHandler := handlers.NewStatsHandler(statsSvc)
-	uploadHandler := handlers.NewUploadHandler(store)
+	uploadHandler := handlers.NewUploadHandler(uploadSvc, store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
 	adminHandler := handlers.NewAdminHandler(adminSvc, store)
 	flagHandler := handlers.NewFlagHandler(flagSvc)

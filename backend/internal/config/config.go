@@ -30,6 +30,8 @@ type Config struct {
 	ReverseGeocodeUserAgent string
 	ReverseGeocodeTimeout   time.Duration
 	ReverseGeocodeCacheTTL  time.Duration
+	UploadTokenSecret       string
+	UploadTicketTTL         time.Duration
 	FollowerTokenSecret     string
 	FollowerTokenTTL        time.Duration
 	WebPushVAPIDPublicKey   string
@@ -63,6 +65,8 @@ func Load() *Config {
 		ReverseGeocodeUserAgent: getEnv("REVERSE_GEOCODE_USER_AGENT", "jedug-api/1.0"),
 		ReverseGeocodeTimeout:   getEnvPositiveDurationMS("REVERSE_GEOCODE_TIMEOUT_MS", 2000),
 		ReverseGeocodeCacheTTL:  getEnvPositiveDurationSec("REVERSE_GEOCODE_CACHE_TTL_SEC", 300),
+		UploadTokenSecret:       strings.TrimSpace(getEnv("UPLOAD_TOKEN_SECRET", "")),
+		UploadTicketTTL:         getEnvPositiveDurationSec("UPLOAD_TICKET_TTL_SEC", 10*60),
 		FollowerTokenSecret:     strings.TrimSpace(mustGetEnv("FOLLOWER_TOKEN_SECRET")),
 		FollowerTokenTTL:        getEnvPositiveDurationSec("FOLLOWER_TOKEN_TTL_SEC", 7*24*60*60),
 		WebPushVAPIDPublicKey:   strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PUBLIC_KEY", "")),
@@ -71,9 +75,13 @@ func Load() *Config {
 		WebPushSiteURL:          strings.TrimRight(strings.TrimSpace(getEnv("WEB_PUSH_SITE_URL", "")), "/"),
 		WebPushTTLSeconds:       getEnvPositiveInt("WEB_PUSH_TTL_SEC", 300),
 	}
+	if cfg.UploadTokenSecret == "" {
+		cfg.UploadTokenSecret = cfg.FollowerTokenSecret
+	}
 
 	validateWebPushConfig(cfg)
 	validateFollowerTokenConfig(cfg)
+	validateUploadTokenConfig(cfg)
 	return cfg
 }
 
@@ -192,5 +200,11 @@ func validateWebPushConfig(cfg *Config) {
 func validateFollowerTokenConfig(cfg *Config) {
 	if len(cfg.FollowerTokenSecret) < 32 {
 		panic("FOLLOWER_TOKEN_SECRET must be at least 32 characters")
+	}
+}
+
+func validateUploadTokenConfig(cfg *Config) {
+	if len(cfg.UploadTokenSecret) < 32 {
+		panic("UPLOAD_TOKEN_SECRET must be at least 32 characters")
 	}
 }
