@@ -108,28 +108,61 @@ WHERE to_regprocedure('public.set_updated_at()') IS NULL;
 " || fail=1
 
 check_empty "required indexes and constraints" "
-WITH required(name) AS (
-    VALUES
-        ('idx_regions_geom'),
-        ('idx_issues_public_location'),
-        ('idx_issue_events_issue_id_created_at'),
-        ('idx_issue_followers_issue_id'),
-        ('idx_issue_followers_follower_id'),
-        ('uq_issue_followers_issue_follower'),
-        ('idx_notifications_follower_created_at'),
-        ('uq_notifications_event_follower'),
-        ('idx_push_subscriptions_active_follower_id'),
-        ('idx_nearby_alert_subscriptions_geog'),
-        ('uq_nearby_alert_deliveries_subscription_issue')
+WITH missing_named_objects AS (
+    SELECT name
+    FROM (
+        VALUES
+            ('idx_regions_geom'),
+            ('idx_issues_public_location'),
+            ('idx_issue_events_issue_id_created_at'),
+            ('idx_issue_followers_issue_id'),
+            ('idx_issue_followers_follower_id'),
+            ('idx_notifications_follower_created_at'),
+            ('idx_push_subscriptions_active_follower_id'),
+            ('idx_nearby_alert_subscriptions_geog')
+    ) AS required(name)
+    WHERE to_regclass('public.' || name) IS NULL
+),
+missing_semantic_constraints AS (
+    SELECT 'issue_followers unique(issue_id, follower_id)' AS name
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_attribute a1 ON a1.attrelid = t.oid AND a1.attname = 'issue_id'
+        JOIN pg_attribute a2 ON a2.attrelid = t.oid AND a2.attname = 'follower_id'
+        WHERE t.relname = 'issue_followers'
+          AND c.contype = 'u'
+          AND c.conkey = ARRAY[a1.attnum, a2.attnum]::smallint[]
+    )
+    UNION ALL
+    SELECT 'notifications unique(event_id, follower_id)' AS name
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_attribute a1 ON a1.attrelid = t.oid AND a1.attname = 'event_id'
+        JOIN pg_attribute a2 ON a2.attrelid = t.oid AND a2.attname = 'follower_id'
+        WHERE t.relname = 'notifications'
+          AND c.contype = 'u'
+          AND c.conkey = ARRAY[a1.attnum, a2.attnum]::smallint[]
+    )
+    UNION ALL
+    SELECT 'nearby_alert_deliveries unique(subscription_id, issue_id)' AS name
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_attribute a1 ON a1.attrelid = t.oid AND a1.attname = 'subscription_id'
+        JOIN pg_attribute a2 ON a2.attrelid = t.oid AND a2.attname = 'issue_id'
+        WHERE t.relname = 'nearby_alert_deliveries'
+          AND c.contype = 'u'
+          AND c.conkey = ARRAY[a1.attnum, a2.attnum]::smallint[]
+    )
 )
-SELECT name
-FROM required
-WHERE to_regclass('public.' || name) IS NULL
-  AND NOT EXISTS (
-      SELECT 1
-      FROM pg_constraint c
-      WHERE c.conname = required.name
-  );
+SELECT name FROM missing_named_objects
+UNION ALL
+SELECT name FROM missing_semantic_constraints;
 " || fail=1
 
 if [[ "${fail}" -ne 0 ]]; then
