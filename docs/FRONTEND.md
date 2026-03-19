@@ -353,10 +353,12 @@ Di `/lapor`:
    - ada cache in-memory berbasis koordinat ter-rounded untuk menghindari request berulang
    - gagal resolve label tidak memblok submit (koordinat tetap dipakai)
 3. Compress image -> WebP.
-4. Request presign upload.
+4. Request presign upload dengan `anon_token`.
+   - response kini juga membawa `upload_token` + expiry pendek
 5. Upload binary.
-   - jika upload R2 gagal, fallback ke endpoint local `/api/v1/uploads/file/{object_key}`
-6. Submit report dengan metadata media + `client_request_id`.
+   - jika upload mode `local`, frontend wajib kirim header `X-Upload-Token`
+   - jika upload R2 gagal, fallback ke endpoint local `/api/v1/uploads/file/{object_key}` dengan header `X-Upload-Token` yang sama
+6. Submit report dengan metadata media + `upload_token` + `client_request_id`.
 
 - payload juga mengirim `actor_follower_id` (identity follower anonim dari browser) untuk mencegah self-notify pada event yang dipicu user itu sendiri.
 - backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).

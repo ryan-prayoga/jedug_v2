@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 )
 
 const defaultPresignExpiry = 15 * time.Minute
@@ -126,4 +128,22 @@ func (d *R2Driver) Upload(ctx context.Context, objectKey, contentType string, bo
 		ContentType:   aws.String(NormalizeContentType(contentType)),
 	})
 	return err
+}
+
+func (d *R2Driver) Stat(ctx context.Context, objectKey string) (*ObjectInfo, error) {
+	result, err := d.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(d.bucket),
+		Key:    aws.String(NormalizeObjectKey(objectKey)),
+	})
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NotFound" {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ObjectInfo{
+		SizeBytes:   aws.ToInt64(result.ContentLength),
+		ContentType: NormalizeContentType(aws.ToString(result.ContentType)),
+	}, nil
 }

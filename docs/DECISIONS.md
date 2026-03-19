@@ -128,6 +128,19 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - preferences/channel global tetap dihormati melalui `notification_preferences`, termasuk toggle baru `notify_on_nearby_issue_created`.
   - overlap watched locations tidak menghasilkan spam notifikasi ganda untuk issue yang sama.
 
+## 2026-03-20 - Public Upload Flow Hardened with Device-Bound Upload Ticket
+
+- Keputusan:
+  - upload media report publik tidak lagi mempercayai `object_key` mentah atau direct local upload anonim.
+  - backend menerbitkan `upload_token` bertanda tangan server dengan binding `device_id + object_key + mime_type + size_bytes + expiry`.
+  - local upload wajib `X-Upload-Token`; submit report wajib `upload_token` per media dan backend memverifikasi object benar-benar ada di storage serta belum pernah dipakai report lain.
+- Konteks:
+  - audit P0 menemukan jalur upload publik yang bisa dipakai untuk file hosting liar, storage abuse, dan bukti palsu karena upload tidak cukup terikat ke report flow.
+- Konsekuensi:
+  - flow tetap anonymous-first tanpa login user penuh, tetapi upload kini minimal punya proof-of-intent yang device-bound.
+  - frontend `/lapor` wajib mengirim `anon_token` saat presign dan `upload_token` saat upload/submit.
+  - object yang sudah masuk `submission_media` tidak boleh dipakai ulang lintas report.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.

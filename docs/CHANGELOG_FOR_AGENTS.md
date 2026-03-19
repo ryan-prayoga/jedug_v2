@@ -25,6 +25,48 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Hardening Upload Publik dengan Device-Bound Upload Ticket
+
+- Scope:
+  - menutup jalur upload publik yang sebelumnya cukup mengandalkan `object_key`/presign tanpa binding kuat ke device dan report flow.
+
+### Backend
+
+1. `POST /api/v1/uploads/presign` sekarang wajib `anon_token` yang valid.
+2. Backend menerbitkan `upload_token` HMAC berttl pendek (`UPLOAD_TICKET_TTL_SEC`, default 10 menit) untuk kombinasi:
+   - `device_id`
+   - `object_key`
+   - `mime_type`
+   - `size_bytes`
+   - purpose `report_media`
+3. `POST /api/v1/uploads/file/{object_key}` sekarang wajib header `X-Upload-Token`; upload local tanpa proof ini ditolak.
+4. `POST /api/v1/reports` sekarang menuntut `media[].upload_token` dan memverifikasi:
+   - ticket valid / belum expired
+   - `device_id` submit cocok dengan owner ticket
+   - `object_key`, `mime_type`, `size_bytes` cocok dengan ticket
+   - object benar-benar ada di storage aktif
+   - `object_key` belum pernah dipakai di `submission_media`
+5. Storage abstraction sekarang punya `Stat(...)` agar submit report bisa mengecek keberadaan object di local maupun R2 sebelum report diterima.
+6. Env backend baru:
+   - `UPLOAD_TOKEN_SECRET` (opsional; default fallback ke `FOLLOWER_TOKEN_SECRET`)
+   - `UPLOAD_TICKET_TTL_SEC`
+
+### Frontend
+
+7. Flow `/lapor` kini:
+   - kirim `anon_token` saat presign
+   - kirim `X-Upload-Token` saat upload local/fallback local
+   - kirim `media[].upload_token` saat submit report
+
+### Doc Updates
+
+- `docs/BACKEND.md`
+- `docs/DEPLOYMENT.md`
+- `docs/STORAGE_AND_MEDIA.md`
+- `docs/FRONTEND.md`
+- `docs/DECISIONS.md`
+- `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-16 - Fix Filter Statistik Wilayah Administratif
 
 - Scope:

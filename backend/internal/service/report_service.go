@@ -28,14 +28,15 @@ type ReportService interface {
 }
 
 type MediaInput struct {
-	ObjectKey string
-	MimeType  string
-	SizeBytes int
-	Width     *int
-	Height    *int
-	SHA256    *string
-	IsPrimary bool
-	SortOrder int
+	ObjectKey   string
+	MimeType    string
+	SizeBytes   int
+	UploadToken string
+	Width       *int
+	Height      *int
+	SHA256      *string
+	IsPrimary   bool
+	SortOrder   int
 }
 
 type SubmitReportRequest struct {
@@ -63,17 +64,20 @@ type reportService struct {
 	deviceRepo         repository.DeviceRepository
 	reportRepo         repository.ReportRepository
 	locationNormalizer ReportLocationNormalizer
+	uploadSvc          UploadService
 }
 
 func NewReportService(
 	deviceRepo repository.DeviceRepository,
 	reportRepo repository.ReportRepository,
 	locationNormalizer ReportLocationNormalizer,
+	uploadSvc UploadService,
 ) ReportService {
 	return &reportService{
 		deviceRepo:         deviceRepo,
 		reportRepo:         reportRepo,
 		locationNormalizer: locationNormalizer,
+		uploadSvc:          uploadSvc,
 	}
 }
 
@@ -142,6 +146,7 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	}
 
 	mediaInputs := make([]repository.SubmitMediaInput, len(req.Media))
+	mediaProofs := make([]ReportMediaProof, len(req.Media))
 	for i, m := range req.Media {
 		mediaInputs[i] = repository.SubmitMediaInput{
 			ObjectKey: m.ObjectKey,
@@ -152,6 +157,18 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 			SHA256:    m.SHA256,
 			IsPrimary: m.IsPrimary,
 			SortOrder: m.SortOrder,
+		}
+		mediaProofs[i] = ReportMediaProof{
+			ObjectKey:   m.ObjectKey,
+			MimeType:    m.MimeType,
+			SizeBytes:   m.SizeBytes,
+			UploadToken: m.UploadToken,
+		}
+	}
+
+	if s.uploadSvc != nil {
+		if err := s.uploadSvc.ValidateReportMedia(ctx, device.ID, mediaProofs); err != nil {
+			return nil, err
 		}
 	}
 

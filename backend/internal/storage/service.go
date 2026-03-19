@@ -68,3 +68,10 @@ func (s *Service) Upload(ctx context.Context, objectKey, contentType string, bod
 	}
 	return s.active.Upload(ctx, objectKey, contentType, body)
 }
+
+func (s *Service) Stat(ctx context.Context, objectKey string) (*ObjectInfo, error) {
+	if err := ValidateObjectKey(objectKey); err != nil {
+		return nil, err
+	}
+	return s.active.Stat(ctx, objectKey)
+}

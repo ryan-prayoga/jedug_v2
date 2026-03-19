@@ -290,24 +290,37 @@
 			// Step 2: Presign upload
 			currentStep = 'preparing-upload';
 			const presignRes = await presignUpload(
+				token,
 				'photo.webp',
 				'image/webp',
 				compressed.blob.size
 			);
 			if (!presignRes.data) throw new Error('Gagal menyiapkan upload');
 
-			const { object_key, upload_url, upload_method, headers } = presignRes.data;
+			const { object_key, upload_url, upload_method, headers, upload_token } = presignRes.data;
 
 			// Step 3: Upload file
 			currentStep = 'uploading';
+			const uploadHeaders =
+				presignRes.data.upload_mode === 'r2'
+					? (headers ?? {})
+					: { ...(headers ?? {}), 'X-Upload-Token': upload_token };
 			try {
-				await uploadFile(upload_url, compressed.blob, 'image/webp', upload_method ?? 'POST', headers ?? {});
+				await uploadFile(
+					upload_url,
+					compressed.blob,
+					'image/webp',
+					upload_method ?? 'POST',
+					uploadHeaders
+				);
 			} catch (uploadErr) {
 				if (presignRes.data.upload_mode !== 'r2') {
 					throw uploadErr;
 				}
 
-				await uploadFile(`/api/v1/uploads/file/${object_key}`, compressed.blob, 'image/webp', 'POST');
+				await uploadFile(`/api/v1/uploads/file/${object_key}`, compressed.blob, 'image/webp', 'POST', {
+					'X-Upload-Token': upload_token
+				});
 			}
 
 			// Step 4: Submit report
@@ -329,6 +342,7 @@
 						object_key,
 						mime_type: 'image/webp',
 						size_bytes: compressed.blob.size,
+						upload_token,
 						width: compressed.width,
 						height: compressed.height,
 						sha256: null,
