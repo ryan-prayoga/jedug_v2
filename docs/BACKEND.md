@@ -389,8 +389,16 @@
   - login credential dari env
   - session token in-memory TTL 24 jam
   - action hide/unhide/fix/reject/ban
-  - log ke `moderation_actions`
-  - adjust trust score submitter saat fix/reject
+  - target moderation yang tidak ada sekarang diperlakukan eksplisit sebagai `404`, bukan success kosong
+  - hide/unhide/ban mengecek `RowsAffected` agar tidak ada false success
+  - fix/reject memakai satu transaksi domain untuk:
+    - lock issue target
+    - validasi target ada
+    - update `issues.status`
+    - adjust trust score submitter hanya jika status benar-benar berubah
+  - `issue_events` (`status_updated`) dan `moderation_actions` sekarang dijalankan post-commit sebagai best-effort audit
+  - kegagalan audit/event hanya di-log dan tidak membatalkan action utama yang sudah committed, agar operator tidak menerima `500` palsu setelah perubahan domain sebenarnya berhasil
+  - repeated fix/reject ke status yang sama tidak lagi mengulang trust adjustment atau memproduksi `status_updated` event tambahan
 
 ### Community Flag
 

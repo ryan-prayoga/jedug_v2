@@ -130,6 +130,9 @@ func (h *AdminHandler) moderateIssue(c *fiber.Ctx, action string) error {
 	}
 
 	if err != nil {
+		if errors.Is(err, service.ErrModerationTargetNotFound) {
+			return response.Error(c, fiber.StatusNotFound, "issue not found")
+		}
 		return response.Error(c, fiber.StatusInternalServerError, "moderation action failed")
 	}
 
@@ -148,6 +151,9 @@ func (h *AdminHandler) BanDevice(c *fiber.Ctx) error {
 	username := c.Locals("admin_username").(string)
 
 	if err := h.svc.BanDevice(c.Context(), id, username, req.Reason); err != nil {
+		if errors.Is(err, service.ErrModerationTargetNotFound) {
+			return response.Error(c, fiber.StatusNotFound, "device not found")
+		}
 		return response.Error(c, fiber.StatusInternalServerError, "ban device failed")
 	}
 
