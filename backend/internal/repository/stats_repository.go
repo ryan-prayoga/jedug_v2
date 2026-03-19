@@ -45,6 +45,12 @@ type regionScopeRow struct {
 	ReportCount  int64
 }
 
+type summarySnapshot struct {
+	Summary domain.PublicGlobalStats
+	Status  domain.PublicStatusStats
+	Time    domain.PublicTimeStats
+}
+
 func regionLevelExpr(column string) string {
 	return fmt.Sprintf(`
 			CASE
@@ -81,15 +87,17 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 		WHERE s.region_id IS NOT NULL
 		ORDER BY s.issue_id, s.reported_at DESC
 	), base_issues AS (
-		SELECT
-			i.id,
-			i.status,
-			i.road_name,
-			i.submission_count,
-			i.casualty_count,
-			i.last_seen_at,
-			COALESCE(i.first_seen_at, i.created_at) AS first_seen_at,
-			i.region_id AS issue_region_id,
+	SELECT
+		i.id,
+		i.status,
+		i.road_name,
+		i.photo_count,
+		i.submission_count,
+		i.casualty_count,
+		i.created_at,
+		i.last_seen_at,
+		COALESCE(i.first_seen_at, i.created_at) AS first_seen_at,
+		i.region_id AS issue_region_id,
 			latest.region_id AS latest_region_id,
 			i.public_location::geometry AS public_location_geom
 		FROM issues i
@@ -101,8 +109,10 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 			base.id,
 			base.status,
 			base.road_name,
+			base.photo_count,
 			base.submission_count,
 			base.casualty_count,
+			base.created_at,
 			base.last_seen_at,
 			base.first_seen_at,
 			COALESCE(base.issue_region_id, base.latest_region_id, spatial.region_id) AS base_region_id
@@ -124,8 +134,10 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 			base.id,
 			base.status,
 			base.road_name,
+			base.photo_count,
 			base.submission_count,
 			base.casualty_count,
+			base.created_at,
 			base.last_seen_at,
 			base.first_seen_at,
 			r0.id AS region_id_0,
@@ -154,8 +166,10 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 			resolved.id,
 			resolved.status,
 			resolved.road_name,
+			resolved.photo_count,
 			resolved.submission_count,
 			resolved.casualty_count,
+			resolved.created_at,
 			resolved.last_seen_at,
 			resolved.first_seen_at,
 			resolved.region_name_0 AS raw_region_name,
@@ -315,23 +329,11 @@ func (r *statsRepository) GetPublicStats(ctx context.Context, query domain.Publi
 		},
 	}
 
-	if err := r.querySummary(ctx, stats); err != nil {
-		return nil, err
-	}
-
-	oldestOpenGlobal, err := r.queryOldestOpenIssue(ctx, domain.PublicStatsQuery{})
+	globalSummary, err := r.querySummary(ctx, domain.PublicStatsQuery{})
 	if err != nil {
 		return nil, err
 	}
-	if oldestOpenGlobal != nil {
-		oldestID := oldestOpenGlobal.ID
-		firstSeen := oldestOpenGlobal.FirstSeenAt
-		stats.Time.OldestOpenIssueID = &oldestID
-		stats.Time.OldestOpenIssueAgeDays = oldestOpenGlobal.AgeDays
-		stats.Time.OldestOpenRoadName = oldestOpenGlobal.RoadName
-		stats.Time.OldestOpenRegionName = oldestOpenGlobal.RegionName
-		stats.Time.OldestOpenFirstSeenAt = &firstSeen
-	}
+	stats.Global = globalSummary.Summary
 
 	provinceOptions, err := r.queryProvinceOptions(ctx)
 	if err != nil {
@@ -364,6 +366,15 @@ func (r *statsRepository) GetPublicStats(ctx context.Context, query domain.Publi
 		ProvinceID: stats.Filters.ActiveProvinceID,
 		RegencyID:  stats.Filters.ActiveRegencyID,
 	}
+	stats.ActiveScope = buildStatsScope(scopeQuery, stats.Filters.ScopeLabel, useDefaultScope)
+
+	scopedSummary, err := r.querySummary(ctx, scopeQuery)
+	if err != nil {
+		return nil, err
+	}
+	stats.Summary = scopedSummary.Summary
+	stats.Status = scopedSummary.Status
+	stats.Time = scopedSummary.Time
 
 	topOldestScoped, err := r.queryOldestOpenIssue(ctx, scopeQuery)
 	if err != nil {
@@ -416,30 +427,30 @@ func (r *statsRepository) GetPublicStats(ctx context.Context, query domain.Publi
 	return stats, nil
 }
 
-func (r *statsRepository) querySummary(ctx context.Context, stats *domain.PublicStats) error {
-	const summaryQuery = `
+func (r *statsRepository) querySummary(ctx context.Context, scope domain.PublicStatsQuery) (*summarySnapshot, error) {
+	query, args := buildScopedQuery(scope, `
 		SELECT
 			COUNT(*)::bigint AS total_issues,
 			COUNT(*) FILTER (
-				WHERE i.created_at >= date_trunc('week', NOW())
+				WHERE normalized.created_at >= date_trunc('week', NOW())
 			)::bigint AS total_issues_this_week,
-			COALESCE(SUM(i.casualty_count), 0)::bigint AS total_casualties,
-			COALESCE(SUM(i.photo_count), 0)::bigint AS total_photos,
-			COALESCE(SUM(i.submission_count), 0)::bigint AS total_reports,
+			COALESCE(SUM(normalized.casualty_count), 0)::bigint AS total_casualties,
+			COALESCE(SUM(normalized.photo_count), 0)::bigint AS total_photos,
+			COALESCE(SUM(normalized.submission_count), 0)::bigint AS total_reports,
 			COUNT(*) FILTER (
-				WHERE i.status IN ('open', 'verified', 'in_progress')
+				WHERE normalized.status IN ('open', 'verified', 'in_progress')
 			)::bigint AS open_issues,
 			COUNT(*) FILTER (
-				WHERE i.status = 'fixed'
+				WHERE normalized.status = 'fixed'
 			)::bigint AS fixed_issues,
 			COUNT(*) FILTER (
-				WHERE i.status = 'archived'
+				WHERE normalized.status = 'archived'
 			)::bigint AS archived_issues,
 			COALESCE(
 				ROUND(
 					AVG(
 						GREATEST(
-							EXTRACT(EPOCH FROM (NOW() - COALESCE(i.first_seen_at, i.created_at))),
+							EXTRACT(EPOCH FROM (NOW() - normalized.first_seen_at)),
 							0
 						) / 86400.0
 					)::numeric,
@@ -451,30 +462,35 @@ func (r *statsRepository) querySummary(ctx context.Context, stats *domain.Public
 				MAX(
 					FLOOR(
 						GREATEST(
-							EXTRACT(EPOCH FROM (NOW() - COALESCE(i.first_seen_at, i.created_at))),
+							EXTRACT(EPOCH FROM (NOW() - normalized.first_seen_at)),
 							0
 						) / 86400.0
 					)
-				) FILTER (WHERE i.status IN ('open', 'verified', 'in_progress')),
+				) FILTER (WHERE normalized.status IN ('open', 'verified', 'in_progress')),
 				0
 			)::bigint AS oldest_open_issue_age_days
-		FROM issues i
-		WHERE i.is_hidden = FALSE
-		  AND i.status NOT IN ('rejected', 'merged')
-	`
+		FROM normalized
+		WHERE TRUE
+	`, ``)
 
-	return r.db.QueryRow(ctx, summaryQuery).Scan(
-		&stats.Global.TotalIssues,
-		&stats.Global.TotalIssuesThisWeek,
-		&stats.Global.TotalCasualties,
-		&stats.Global.TotalPhotos,
-		&stats.Global.TotalReports,
-		&stats.Status.Open,
-		&stats.Status.Fixed,
-		&stats.Status.Archived,
-		&stats.Time.AverageIssueAgeDays,
-		&stats.Time.OldestOpenIssueAgeDays,
+	var snapshot summarySnapshot
+	err := r.db.QueryRow(ctx, query, args...).Scan(
+		&snapshot.Summary.TotalIssues,
+		&snapshot.Summary.TotalIssuesThisWeek,
+		&snapshot.Summary.TotalCasualties,
+		&snapshot.Summary.TotalPhotos,
+		&snapshot.Summary.TotalReports,
+		&snapshot.Status.Open,
+		&snapshot.Status.Fixed,
+		&snapshot.Status.Archived,
+		&snapshot.Time.AverageIssueAgeDays,
+		&snapshot.Time.OldestOpenIssueAgeDays,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &snapshot, nil
 }
 
 func (r *statsRepository) queryProvinceOptions(ctx context.Context) ([]*domain.PublicRegionOption, error) {
@@ -714,16 +730,48 @@ func (r *statsRepository) queryRegionLeaderboard(ctx context.Context, scope doma
 
 	query, args := buildScopedQuery(scope, `
 		SELECT
-			MIN(normalized.district_id) AS district_id,
-			normalized.admin_region_name AS district_name,
+			CASE
+				WHEN normalized.district_id IS NOT NULL THEN normalized.district_id
+				WHEN normalized.regency_id IS NOT NULL THEN normalized.regency_id
+				WHEN normalized.province_id IS NOT NULL THEN normalized.province_id
+				ELSE NULL
+			END AS region_id,
+			CASE
+				WHEN normalized.district_id IS NOT NULL THEN 'district'
+				WHEN normalized.regency_id IS NOT NULL THEN 'regency'
+				WHEN normalized.province_id IS NOT NULL THEN 'province'
+				ELSE 'unknown'
+			END AS region_level,
+			COALESCE(
+				normalized.district_name,
+				normalized.regency_name,
+				normalized.province_name
+			) AS region_name,
+			CASE
+				WHEN normalized.district_id IS NOT NULL THEN normalized.regency_name
+				WHEN normalized.regency_id IS NOT NULL THEN normalized.province_name
+				ELSE NULL
+			END AS parent_region_name,
+			normalized.district_id,
+			COALESCE(
+				normalized.district_name,
+				normalized.regency_name,
+				normalized.province_name
+			) AS district_name,
+			normalized.regency_name,
+			normalized.province_name,
 			COUNT(*)::bigint AS issue_count,
 			COALESCE(SUM(normalized.casualty_count), 0)::bigint AS casualty_count,
 			COALESCE(SUM(normalized.submission_count), 0)::bigint AS report_count
 		FROM normalized
-		WHERE normalized.admin_region_name IS NOT NULL
+		WHERE (
+			normalized.district_id IS NOT NULL
+			OR normalized.regency_id IS NOT NULL
+			OR normalized.province_id IS NOT NULL
+		)
 		`, fmt.Sprintf(`
-			GROUP BY 2
-			ORDER BY issue_count DESC, report_count DESC, casualty_count DESC, district_name ASC
+			GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+			ORDER BY issue_count DESC, report_count DESC, casualty_count DESC, region_name ASC
 			LIMIT $%d
 		`, limitPlaceholder))
 	args = append(args, limit)
@@ -738,8 +786,14 @@ func (r *statsRepository) queryRegionLeaderboard(ctx context.Context, scope doma
 	for rows.Next() {
 		var item domain.PublicRegionStat
 		if err := rows.Scan(
+			&item.RegionID,
+			&item.RegionLevel,
+			&item.RegionName,
+			&item.ParentRegionName,
 			&item.DistrictID,
 			&item.DistrictName,
+			&item.RegencyName,
+			&item.ProvinceName,
 			&item.IssueCount,
 			&item.CasualtyCount,
 			&item.ReportCount,
@@ -820,6 +874,28 @@ func buildScopeLabel(provinceName, regencyName *string) *string {
 
 	label := strings.Join(parts, ", ")
 	return &label
+}
+
+func buildStatsScope(query domain.PublicStatsQuery, scopeLabel *string, isDefault bool) domain.PublicStatsScope {
+	label := "Semua wilayah publik"
+	kind := "global"
+
+	switch {
+	case query.RegencyID != nil:
+		kind = "regency"
+	case query.ProvinceID != nil:
+		kind = "province"
+	}
+
+	if scopeLabel != nil && strings.TrimSpace(*scopeLabel) != "" {
+		label = strings.TrimSpace(*scopeLabel)
+	}
+
+	return domain.PublicStatsScope{
+		Kind:      kind,
+		Label:     label,
+		IsDefault: isDefault,
+	}
 }
 
 func buildTopIssue(

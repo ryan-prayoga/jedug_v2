@@ -317,17 +317,24 @@
     2. `latest issue_submissions.region_id`
     3. spatial fallback dari `issues.public_location`
   - normalisasi level wilayah mengenali bentuk English + Indonesia (`province/provinsi`, `city/kota`, `regency/kabupaten`, `district/kecamatan`) dan menelusuri ancestor sampai level provinsi walau `base_region_id` issue lama berada di level desa/kelurahan
-  - global stats:
+  - snapshot global (`global`):
     - `total_issues`
     - `total_issues_this_week`
     - `total_casualties`
     - `total_photos`
     - `total_reports`
-  - status stats:
+  - summary scope aktif (`summary`):
+    - memakai scope hasil filter aktif (`province_id` / `regency_id`) atau fallback default backend bila query kosong
+    - field totals sama dengan snapshot global, tetapi **bukan** campuran global-vs-scoped lagi
+  - scope metadata:
+    - `active_scope.kind`: `global | province | regency`
+    - `active_scope.label`: label manusiawi untuk scope aktif
+    - `active_scope.is_default`: `true` bila scope aktif berasal dari fallback default backend, bukan query eksplisit caller
+  - status stats (`status`) sekarang mengikuti scope aktif yang sama dengan `summary`
     - `open` dihitung sebagai issue unresolved (`open|verified|in_progress`)
     - `fixed`
     - `archived`
-  - time stats:
+  - time stats (`time`) sekarang mengikuti scope aktif yang sama dengan `summary`
     - `average_issue_age_days`
     - `oldest_open_issue_age_days`
     - metadata issue tertua unresolved (`oldest_open_issue_id`, lokasi, first seen) jika ada
@@ -339,9 +346,17 @@
     - jika query filter kosong, backend fallback ke provinsi + kabupaten/kota teratas agar frontend selalu punya default yang masuk akal
     - jika caller hanya mengirim `province_id`, backend mempertahankan scope level provinsi dan tidak lagi memaksa memilih kabupaten/kota pertama
   - region leaderboard:
-    - daftar kecamatan/subdistrict administratif di scope wilayah aktif
+    - daftar wilayah administratif di scope aktif dengan identity stabil berbasis `regions.id`
+    - prioritas grouping: `district_id` -> `regency_id` -> `province_id`
+    - row tanpa identity administratif stabil tidak ikut leaderboard agar tidak tercampur oleh `GROUP BY name`
     - ranking berdasarkan `issue_count`, lalu `report_count`, lalu `casualty_count`
-    - hanya memakai label administratif yang usable (`district_name -> regency_name -> province_name -> raw region name`) dan tidak membuat row pseudo-lokasi generik
+    - payload leaderboard sekarang additive membawa:
+      - `region_id`
+      - `region_level`
+      - `region_name`
+      - `parent_region_name`
+      - `regency_name`
+      - `province_name`
   - top issues:
     - issue dengan laporan terbanyak di scope wilayah aktif
     - issue dengan korban terbanyak di scope wilayah aktif
@@ -351,6 +366,10 @@
 - Semua query stats hanya memakai data publik issue:
   - `is_hidden = false`
   - status `rejected` dan `merged` dikecualikan
+- Current implementation:
+  - `global` tetap tersedia sebagai snapshot seluruh data publik untuk pembanding, tetapi summary cards frontend kini membaca `summary` yang sudah scoped.
+- Known mismatch:
+  - issue yang belum bisa di-resolve ke identity administratif stabil tetap masuk summary/top issue scoped, tetapi sengaja tidak ikut leaderboard agar ranking wilayah tidak misleading.
 - Handler menambah header HTTP cache:
   - `Cache-Control: public, max-age=30, stale-while-revalidate=30`
 

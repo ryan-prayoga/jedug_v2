@@ -25,6 +25,42 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Stats Dashboard Scope Correctness + Stable Region Identity
+
+- Scope:
+  - menghapus campuran global-vs-scoped pada dashboard `/stats` dan mengunci leaderboard ke identity wilayah yang stabil.
+
+### Backend
+
+1. `GET /api/v1/stats` sekarang memisahkan:
+   - `global` sebagai snapshot seluruh issue publik
+   - `summary` sebagai totals untuk scope aktif
+   - `status` + `time` juga mengikuti scope aktif yang sama
+   - `active_scope` sebagai metadata eksplisit (`kind`, `label`, `is_default`)
+2. Query summary kini membaca CTE wilayah yang sama dengan leaderboard/top issue, sehingga semua section scoped memakai boundary data yang konsisten.
+3. Leaderboard wilayah tidak lagi `GROUP BY name`; grouping sekarang memakai fallback identity stabil:
+   - `district_id`
+   - lalu `regency_id`
+   - lalu `province_id`
+4. Row tanpa identity administratif stabil sengaja tidak masuk leaderboard agar ranking tidak misleading.
+5. Payload leaderboard kini additive membawa `region_id`, `region_level`, `region_name`, `parent_region_name`, `regency_name`, dan `province_name`.
+6. Ditambah regression test ringan untuk helper contract scope stats.
+
+### Frontend
+
+7. `/stats` sekarang merender summary cards dari `summary`, bukan `global`.
+8. Copy halaman menegaskan bahwa ringkasan, status, time stats, leaderboard, dan top issue memakai scope aktif yang sama.
+9. Leaderboard keyed dengan `region_id`, bukan `district_name`, dan menampilkan konteks parent administratif agar nama wilayah yang sama tidak terlihat ambigu.
+
+### Docs
+
+10. Diperbarui:
+   - `docs/BACKEND.md`
+   - `docs/FRONTEND.md`
+   - `design-docs/guide.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-20 - Moderation Correctness Boundary Hardening
 
 - Scope:

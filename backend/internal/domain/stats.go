@@ -19,12 +19,20 @@ type PublicRegionOptions struct {
 // All fields are derived from public-safe issue data only.
 type PublicStats struct {
 	Global      PublicGlobalStats   `json:"global"`
+	Summary     PublicGlobalStats   `json:"summary"`
 	Status      PublicStatusStats   `json:"status"`
 	Time        PublicTimeStats     `json:"time"`
+	ActiveScope PublicStatsScope    `json:"active_scope"`
 	Filters     PublicStatsFilters  `json:"filters"`
 	Regions     []*PublicRegionStat `json:"regions"`
 	TopIssues   []*PublicTopIssue   `json:"top_issues"`
 	GeneratedAt time.Time           `json:"generated_at"`
+}
+
+type PublicStatsScope struct {
+	Kind      string `json:"kind"`
+	Label     string `json:"label"`
+	IsDefault bool   `json:"is_default"`
 }
 
 type PublicGlobalStats struct {
@@ -51,11 +59,17 @@ type PublicTimeStats struct {
 }
 
 type PublicRegionStat struct {
-	DistrictID    *int64 `json:"district_id,omitempty"`
-	DistrictName  string `json:"district_name"`
-	IssueCount    int64  `json:"issue_count"`
-	CasualtyCount int64  `json:"casualty_count"`
-	ReportCount   int64  `json:"report_count"`
+	RegionID         int64   `json:"region_id"`
+	RegionLevel      string  `json:"region_level"`
+	RegionName       string  `json:"region_name"`
+	ParentRegionName *string `json:"parent_region_name,omitempty"`
+	DistrictID       *int64  `json:"district_id,omitempty"`
+	DistrictName     string  `json:"district_name"`
+	RegencyName      *string `json:"regency_name,omitempty"`
+	ProvinceName     *string `json:"province_name,omitempty"`
+	IssueCount       int64   `json:"issue_count"`
+	CasualtyCount    int64   `json:"casualty_count"`
+	ReportCount      int64   `json:"report_count"`
 }
 
 type PublicStatsFilters struct {

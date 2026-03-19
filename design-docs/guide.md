@@ -134,11 +134,14 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Hero section memakai brand red `#E5484D` sebagai accent untuk konteks civic storytelling.
 - Struktur konten tetap konsisten dan mudah di-scan:
   1. Filter wilayah administratif (`provinsi` + `kabupaten/kota`)
-  2. Global stats card grid
+  2. Ringkasan scope aktif (card grid)
   3. Status breakdown card + bar sederhana
   4. Time stats (rata-rata umur issue + issue tertua unresolved)
-  5. Region leaderboard list berbasis kecamatan
+  5. Region leaderboard list berbasis wilayah administratif
   6. Top issue cards
+- User harus bisa membedakan data global vs scoped:
+  - card utama mengikuti scope aktif
+  - jika UI tetap menampilkan pembanding global, labelnya harus eksplisit dan sekunder
 - Default filter harus mencoba memakai lokasi user saat ini.
 - Jika geolocation gagal atau belum tersedia, halaman boleh memakai scope default backend asalkan user tetap bisa mengganti wilayah manual.
 - Filter wilayah harus tetap usable walau lokasi default tidak match persis:
@@ -146,7 +149,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - dropdown kabupaten/kota baru aktif setelah provinsi dipilih
   - tampilkan helper/loading yang jelas saat opsi wilayah sedang diambil
   - sediakan tombol retry ringan `Gunakan lokasi saya`
-- Region leaderboard tidak lagi memakai label pseudo-lokasi seperti `Sekitar Jalan ...`; prioritasnya nama wilayah administratif.
+- Region leaderboard tidak lagi memakai label pseudo-lokasi seperti `Sekitar Jalan ...`; prioritasnya identity wilayah administratif yang stabil, lalu label manusiawi dari wilayah itu.
 - Top issue card harus menampilkan konteks lokasi ringkas `kecamatan, kabupaten/kota, provinsi` bila data tersedia.
 - Top issue wajib menyediakan link cepat ke detail `/issues/{id}`.
 - State wajib:
