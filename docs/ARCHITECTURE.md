@@ -77,18 +77,20 @@ Dependency flow: `handler -> service -> repository/storage`.
 - Satu backend service monolith + satu frontend app.
 - Session admin tidak persisted (memory store).
 - Storage migration strategy sudah mempertimbangkan media local lama.
+- Schema baseline dan migration additive sekarang versioned di repo (`backend/schema/`, `backend/migrations/`).
 
 ## Intended Direction
 
 - Konsolidasi auth admin ke model users/sessions di database.
 - Melengkapi logging lifecycle issue (`issue_status_history`) di service.
 - Menyatukan config deployment (PM2/Nginx) ke repo agar reproducible.
+- Menambahkan migration baru secara additive tanpa mengubah baseline historis secara diam-diam.
 
 ## Known Mismatch
 
 - Schema memiliki tabel akun user (users/oauth/sessions), tetapi alur aktif admin masih env + in-memory session.
 - Nginx/PM2 config runtime tidak disimpan di repo.
-- SQL schema source saat ini berasal dari file eksternal (`/Users/ryanprayoga/Downloads/jedug_schema_v2.sql`), belum menjadi artefak versioned di repo.
+- Sebagian query backend masih defensif terhadap status historis `verified` / `in_progress`, sementara baseline schema issue yang terversion hanya mendefinisikan `open/fixed/archived/rejected/merged`.
 
 ## Read This Next
 

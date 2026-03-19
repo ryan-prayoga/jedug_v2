@@ -16,6 +16,22 @@
 - `internal/storage`: local/R2 driver abstraction
 - `internal/domain`: DTO/domain response model
 - `internal/config`: env loading
+- `schema/`: baseline SQL untuk fresh bootstrap DB
+- `migrations/`: migration additive/idempotent
+- `scripts/bootstrap_db.sh`: apply baseline dan/atau migrations
+- `scripts/verify_schema_governance.sh`: audit schema repo vs DB aktual
+
+## Database Bootstrap dan Governance
+
+- Fresh DB:
+  - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh fresh`
+- Upgrade DB lama:
+  - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh upgrade`
+- Verifikasi governance schema:
+  - `cd backend && DATABASE_URL=... ./scripts/verify_schema_governance.sh`
+- Extension yang diwajibkan oleh schema/code saat ini:
+  - `postgis` untuk `GEOGRAPHY/GEOMETRY`, spatial index, `ST_*`
+  - `pgcrypto` untuk `gen_random_uuid()` yang dipakai insert notifikasi/push/nearby alert
 
 ## Route Penting
 

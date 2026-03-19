@@ -3,7 +3,32 @@
 Dokumen ini disusun dari:
 
 - implementasi query backend (`backend/internal/repository/*.go`)
-- schema SQL v2 yang diberikan di `/Users/ryanprayoga/Downloads/jedug_schema_v2.sql`
+- baseline schema repo `backend/schema/20260320_000000_baseline.sql`
+- migration additive repo `backend/migrations/*.sql`
+
+## Source of Truth di Repo
+
+- Baseline bootstrap penuh:
+  - `backend/schema/20260320_000000_baseline.sql`
+- Migration additive/idempotent:
+  - `backend/migrations/202603140001_create_issue_events.sql`
+  - `backend/migrations/202603140002_create_submission_media.sql`
+  - `backend/migrations/202603140003_create_issue_followers.sql`
+  - `backend/migrations/202603150001_create_notifications.sql`
+  - `backend/migrations/202603160001_create_push_subscriptions.sql`
+  - `backend/migrations/202603160002_create_follower_auth_bindings.sql`
+  - `backend/migrations/202603160003_create_notification_preferences.sql`
+  - `backend/migrations/202603160004_create_nearby_alerts.sql`
+- Helper operasional:
+  - `backend/scripts/bootstrap_db.sh`
+  - `backend/scripts/verify_schema_governance.sh`
+
+## Extensions Wajib
+
+- `postgis`
+  - dipakai untuk `GEOGRAPHY(POINT,4326)`, `GEOMETRY(MULTIPOLYGON,4326)`, GiST index, dan fungsi spatial (`ST_DWithin`, `ST_Covers`, `ST_Distance`, `ST_Area`, `ST_X`, `ST_Y`).
+- `pgcrypto`
+  - dipakai karena code aktif menggunakan `gen_random_uuid()` pada insert `notifications`, `push_subscriptions`, dan nearby alert dispatch path.
 
 ## Prinsip Pembacaan
 
@@ -142,7 +167,7 @@ Dokumen ini disusun dari:
   - index `issue_id` — untuk cleanup cascade.
 - Business meaning: follower anonim bisa melihat daftar update issue tanpa login.
 - Rawan salah paham:
-  - `event_id` merujuk ke `issue_events.id` secara logis, tetapi tidak ada FK constraint karena tipe kolom belum diverifikasi eksplisit.
+  - `event_id` merujuk ke `issue_events.id` secara logis, tetapi sengaja belum diberi FK constraint untuk menjaga rollout schema lama tetap aman.
   - dispatch notifikasi berjalan non-fatal setelah event berhasil diinsert; jika gagal, hanya di-log.
   - browser push tidak menggantikan tabel ini; `notifications` tetap source of truth daftar update in-app.
   - `read_at` dipakai aktif oleh endpoint `PATCH /api/v1/notifications/:id/read?follower_token=...` dan menjadi source of truth unread badge di frontend.
@@ -329,20 +354,34 @@ Dokumen ini disusun dari:
 
 ## Migration SQL di Repo
 
-- Timeline issue events sekarang memiliki migration versioned di repo:
+- Baseline bootstrap penuh sekarang versioned di repo:
+  - `backend/schema/20260320_000000_baseline.sql`
+- Migration additive saat ini:
   - `backend/migrations/202603140001_create_issue_events.sql`
-- Browser push subscription sekarang juga punya migration versioned di repo:
+  - `backend/migrations/202603140002_create_submission_media.sql`
+  - `backend/migrations/202603140003_create_issue_followers.sql`
+  - `backend/migrations/202603150001_create_notifications.sql`
   - `backend/migrations/202603160001_create_push_subscriptions.sql`
-- Nearby alerts sekarang juga punya migration versioned di repo:
+  - `backend/migrations/202603160002_create_follower_auth_bindings.sql`
+  - `backend/migrations/202603160003_create_notification_preferences.sql`
   - `backend/migrations/202603160004_create_nearby_alerts.sql`
 - Index performa yang dipakai timeline:
   - `idx_issue_events_issue_id_created_at (issue_id, created_at DESC, id DESC)`
 
+## Bootstrap dan Verifikasi
+
+- Fresh DB:
+  - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh fresh`
+- Upgrade DB lama:
+  - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh upgrade`
+- Verifikasi schema repo vs DB:
+  - `cd backend && DATABASE_URL=... ./scripts/verify_schema_governance.sh`
+
 ## Known Mismatch dan Verifikasi Manual
 
-- SQL source saat ini file eksternal di luar repo; perlu dipindah ke repo agar versioned.
-- Ditemukan indikasi formatting typo pada SQL `submission_media` (`widthINT/heightINT`) yang perlu diverifikasi terhadap schema DB aktual.
-- Backend mengandalkan kolom `width`/`height`; pastikan schema database nyata memang memiliki nama kolom tersebut.
+- File SQL eksternal historis tidak lagi menjadi source of truth; baseline repo yang baru adalah referensi utama untuk fresh bootstrap.
+- File SQL historis memang memiliki typo formatting `submission_media` (`widthINT/heightINT`); baseline dan migration repo sekarang menormalkan kolom menjadi `width` / `height`.
+- Sebagian query backend masih memeriksa status issue historis `verified` / `in_progress`; baseline repo tidak memperluas enum issue untuk itu dan menganggap keduanya sebagai mismatch code-level yang perlu dibersihkan terpisah.
 
 ## Read This Next
 

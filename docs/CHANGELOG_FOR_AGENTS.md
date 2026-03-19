@@ -25,6 +25,46 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Schema Governance Baseline + Migration Repo
+
+- Scope:
+  - menjadikan schema database reproducible langsung dari repo tanpa bergantung pada file SQL eksternal.
+
+### Backend / DB
+
+1. Menambah baseline penuh `backend/schema/20260320_000000_baseline.sql` yang merepresentasikan schema JEDUG saat ini, termasuk extension `postgis` dan `pgcrypto`.
+2. Membuat folder migration nyata `backend/migrations/` beserta file additive/idempotent untuk:
+   - `issue_events`
+   - `submission_media`
+   - `issue_followers`
+   - `notifications`
+   - `push_subscriptions`
+   - `follower_auth_bindings`
+   - `notification_preferences`
+   - `nearby_alerts`
+3. Menambah helper operasional:
+   - `backend/scripts/bootstrap_db.sh`
+   - `backend/scripts/verify_schema_governance.sh`
+4. Menambah target Makefile:
+   - `make db-bootstrap`
+   - `make db-upgrade`
+   - `make db-verify-schema`
+
+### Docs
+
+5. Menyinkronkan source of truth schema di:
+   - `docs/SCHEMA.md`
+   - `docs/BACKEND.md`
+   - `docs/ARCHITECTURE.md`
+   - `docs/DEPLOYMENT.md`
+   - `docs/DECISIONS.md`
+   - `backend/README.md`
+   - `AGENTS.md`
+6. Mismatch historis yang sengaja dicatat, bukan diubah diam-diam:
+   - file SQL eksternal lama memiliki typo `submission_media.widthINT/heightINT`
+   - sebagian query backend masih defensif terhadap status issue `verified` / `in_progress`, tetapi baseline schema tetap memakai enum issue kanonik yang sudah ada
+   - `notifications.event_id` tetap logical reference ke `issue_events.id` tanpa FK untuk rollout-safe compatibility
+
 ## 2026-03-20 - Hardening Upload Publik dengan Device-Bound Upload Ticket
 
 - Scope:
@@ -949,10 +989,10 @@ Area yang selalu wajib update docs bila berubah:
 
 ## Mismatch yang Teridentifikasi (Perlu Tindak Lanjut)
 
-- SQL schema source masih berada di luar repo (`/Users/ryanprayoga/Downloads/jedug_schema_v2.sql`).
+- schema source of truth sekarang sudah masuk repo, tetapi environment lama tetap perlu diverifikasi apakah sudah selevel dengan baseline + migration chain repo.
 - Konfigurasi PM2/Nginx runtime belum versioned di repo.
 - auth admin runtime masih env + in-memory session, belum memakai tabel user/session schema.
-- indikasi formatting typo pada SQL `submission_media` (`widthINT/heightINT`) perlu verifikasi manual terhadap DB nyata.
+- sebagian query backend masih defensif terhadap status issue historis `verified` / `in_progress`, sementara baseline schema issue repo tetap kanonik.
 
 ## 2026-03-10 - Issue Detail Page Production-Ready
 

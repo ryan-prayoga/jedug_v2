@@ -22,6 +22,8 @@ JEDUG adalah aplikasi civic-tech untuk pelaporan jalan rusak berbasis peta, deng
 ## 3) Struktur Repo Tingkat Tinggi
 
 - `backend/`: API, service domain, repository SQL, middleware, storage local/R2.
+- `backend/schema/`: baseline schema SQL versioned di repo untuk bootstrap DB baru.
+- `backend/migrations/`: migration additive/idempotent untuk upgrade schema.
 - `frontend/`: aplikasi publik + admin (SvelteKit), peta, pelaporan, moderasi UI.
 - `design-docs/`: source of truth desain UI/UX (token, komponen, page guidance).
 - `docs/`: source of truth teknis/arsitektur/operasional/schema/keputusan.
@@ -138,7 +140,7 @@ Aturan tambahan untuk agent berikutnya:
 ### Source of Truth
 
 - Desain/UI: `docs/DESIGN_INDEX.md` + `design-docs/design-system.md`, `design-docs/component-spec.md`, `design-docs/guide.md`
-- Arsitektur/teknis: `docs/ARCHITECTURE.md`, `docs/BACKEND.md`, `docs/FRONTEND.md`, `docs/SCHEMA.md`, `docs/DEPLOYMENT.md`
+- Arsitektur/teknis: `docs/ARCHITECTURE.md`, `docs/BACKEND.md`, `docs/FRONTEND.md`, `docs/SCHEMA.md`, `docs/DEPLOYMENT.md`, `backend/schema/`, `backend/migrations/`
 
 ## 11) When In Doubt
 
