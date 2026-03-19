@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: jedug-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -28,10 +32,39 @@ jobs:
             FRONTEND_PM2="jedug-frontend"
             BACKEND_PORT="5000"
             FRONTEND_PORT="5001"
+            DEPLOY_LOCK_FILE="${PROJECT_DIR}/.deploy.lock"
+            PREVIOUS_REF=""
+            TARGET_REF=""
+            DEPLOY_TOUCHED_RUNTIME="0"
+            ROLLBACK_ATTEMPTED="0"
 
             fail() {
               echo "[DEPLOY][ERROR] $1" >&2
               exit 1
+            }
+
+            load_env_file() {
+              local env_file="$1"
+              if [ -f "$env_file" ]; then
+                set -a
+                # shellcheck disable=SC1090
+                . "$env_file"
+                set +a
+              fi
+            }
+
+            require_command() {
+              local cmd="$1"
+              command -v "$cmd" >/dev/null 2>&1 || fail "Command wajib tidak ditemukan: $cmd"
+            }
+
+            ensure_gas_ready() {
+              if command -v gas >/dev/null 2>&1; then
+                echo "[DEPLOY] gas tersedia: $(command -v gas)"
+                return 0
+              fi
+
+              fail "gas tidak ditemukan di PATH"
             }
 
             ensure_pm2_ready() {
@@ -81,34 +114,145 @@ jobs:
               fi
             }
 
+            http_healthcheck() {
+              local name="$1"
+              local url="$2"
+              local body_file
+              local status_code
+
+              body_file="$(mktemp)"
+              status_code="$(
+                curl \
+                  --silent \
+                  --show-error \
+                  --output "$body_file" \
+                  --write-out '%{http_code}' \
+                  --retry 12 \
+                  --retry-delay 2 \
+                  --retry-connrefused \
+                  --connect-timeout 2 \
+                  --max-time 5 \
+                  "$url"
+              )" || {
+                echo "[DEPLOY][ERROR] HTTP healthcheck ${name} gagal menghubungi ${url}" >&2
+                cat "$body_file" >&2 || true
+                rm -f "$body_file"
+                return 1
+              }
+
+              if [ "$status_code" != "200" ]; then
+                echo "[DEPLOY][ERROR] HTTP healthcheck ${name} gagal (status=${status_code}, url=${url})" >&2
+                cat "$body_file" >&2 || true
+                rm -f "$body_file"
+                return 1
+              fi
+
+              echo "[DEPLOY] HTTP healthcheck ${name} OK (${url})"
+              rm -f "$body_file"
+            }
+
+            verify_runtime() {
+              echo "[DEPLOY] Verifikasi PM2 proses online"
+              check_pm2_online "$BACKEND_PM2"
+              check_pm2_online "$FRONTEND_PM2"
+
+              echo "[DEPLOY] Verifikasi port backend/frontend LISTEN"
+              check_port_listen "$BACKEND_PORT"
+              check_port_listen "$FRONTEND_PORT"
+
+              echo "[DEPLOY] Verifikasi healthcheck HTTP backend/frontend"
+              http_healthcheck "backend" "http://127.0.0.1:${BACKEND_PORT}/api/v1/health" || return 1
+              http_healthcheck "frontend" "http://127.0.0.1:${FRONTEND_PORT}/health" || return 1
+            }
+
+            rollback_or_fail() {
+              local reason="$1"
+
+              if [ "$DEPLOY_TOUCHED_RUNTIME" != "1" ]; then
+                fail "$reason"
+              fi
+
+              if [ "$ROLLBACK_ATTEMPTED" = "1" ]; then
+                fail "${reason}; rollback sebelumnya juga gagal atau sedang berjalan"
+              fi
+
+              ROLLBACK_ATTEMPTED="1"
+
+              echo "[DEPLOY][ROLLBACK] Triggered: ${reason}"
+              echo "[DEPLOY][ROLLBACK] Kembali ke commit sebelumnya: ${PREVIOUS_REF}"
+
+              cd "$PROJECT_DIR" || fail "Rollback gagal: project directory tidak ditemukan"
+              git reset --hard "$PREVIOUS_REF" || fail "Rollback gagal: git reset ke ${PREVIOUS_REF} gagal"
+
+              cd "$BACKEND_DIR" || fail "Rollback gagal: backend directory tidak ditemukan"
+              gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || fail "Rollback gagal: gas build backend gagal"
+
+              cd "$FRONTEND_DIR" || fail "Rollback gagal: frontend directory tidak ditemukan"
+              gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || fail "Rollback gagal: gas build frontend gagal"
+
+              verify_runtime || fail "Rollback gagal: runtime commit sebelumnya tidak healthy"
+              pm2 save || fail "Rollback gagal: pm2 save gagal"
+
+              fail "${reason}; rollback ke ${PREVIOUS_REF} berhasil dijalankan"
+            }
+
+            preflight_backend() {
+              echo "[DEPLOY] Backend preflight env + startup checks"
+              cd "$BACKEND_DIR" || fail "Backend directory tidak ditemukan: $BACKEND_DIR"
+              go run ./cmd/preflight || fail "Backend preflight gagal"
+
+              echo "[DEPLOY] Backend schema governance verification"
+              ./scripts/verify_schema_governance.sh || fail "Schema governance verification gagal"
+            }
+
+            preflight_frontend() {
+              echo "[DEPLOY] Frontend preflight env checks"
+              cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
+              [ -n "${PUBLIC_API_BASE_URL:-}" ] || fail "PUBLIC_API_BASE_URL belum terkonfigurasi untuk frontend"
+            }
+
             echo "[DEPLOY] Masuk ke project directory"
             cd "$PROJECT_DIR" || fail "Project directory tidak ditemukan: $PROJECT_DIR"
 
+            exec 9>"$DEPLOY_LOCK_FILE"
+            flock -n 9 || fail "Deploy lain sedang berjalan di VPS"
+
             echo "[DEPLOY] Pull kode terbaru dari main"
+            PREVIOUS_REF="$(git rev-parse HEAD)" || fail "gagal membaca current commit"
             git fetch --prune origin || fail "git fetch gagal"
+            TARGET_REF="$(git rev-parse origin/main)" || fail "gagal membaca target commit"
             git checkout main || fail "git checkout main gagal"
             git reset --hard origin/main || fail "git reset origin/main gagal"
 
-            echo "[DEPLOY] Pastikan PM2 tersedia di environment CI non-interactive"
+            echo "[DEPLOY] Pastikan runtime tools tersedia di environment CI non-interactive"
             ensure_pm2_ready
+            ensure_gas_ready
+            require_command curl
+            require_command flock
+            require_command git
+            require_command go
+            require_command node
+            require_command psql
+            require_command ss
+
+            load_env_file "${BACKEND_DIR}/.env"
+            load_env_file "${FRONTEND_DIR}/.env"
+
+            preflight_backend
+            preflight_frontend
 
             echo "[DEPLOY] Deploy backend via gas build (non-interactive)"
             cd "$BACKEND_DIR" || fail "Backend directory tidak ditemukan: $BACKEND_DIR"
-            gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || fail "gas build backend gagal"
+            DEPLOY_TOUCHED_RUNTIME="1"
+            gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || rollback_or_fail "gas build backend gagal"
 
             echo "[DEPLOY] Deploy frontend via gas build (non-interactive)"
             cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
-            gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || fail "gas build frontend gagal"
+            gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || rollback_or_fail "gas build frontend gagal"
 
-            echo "[DEPLOY] Verifikasi PM2 proses online"
-            check_pm2_online "$BACKEND_PM2"
-            check_pm2_online "$FRONTEND_PM2"
-
-            echo "[DEPLOY] Verifikasi port backend/frontend LISTEN"
-            check_port_listen "$BACKEND_PORT"
-            check_port_listen "$FRONTEND_PORT"
+            verify_runtime || rollback_or_fail "runtime verification gagal"
 
             echo "[DEPLOY] Simpan process list PM2"
             pm2 save || fail "pm2 save gagal"
 
-            echo "[DEPLOY] Sukses: backend + frontend online dan listening"
+            echo "[DEPLOY] Sukses: backend + frontend healthy di commit ${TARGET_REF}"
