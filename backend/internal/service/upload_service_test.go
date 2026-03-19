@@ -43,7 +43,7 @@ func (*uploadTestReportRepo) SubmitReport(context.Context, repository.SubmitInpu
 	return nil, errors.New("not implemented")
 }
 
-func (*uploadTestReportRepo) FindByClientRequestID(context.Context, uuid.UUID) (*repository.SubmitResult, error) {
+func (*uploadTestReportRepo) FindByClientRequestID(context.Context, uuid.UUID, uuid.UUID) (*repository.SubmitResult, error) {
 	return nil, nil
 }
 

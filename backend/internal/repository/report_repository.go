@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,6 +23,7 @@ const (
 
 var (
 	ErrSubmissionMediaPersistFailed = errors.New("submission media persist failed")
+	ErrReportIdempotencyConflict    = errors.New("report idempotency conflict")
 
 	duplicateStatusPriority = map[string]int{
 		"open":        0,
@@ -46,25 +50,27 @@ type SubmitMediaInput struct {
 }
 
 type SubmitInput struct {
-	ClientRequestID uuid.UUID
-	DeviceID        uuid.UUID
-	ActorFollowerID *uuid.UUID
-	Longitude       float64
-	Latitude        float64
-	GPSAccuracyM    *float64
-	CapturedAt      *time.Time
-	Severity        int
-	HasCasualty     bool
-	CasualtyCount   int
-	Note            *string
-	RoadName        *string
-	Media           []SubmitMediaInput
+	ClientRequestID    uuid.UUID
+	DeviceID           uuid.UUID
+	ActorFollowerID    *uuid.UUID
+	Longitude          float64
+	Latitude           float64
+	GPSAccuracyM       *float64
+	CapturedAt         *time.Time
+	Severity           int
+	HasCasualty        bool
+	CasualtyCount      int
+	Note               *string
+	RoadName           *string
+	RequestFingerprint string
+	Media              []SubmitMediaInput
 }
 
 type SubmitResult struct {
-	IssueID      uuid.UUID
-	SubmissionID uuid.UUID
-	IsNewIssue   bool
+	IssueID            uuid.UUID
+	SubmissionID       uuid.UUID
+	IsNewIssue         bool
+	RequestFingerprint string
 }
 
 type ReportRepositoryConfig struct {
@@ -74,7 +80,7 @@ type ReportRepositoryConfig struct {
 
 type ReportRepository interface {
 	SubmitReport(ctx context.Context, input SubmitInput) (*SubmitResult, error)
-	FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error)
+	FindByClientRequestID(ctx context.Context, deviceID, clientRequestID uuid.UUID) (*SubmitResult, error)
 	HasSubmissionMediaObjectKey(ctx context.Context, objectKey string) (bool, error)
 }
 
@@ -105,6 +111,26 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after Commit
+
+	if err := lockReportSubmissionIdempotency(ctx, tx, input.DeviceID, input.ClientRequestID); err != nil {
+		log.Printf("[REPORT] idempotency_lock_failed device=%s client_request_id=%s error=%v",
+			input.DeviceID, input.ClientRequestID, err)
+		return nil, fmt.Errorf("lock idempotency key: %w", err)
+	}
+	existing, err := findSubmissionByClientRequestID(ctx, tx, input.DeviceID, input.ClientRequestID)
+	if err != nil {
+		log.Printf("[REPORT] idempotency_lookup_failed device=%s client_request_id=%s error=%v",
+			input.DeviceID, input.ClientRequestID, err)
+		return nil, fmt.Errorf("find existing submission in tx: %w", err)
+	}
+	if existing != nil {
+		if existing.RequestFingerprint != "" && existing.RequestFingerprint != input.RequestFingerprint {
+			return nil, ErrReportIdempotencyConflict
+		}
+		log.Printf("[REPORT] idempotent_return_in_tx device=%s client_request_id=%s submission=%s",
+			input.DeviceID, input.ClientRequestID, existing.SubmissionID)
+		return existing, nil
+	}
 
 	regionID, err := resolveBestRegionID(ctx, tx, input.Longitude, input.Latitude)
 	if err != nil {
@@ -147,7 +173,7 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 
 	submissionID := uuid.New()
 	clientRequestID := input.ClientRequestID
-	if err := createSubmission(ctx, tx, submissionID, clientRequestID, issueID, regionID, input); err != nil {
+	if err := createSubmission(ctx, tx, submissionID, clientRequestID, issueID, regionID, isNew, input); err != nil {
 		log.Printf("[REPORT] create_submission_failed device=%s issue=%s submission=%s error=%v",
 			input.DeviceID, issueID, submissionID, err)
 		return nil, fmt.Errorf("create submission: %w", err)
@@ -411,23 +437,39 @@ func createIssue(ctx context.Context, tx pgx.Tx, id uuid.UUID, regionID *int64, 
 	return err
 }
 
-func createSubmission(ctx context.Context, tx pgx.Tx, id, clientReqID, issueID uuid.UUID, regionID *int64, input SubmitInput) error {
+func createSubmission(
+	ctx context.Context,
+	tx pgx.Tx,
+	id, clientReqID, issueID uuid.UUID,
+	regionID *int64,
+	createdIssue bool,
+	input SubmitInput,
+) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO issue_submissions (
 			id, issue_id, client_request_id, device_id, status,
 			location, region_id, gps_accuracy_m, captured_at, reported_at,
-			severity, has_casualty, casualty_count, note, source
+			severity, has_casualty, casualty_count, note, source,
+			request_fingerprint, created_issue
 		) VALUES (
 			$1, $2, $3, $4, 'pending',
 			ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography,
 			$7, $8, $9, NOW(),
-			$10, $11, $12, $13, 'pwa'
+			$10, $11, $12, $13, 'pwa',
+			$14, $15
 		)
 	`, id, issueID, clientReqID, input.DeviceID,
 		input.Longitude, input.Latitude,
 		regionID, input.GPSAccuracyM, input.CapturedAt,
 		input.Severity, input.HasCasualty, incomingCasualtyCount(input), input.Note,
+		input.RequestFingerprint, createdIssue,
 	)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "uq_issue_submissions_device_client_request" {
+			return ErrReportIdempotencyConflict
+		}
+	}
 	return err
 }
 
@@ -563,20 +605,47 @@ func rankDuplicateVerification(status string) int {
 	return 99
 }
 
-func (r *reportRepository) FindByClientRequestID(ctx context.Context, clientRequestID uuid.UUID) (*SubmitResult, error) {
-	var issueID, submissionID uuid.UUID
-	err := r.db.QueryRow(ctx, `
-		SELECT issue_id, id FROM issue_submissions WHERE client_request_id = $1 LIMIT 1
-	`, clientRequestID).Scan(&issueID, &submissionID)
+func (r *reportRepository) FindByClientRequestID(ctx context.Context, deviceID, clientRequestID uuid.UUID) (*SubmitResult, error) {
+	return findSubmissionByClientRequestID(ctx, r.db, deviceID, clientRequestID)
+}
+
+type submissionLookupQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func findSubmissionByClientRequestID(
+	ctx context.Context,
+	q submissionLookupQuerier,
+	deviceID, clientRequestID uuid.UUID,
+) (*SubmitResult, error) {
+	var result SubmitResult
+	err := q.QueryRow(ctx, `
+		SELECT issue_id, id, created_issue, request_fingerprint
+		FROM issue_submissions
+		WHERE device_id = $1 AND client_request_id = $2
+		LIMIT 1
+	`, deviceID, clientRequestID).Scan(
+		&result.IssueID,
+		&result.SubmissionID,
+		&result.IsNewIssue,
+		&result.RequestFingerprint,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &SubmitResult{
-		IssueID:      issueID,
-		SubmissionID: submissionID,
-		IsNewIssue:   false,
-	}, nil
+	return &result, nil
+}
+
+func lockReportSubmissionIdempotency(ctx context.Context, tx pgx.Tx, deviceID, clientRequestID uuid.UUID) error {
+	lockKey := reportSubmissionLockKey(deviceID, clientRequestID)
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockKey)
+	return err
+}
+
+func reportSubmissionLockKey(deviceID, clientRequestID uuid.UUID) int64 {
+	sum := sha256.Sum256([]byte(deviceID.String() + ":" + clientRequestID.String()))
+	return int64(binary.BigEndian.Uint64(sum[:8]))
 }

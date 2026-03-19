@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"log"
 	"strings"
@@ -12,10 +15,12 @@ import (
 )
 
 var (
-	ErrDeviceBanned  = errors.New("device is banned")
-	ErrCooldown      = errors.New("submission cooldown active")
-	ErrLowTrustScore = errors.New("device trust score too low")
-	ErrMediaPersist  = errors.New("failed to persist submission media")
+	ErrDeviceBanned         = errors.New("device is banned")
+	ErrCooldown             = errors.New("submission cooldown active")
+	ErrLowTrustScore        = errors.New("device trust score too low")
+	ErrMediaPersist         = errors.New("failed to persist submission media")
+	ErrInvalidClientRequest = errors.New("invalid client_request_id")
+	ErrIdempotencyConflict  = errors.New("client_request_id already used for a different report payload")
 )
 
 const (
@@ -90,6 +95,34 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	if device == nil {
 		return nil, ErrDeviceNotFound
 	}
+
+	clientRequestID, clientRequestProvided, err := resolveClientRequestID(req.ClientRequestID)
+	if err != nil {
+		return nil, ErrInvalidClientRequest
+	}
+	requestFingerprint, err := buildReportRequestFingerprint(req)
+	if err != nil {
+		return nil, err
+	}
+	if clientRequestProvided {
+		existing, findErr := s.reportRepo.FindByClientRequestID(ctx, device.ID, clientRequestID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if existing != nil {
+			if existing.RequestFingerprint != "" && existing.RequestFingerprint != requestFingerprint {
+				log.Printf("[REPORT] idempotency_conflict device=%s client_request_id=%s", device.ID, clientRequestID)
+				return nil, ErrIdempotencyConflict
+			}
+			log.Printf("[ANTISPAM] idempotent_return device=%s client_request_id=%s", device.ID, clientRequestID)
+			return &SubmitReportResult{
+				IssueID:      existing.IssueID,
+				SubmissionID: existing.SubmissionID,
+				IsNewIssue:   existing.IsNewIssue,
+			}, nil
+		}
+	}
+
 	if device.IsBanned {
 		log.Printf("[ANTISPAM] banned_submit device=%s", device.ID)
 		return nil, ErrDeviceBanned
@@ -101,7 +134,7 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		return nil, ErrLowTrustScore
 	}
 
-	// Cooldown check
+	// Cooldown check only applies to genuinely new submissions.
 	lastSubmit, err := s.deviceRepo.FindLastSubmissionTime(ctx, device.ID)
 	if err != nil {
 		return nil, err
@@ -109,31 +142,6 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	if lastSubmit != nil && time.Since(*lastSubmit) < submitCooldown {
 		log.Printf("[ANTISPAM] cooldown device=%s last_submit=%s", device.ID, lastSubmit.Format(time.RFC3339))
 		return nil, ErrCooldown
-	}
-
-	// Idempotency: resolve or generate client_request_id
-	var clientRequestID uuid.UUID
-	if req.ClientRequestID != nil && *req.ClientRequestID != "" {
-		parsed, parseErr := uuid.Parse(*req.ClientRequestID)
-		if parseErr != nil {
-			return nil, errors.New("invalid client_request_id format")
-		}
-		clientRequestID = parsed
-
-		existing, findErr := s.reportRepo.FindByClientRequestID(ctx, clientRequestID)
-		if findErr != nil {
-			return nil, findErr
-		}
-		if existing != nil {
-			log.Printf("[ANTISPAM] idempotent_return device=%s client_request_id=%s", device.ID, clientRequestID)
-			return &SubmitReportResult{
-				IssueID:      existing.IssueID,
-				SubmissionID: existing.SubmissionID,
-				IsNewIssue:   existing.IsNewIssue,
-			}, nil
-		}
-	} else {
-		clientRequestID = uuid.New()
 	}
 
 	locationInfo := ReportLocationNormalization{
@@ -185,25 +193,29 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	}
 
 	result, err := s.reportRepo.SubmitReport(ctx, repository.SubmitInput{
-		ClientRequestID: clientRequestID,
-		DeviceID:        device.ID,
-		ActorFollowerID: actorFollowerID,
-		Longitude:       req.Longitude,
-		Latitude:        req.Latitude,
-		GPSAccuracyM:    req.GPSAccuracyM,
-		CapturedAt:      req.CapturedAt,
-		Severity:        req.Severity,
-		HasCasualty:     req.HasCasualty,
-		CasualtyCount:   req.CasualtyCount,
-		Note:            req.Note,
-		RoadName:        locationInfo.RoadName,
-		Media:           mediaInputs,
+		ClientRequestID:    clientRequestID,
+		DeviceID:           device.ID,
+		ActorFollowerID:    actorFollowerID,
+		Longitude:          req.Longitude,
+		Latitude:           req.Latitude,
+		GPSAccuracyM:       req.GPSAccuracyM,
+		CapturedAt:         req.CapturedAt,
+		Severity:           req.Severity,
+		HasCasualty:        req.HasCasualty,
+		CasualtyCount:      req.CasualtyCount,
+		Note:               req.Note,
+		RoadName:           locationInfo.RoadName,
+		RequestFingerprint: requestFingerprint,
+		Media:              mediaInputs,
 	})
 	if err != nil {
 		log.Printf("[REPORT] repo_submit_failed device=%s severity=%d error=%v",
 			device.ID, req.Severity, err)
 		if errors.Is(err, repository.ErrSubmissionMediaPersistFailed) {
 			return nil, ErrMediaPersist
+		}
+		if errors.Is(err, repository.ErrReportIdempotencyConflict) {
+			return nil, ErrIdempotencyConflict
 		}
 		return nil, err
 	}
@@ -220,4 +232,75 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func resolveClientRequestID(raw *string) (uuid.UUID, bool, error) {
+	if raw == nil {
+		return uuid.New(), false, nil
+	}
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return uuid.New(), false, nil
+	}
+	parsed, err := uuid.Parse(trimmed)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return parsed, true, nil
+}
+
+type reportRequestFingerprint struct {
+	Latitude      float64                         `json:"latitude"`
+	Longitude     float64                         `json:"longitude"`
+	Severity      int                             `json:"severity"`
+	HasCasualty   bool                            `json:"has_casualty"`
+	CasualtyCount int                             `json:"casualty_count"`
+	Note          string                          `json:"note"`
+	Media         []reportRequestFingerprintMedia `json:"media"`
+}
+
+type reportRequestFingerprintMedia struct {
+	MimeType  string  `json:"mime_type"`
+	SizeBytes int     `json:"size_bytes"`
+	Width     *int    `json:"width,omitempty"`
+	Height    *int    `json:"height,omitempty"`
+	SHA256    *string `json:"sha256,omitempty"`
+	IsPrimary bool    `json:"is_primary"`
+	SortOrder int     `json:"sort_order"`
+}
+
+func buildReportRequestFingerprint(req SubmitReportRequest) (string, error) {
+	payload := reportRequestFingerprint{
+		Latitude:      req.Latitude,
+		Longitude:     req.Longitude,
+		Severity:      req.Severity,
+		HasCasualty:   req.HasCasualty,
+		CasualtyCount: normalizedCasualtyCount(req.HasCasualty, req.CasualtyCount),
+		Note:          strings.TrimSpace(valueOrEmpty(req.Note)),
+		Media:         make([]reportRequestFingerprintMedia, len(req.Media)),
+	}
+	for i, media := range req.Media {
+		payload.Media[i] = reportRequestFingerprintMedia{
+			MimeType:  media.MimeType,
+			SizeBytes: media.SizeBytes,
+			Width:     media.Width,
+			Height:    media.Height,
+			SHA256:    media.SHA256,
+			IsPrimary: media.IsPrimary,
+			SortOrder: media.SortOrder,
+		}
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func normalizedCasualtyCount(hasCasualty bool, casualtyCount int) int {
+	if !hasCasualty {
+		return 0
+	}
+	return casualtyCount
 }

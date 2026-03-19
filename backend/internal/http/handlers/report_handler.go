@@ -93,6 +93,12 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 		if errors.Is(err, service.ErrDeviceNotFound) {
 			return response.ErrorWithCode(c, fiber.StatusUnauthorized, "DEVICE_NOT_READY", "device not found; bootstrap first")
 		}
+		if errors.Is(err, service.ErrInvalidClientRequest) {
+			return response.ErrorWithCode(c, fiber.StatusBadRequest, "INVALID_PAYLOAD", "client_request_id must be a valid uuid")
+		}
+		if errors.Is(err, service.ErrIdempotencyConflict) {
+			return response.ErrorWithCode(c, fiber.StatusConflict, "IDEMPOTENCY_CONFLICT", "client_request_id sudah dipakai untuk payload laporan yang berbeda")
+		}
 		if errors.Is(err, service.ErrDeviceBanned) {
 			log.Printf("[ANTISPAM] banned_submit ip=%s", c.IP())
 			return response.ErrorWithCode(c, fiber.StatusForbidden, "DEVICE_BANNED", "device is banned")
@@ -146,6 +152,11 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 func validateReportBody(b *submitReportBody) error {
 	if b.AnonToken == "" {
 		return errors.New("anon_token is required")
+	}
+	if b.ClientRequestID != nil && strings.TrimSpace(*b.ClientRequestID) != "" {
+		if _, err := uuid.Parse(strings.TrimSpace(*b.ClientRequestID)); err != nil {
+			return errors.New("client_request_id must be a valid uuid")
+		}
 	}
 	if b.ActorFollowerID != nil && strings.TrimSpace(*b.ActorFollowerID) != "" {
 		if _, err := uuid.Parse(strings.TrimSpace(*b.ActorFollowerID)); err != nil {

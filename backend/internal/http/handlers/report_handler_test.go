@@ -9,6 +9,25 @@ func TestValidateReportBodyInvalidLocation(t *testing.T) {
 		want string
 	}{
 		{
+			name: "invalid client request id",
+			body: submitReportBody{
+				ClientRequestID: ptrString("not-a-uuid"),
+				AnonToken:       "anon",
+				Latitude:        -6.2,
+				Longitude:       106.8,
+				Severity:        3,
+				Media: []reportMediaInput{
+					{
+						ObjectKey:   "issues/test.jpg",
+						MimeType:    "image/jpeg",
+						SizeBytes:   1024,
+						UploadToken: "upload-ticket",
+					},
+				},
+			},
+			want: "client_request_id must be a valid uuid",
+		},
+		{
 			name: "invalid latitude",
 			body: submitReportBody{
 				AnonToken: "anon",
@@ -55,4 +74,8 @@ func TestValidateReportBodyInvalidLocation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ptrString(value string) *string {
+	return &value
 }

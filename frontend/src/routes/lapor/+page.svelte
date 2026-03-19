@@ -220,6 +220,9 @@
 				// Backend returns a nice Indonesian message for this case
 				return e.message || 'Terlalu banyak laporan dikirim. Tunggu beberapa menit lalu coba lagi.';
 			}
+			if (e.status === 409) {
+				return e.message || 'Laporan ini sudah pernah diproses. Muat ulang halaman sebelum membuat laporan baru.';
+			}
 			if (e.status === 403) {
 				return 'Akun tidak diizinkan mengirim laporan saat ini.';
 			}
