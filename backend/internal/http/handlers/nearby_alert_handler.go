@@ -17,21 +17,21 @@ type NearbyAlertHandler struct {
 }
 
 type nearbyAlertCreateBody struct {
-	FollowerToken string   `json:"follower_token"`
-	Label         *string  `json:"label"`
-	Latitude      float64  `json:"latitude"`
-	Longitude     float64  `json:"longitude"`
-	RadiusM       int      `json:"radius_m"`
-	Enabled       *bool    `json:"enabled"`
+	FollowerToken string  `json:"follower_token"`
+	Label         *string `json:"label"`
+	Latitude      float64 `json:"latitude"`
+	Longitude     float64 `json:"longitude"`
+	RadiusM       int     `json:"radius_m"`
+	Enabled       *bool   `json:"enabled"`
 }
 
 type nearbyAlertPatchBody struct {
-	FollowerToken string    `json:"follower_token"`
-	Label         *string   `json:"label"`
-	Latitude      *float64  `json:"latitude"`
-	Longitude     *float64  `json:"longitude"`
-	RadiusM       *int      `json:"radius_m"`
-	Enabled       *bool     `json:"enabled"`
+	FollowerToken string   `json:"follower_token"`
+	Label         *string  `json:"label"`
+	Latitude      *float64 `json:"latitude"`
+	Longitude     *float64 `json:"longitude"`
+	RadiusM       *int     `json:"radius_m"`
+	Enabled       *bool    `json:"enabled"`
 }
 
 type nearbyAlertDeleteBody struct {
@@ -62,7 +62,7 @@ func (h *NearbyAlertHandler) Create(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token"), c.Get("X-Follower-Token")))
+	followerID, err := authenticateFollowerTokenWithBody(c, h.authSvc, body.FollowerToken)
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}
@@ -95,7 +95,7 @@ func (h *NearbyAlertHandler) Patch(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token"), c.Get("X-Follower-Token")))
+	followerID, err := authenticateFollowerTokenWithBody(c, h.authSvc, body.FollowerToken)
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}
@@ -127,7 +127,7 @@ func (h *NearbyAlertHandler) Delete(c *fiber.Ctx) error {
 		}
 	}
 
-	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token"), c.Get("X-Follower-Token")))
+	followerID, err := authenticateFollowerTokenWithBody(c, h.authSvc, body.FollowerToken)
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}

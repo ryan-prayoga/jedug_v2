@@ -1,5 +1,6 @@
 import { apiGet, apiPatch } from "./client";
 import type { ApiResponse } from "./types";
+import { getAnonToken } from "$lib/utils/storage";
 
 export interface NotificationPreferences {
   follower_id: string;
@@ -26,12 +27,21 @@ export interface NotificationPreferencesPatch {
   notify_on_nearby_issue_created?: boolean;
 }
 
+function withFollowerTokenHeader(followerToken: string) {
+  return {
+    deviceToken: getAnonToken() ?? undefined,
+    headers: {
+      "X-Follower-Token": followerToken,
+    },
+  };
+}
+
 export async function getNotificationPreferences(
   followerToken: string,
 ): Promise<ApiResponse<NotificationPreferences>> {
-  const params = new URLSearchParams({ follower_token: followerToken });
   return apiGet<NotificationPreferences>(
-    `/api/v1/notification-preferences?${params}`,
+    "/api/v1/notification-preferences",
+    withFollowerTokenHeader(followerToken),
   );
 }
 
@@ -39,8 +49,9 @@ export async function patchNotificationPreferences(
   followerToken: string,
   patch: NotificationPreferencesPatch,
 ): Promise<ApiResponse<NotificationPreferences>> {
-  return apiPatch<NotificationPreferences>("/api/v1/notification-preferences", {
-    follower_token: followerToken,
-    ...patch,
-  });
+  return apiPatch<NotificationPreferences>(
+    "/api/v1/notification-preferences",
+    patch,
+    withFollowerTokenHeader(followerToken),
+  );
 }

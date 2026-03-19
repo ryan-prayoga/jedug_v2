@@ -29,12 +29,14 @@ var (
 type FollowerAuthService interface {
 	IssueForNotificationAccess(ctx context.Context, followerID uuid.UUID, deviceToken string) (*domain.FollowerAuthToken, error)
 	IssueForFollowMutation(ctx context.Context, issueID, followerID uuid.UUID, deviceToken string) (*domain.FollowerAuthToken, error)
-	Authenticate(ctx context.Context, rawToken string) (uuid.UUID, error)
+	AuthenticateNotificationAccess(ctx context.Context, rawToken, deviceToken string) (uuid.UUID, error)
+	AuthenticateNotificationStream(ctx context.Context, rawToken string) (uuid.UUID, error)
 }
 
 type FollowerAuthServiceConfig struct {
-	Secret []byte
-	TTL    time.Duration
+	Secret    []byte
+	TTL       time.Duration
+	StreamTTL time.Duration
 }
 
 type followerAuthService struct {
@@ -42,15 +44,23 @@ type followerAuthService struct {
 	followRepo repository.IssueFollowRepository
 	secret     []byte
 	ttl        time.Duration
+	streamTTL  time.Duration
 	now        func() time.Time
 }
 
 type followerTokenClaims struct {
-	Version    int    `json:"ver"`
-	FollowerID string `json:"follower_id"`
-	IssuedAt   int64  `json:"iat"`
-	ExpiresAt  int64  `json:"exp"`
+	Version         int    `json:"ver"`
+	FollowerID      string `json:"follower_id"`
+	DeviceTokenHash string `json:"device_token_hash"`
+	Purpose         string `json:"purpose"`
+	IssuedAt        int64  `json:"iat"`
+	ExpiresAt       int64  `json:"exp"`
 }
+
+const (
+	followerTokenPurposeAccess = "notification_access"
+	followerTokenPurposeStream = "notification_stream"
+)
 
 func NewFollowerAuthService(
 	repo repository.FollowerAuthRepository,
@@ -59,7 +69,12 @@ func NewFollowerAuthService(
 ) FollowerAuthService {
 	ttl := cfg.TTL
 	if ttl <= 0 {
-		ttl = 7 * 24 * time.Hour
+		ttl = 12 * time.Hour
+	}
+
+	streamTTL := cfg.StreamTTL
+	if streamTTL <= 0 {
+		streamTTL = 10 * time.Minute
 	}
 
 	return &followerAuthService{
@@ -67,6 +82,7 @@ func NewFollowerAuthService(
 		followRepo: followRepo,
 		secret:     append([]byte(nil), cfg.Secret...),
 		ttl:        ttl,
+		streamTTL:  streamTTL,
 		now:        time.Now,
 	}
 }
@@ -81,7 +97,7 @@ func (s *followerAuthService) IssueForNotificationAccess(ctx context.Context, fo
 		return nil, err
 	}
 
-	return s.signToken(followerID)
+	return s.issueTokenPair(followerID, deviceTokenHash)
 }
 
 func (s *followerAuthService) IssueForFollowMutation(ctx context.Context, issueID, followerID uuid.UUID, deviceToken string) (*domain.FollowerAuthToken, error) {
@@ -94,10 +110,28 @@ func (s *followerAuthService) IssueForFollowMutation(ctx context.Context, issueI
 		return nil, err
 	}
 
-	return s.signToken(followerID)
+	return s.issueTokenPair(followerID, deviceTokenHash)
 }
 
-func (s *followerAuthService) Authenticate(ctx context.Context, rawToken string) (uuid.UUID, error) {
+func (s *followerAuthService) AuthenticateNotificationAccess(ctx context.Context, rawToken, deviceToken string) (uuid.UUID, error) {
+	deviceTokenHash, err := normalizeDeviceToken(deviceToken)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return s.authenticate(ctx, rawToken, followerTokenPurposeAccess, &deviceTokenHash)
+}
+
+func (s *followerAuthService) AuthenticateNotificationStream(ctx context.Context, rawToken string) (uuid.UUID, error) {
+	return s.authenticate(ctx, rawToken, followerTokenPurposeStream, nil)
+}
+
+func (s *followerAuthService) authenticate(
+	ctx context.Context,
+	rawToken string,
+	expectedPurpose string,
+	deviceTokenHash *string,
+) (uuid.UUID, error) {
 	rawToken = strings.TrimSpace(rawToken)
 	if rawToken == "" {
 		return uuid.Nil, ErrFollowerTokenRequired
@@ -132,6 +166,12 @@ func (s *followerAuthService) Authenticate(ctx context.Context, rawToken string)
 	if claims.Version != 1 {
 		return uuid.Nil, ErrFollowerTokenInvalid
 	}
+	if claims.Purpose != expectedPurpose {
+		return uuid.Nil, ErrFollowerTokenInvalid
+	}
+	if claims.DeviceTokenHash == "" {
+		return uuid.Nil, ErrFollowerTokenInvalid
+	}
 
 	followerID, err := uuid.Parse(claims.FollowerID)
 	if err != nil || followerID == uuid.Nil {
@@ -149,6 +189,12 @@ func (s *followerAuthService) Authenticate(ctx context.Context, rawToken string)
 	}
 	if binding == nil {
 		return uuid.Nil, ErrFollowerBindingNotFound
+	}
+	if binding.DeviceTokenHash != claims.DeviceTokenHash {
+		return uuid.Nil, ErrFollowerTokenInvalid
+	}
+	if deviceTokenHash != nil && *deviceTokenHash != claims.DeviceTokenHash {
+		return uuid.Nil, ErrFollowerBindingMismatch
 	}
 
 	return followerID, nil
@@ -195,18 +241,45 @@ func (s *followerAuthService) ensureBinding(
 	return ErrFollowerBindingNotFound
 }
 
-func (s *followerAuthService) signToken(followerID uuid.UUID) (*domain.FollowerAuthToken, error) {
-	now := s.now().UTC()
-	expiresAt := now.Add(s.ttl)
-
-	payload, err := json.Marshal(followerTokenClaims{
-		Version:    1,
-		FollowerID: followerID.String(),
-		IssuedAt:   now.Unix(),
-		ExpiresAt:  expiresAt.Unix(),
-	})
+func (s *followerAuthService) issueTokenPair(followerID uuid.UUID, deviceTokenHash string) (*domain.FollowerAuthToken, error) {
+	accessToken, accessExpiresAt, err := s.signToken(followerID, deviceTokenHash, followerTokenPurposeAccess, s.ttl)
 	if err != nil {
 		return nil, err
+	}
+
+	streamToken, streamExpiresAt, err := s.signToken(followerID, deviceTokenHash, followerTokenPurposeStream, s.streamTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.FollowerAuthToken{
+		FollowerID:      followerID.String(),
+		Token:           accessToken,
+		ExpiresAt:       accessExpiresAt,
+		StreamToken:     streamToken,
+		StreamExpiresAt: &streamExpiresAt,
+	}, nil
+}
+
+func (s *followerAuthService) signToken(
+	followerID uuid.UUID,
+	deviceTokenHash string,
+	purpose string,
+	ttl time.Duration,
+) (string, time.Time, error) {
+	now := s.now().UTC()
+	expiresAt := now.Add(ttl)
+
+	payload, err := json.Marshal(followerTokenClaims{
+		Version:         1,
+		FollowerID:      followerID.String(),
+		DeviceTokenHash: deviceTokenHash,
+		Purpose:         purpose,
+		IssuedAt:        now.Unix(),
+		ExpiresAt:       expiresAt.Unix(),
+	})
+	if err != nil {
+		return "", time.Time{}, err
 	}
 
 	payloadPart := base64.RawURLEncoding.EncodeToString(payload)
@@ -214,11 +287,7 @@ func (s *followerAuthService) signToken(followerID uuid.UUID) (*domain.FollowerA
 	mac.Write([]byte(payloadPart))
 	signaturePart := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 
-	return &domain.FollowerAuthToken{
-		FollowerID: followerID.String(),
-		Token:      payloadPart + "." + signaturePart,
-		ExpiresAt:  expiresAt,
-	}, nil
+	return payloadPart + "." + signaturePart, expiresAt, nil
 }
 
 func normalizeDeviceToken(raw string) (string, error) {

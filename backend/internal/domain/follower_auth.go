@@ -14,7 +14,9 @@ type FollowerAuthBinding struct {
 }
 
 type FollowerAuthToken struct {
-	FollowerID string    `json:"follower_id"`
-	Token      string    `json:"follower_token"`
-	ExpiresAt  time.Time `json:"expires_at"`
+	FollowerID      string     `json:"follower_id"`
+	Token           string     `json:"follower_token"`
+	ExpiresAt       time.Time  `json:"expires_at"`
+	StreamToken     string     `json:"stream_token,omitempty"`
+	StreamExpiresAt *time.Time `json:"stream_expires_at,omitempty"`
 }

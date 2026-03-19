@@ -109,7 +109,8 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - audit menemukan UUID follower bertindak seperti bearer secret dan membuka akses lintas owner untuk list/stream/read/delete/push status/unsubscribe.
 - Konsekuensi:
   - frontend perlu refresh `follower_token` sebelum mengakses notification center atau Web Push.
-  - SSE memakai `follower_token` di query string karena `EventSource` tidak bisa mengirim custom header.
+  - endpoint non-SSE memakai `X-Follower-Token` + `X-Device-Token` agar token bocor tidak bisa dipakai sendiri.
+  - SSE memakai `stream_token` purpose-limited dan TTL pendek di query string karena `EventSource` tidak bisa mengirim custom header.
   - rollout lama tanpa binding mungkin perlu re-bind dari browser asli melalui flow follow yang sama.
 
 ## 2026-03-16 - Nearby Alerts Reuse Follower Identity + Issue-Created Pipeline

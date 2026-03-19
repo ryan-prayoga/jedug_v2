@@ -34,6 +34,7 @@ type Config struct {
 	UploadTicketTTL         time.Duration
 	FollowerTokenSecret     string
 	FollowerTokenTTL        time.Duration
+	FollowerStreamTokenTTL  time.Duration
 	WebPushVAPIDPublicKey   string
 	WebPushVAPIDPrivateKey  string
 	WebPushSubscriber       string
@@ -68,7 +69,8 @@ func Load() *Config {
 		UploadTokenSecret:       strings.TrimSpace(getEnv("UPLOAD_TOKEN_SECRET", "")),
 		UploadTicketTTL:         getEnvPositiveDurationSec("UPLOAD_TICKET_TTL_SEC", 10*60),
 		FollowerTokenSecret:     strings.TrimSpace(mustGetEnv("FOLLOWER_TOKEN_SECRET")),
-		FollowerTokenTTL:        getEnvPositiveDurationSec("FOLLOWER_TOKEN_TTL_SEC", 7*24*60*60),
+		FollowerTokenTTL:        getEnvPositiveDurationSec("FOLLOWER_TOKEN_TTL_SEC", 12*60*60),
+		FollowerStreamTokenTTL:  getEnvPositiveDurationSec("FOLLOWER_STREAM_TOKEN_TTL_SEC", 10*60),
 		WebPushVAPIDPublicKey:   strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PUBLIC_KEY", "")),
 		WebPushVAPIDPrivateKey:  strings.TrimSpace(getEnv("WEB_PUSH_VAPID_PRIVATE_KEY", "")),
 		WebPushSubscriber:       strings.TrimSpace(getEnv("WEB_PUSH_SUBSCRIBER", "")),

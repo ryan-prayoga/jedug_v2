@@ -83,8 +83,9 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueFollowSvc := service.NewIssueFollowService(issueRepo, issueFollowRepo)
 	nearbyAlertSvc := service.NewNearbyAlertService(nearbyAlertRepo)
 	followerAuthSvc := service.NewFollowerAuthService(followerAuthRepo, issueFollowRepo, service.FollowerAuthServiceConfig{
-		Secret: []byte(cfg.FollowerTokenSecret),
-		TTL:    cfg.FollowerTokenTTL,
+		Secret:    []byte(cfg.FollowerTokenSecret),
+		TTL:       cfg.FollowerTokenTTL,
+		StreamTTL: cfg.FollowerStreamTokenTTL,
 	})
 	notifRepo := repository.NewNotificationRepository(db)
 	notifSvc := service.NewNotificationService(notifRepo)

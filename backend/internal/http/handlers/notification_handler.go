@@ -87,12 +87,12 @@ func (h *NotificationHandler) Delete(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/notifications/stream?follower_token=<token>
+// GET /api/v1/notifications/stream?stream_token=<token>
 // Opens a Server-Sent Events stream.  The connection is kept alive via 30-second
 // ping events.  When the client disconnects, the cleanup function removes the
 // subscription from the in-process SSE hub.
 func (h *NotificationHandler) Stream(c *fiber.Ctx) error {
-	followerID, err := authenticateFollowerToken(c, h.authSvc)
+	followerID, err := authenticateFollowerStreamToken(c, h.authSvc)
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}

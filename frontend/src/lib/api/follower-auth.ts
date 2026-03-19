@@ -5,6 +5,8 @@ export interface FollowerAuthResponse {
   follower_id: string;
   follower_token: string;
   expires_at: string;
+  stream_token?: string;
+  stream_expires_at?: string;
 }
 
 export async function issueFollowerAuthToken(

@@ -135,6 +135,8 @@ export interface IssueFollowState {
   followers_count: number;
   follower_token?: string;
   follower_token_expires_at?: string;
+  follower_stream_token?: string;
+  follower_stream_token_expires_at?: string;
 }
 
 export interface NearbyAlertSubscription {

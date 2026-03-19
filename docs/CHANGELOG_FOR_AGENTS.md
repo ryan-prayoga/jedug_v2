@@ -25,6 +25,51 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Notification Auth Transport Hardening
+
+- Scope:
+  - memperkecil blast radius token notif tanpa menambah login/account baru dan tanpa membongkar pipeline notif existing.
+
+### Backend
+
+1. `FollowerAuthService` sekarang menerbitkan dua token:
+   - `follower_token` untuk endpoint notification/push non-SSE
+   - `stream_token` khusus SSE
+2. `follower_token` kini device-bound saat verifikasi:
+   - token claim membawa `device_token_hash`
+   - endpoint non-SSE wajib `X-Follower-Token` + `X-Device-Token`
+   - token bocor tanpa device token yang cocok sekarang ditolak
+3. `stream_token` diberi purpose `notification_stream` dan TTL pendek agar query string SSE tidak membawa token notif umum.
+4. Default TTL notif dipersempit:
+   - `FOLLOWER_TOKEN_TTL_SEC` default `43200` (12 jam)
+   - `FOLLOWER_STREAM_TOKEN_TTL_SEC` default `600` (10 menit)
+5. Handler notification/preferences/push/nearby alerts tetap mempertahankan fallback body/query seperlunya untuk kompatibilitas, tetapi boundary verifikasi final sekarang:
+   - non-SSE: token + device token
+   - SSE: stream token saja
+6. Follow/status response sekarang additive mengembalikan:
+   - `follower_stream_token`
+   - `follower_stream_token_expires_at`
+7. Ditambah regression tests untuk:
+   - akses notif dengan device token yang salah
+   - token purpose mismatch antara non-SSE vs SSE
+
+### Frontend
+
+8. Helper API notif/push/nearby/preference berhenti mengirim token sensitif di query string untuk jalur non-SSE; transport aktif sekarang memakai header `X-Follower-Token` + `X-Device-Token`.
+9. Store auth follower sekarang menyimpan dua cache token:
+   - access token non-SSE
+   - stream token SSE
+10. `notificationsState` sekarang membuka EventSource dengan `stream_token=...`, dan akan refresh stream token secara terpisah saat reconnect.
+
+### Docs
+
+11. Diperbarui:
+   - `docs/BACKEND.md`
+   - `docs/FRONTEND.md`
+   - `docs/DEPLOYMENT.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-20 - Stats Dashboard Scope Correctness + Stable Region Identity
 
 - Scope:
