@@ -1098,6 +1098,26 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - tidak ada mismatch baru yang teridentifikasi dari perubahan ini; kontrak lama tetap dipertahankan dan hanya ditambah field turunan.
 
+## 2026-03-20 - Deploy Hardening: Preflight, HTTP Readiness, dan Rollback Minimum
+
+- Scope:
+  - memperkeras workflow deploy VPS + PM2 + GitHub Actions tanpa mengganti infra dasar.
+  - menambah preflight backend untuk validasi env, DB connectivity, dan init router sebelum runtime disentuh.
+  - menambah readiness HTTP nyata untuk backend dan frontend, plus rollback minimum ke commit sebelumnya bila rollout gagal.
+- Dampak area:
+  - `.github/workflows/deploy.yml`
+  - `backend/cmd/preflight/main.go`
+  - `frontend/src/routes/health/+server.ts`
+  - `docs/DEPLOYMENT.md`
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- File docs yang diupdate:
+  - `docs/DEPLOYMENT.md`
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - rollback masih in-place pada repo kerja yang sama; mixed-version risk turun signifikan, tetapi deploy belum sepenuhnya atomic seperti model release directory/symlink.
+
 ## 2026-03-10 - UX Bugfix Map Mobile + CTA/Homepage Polish
 
 - Scope:

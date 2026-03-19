@@ -5,6 +5,9 @@
 - CI/CD: `.github/workflows/deploy.yml`
 - Trigger: push ke branch `main`
 - Mekanisme: SSH ke VPS, pull latest, deploy backend/frontend via `gas build` non-interactive, lalu verifikasi runtime
+- Concurrency guard:
+  - GitHub Actions concurrency group `jedug-production-deploy`
+  - lock file VPS `${PROJECT_DIR}/.deploy.lock` via `flock`
 
 ## Flow Deploy Aktual
 
@@ -12,30 +15,46 @@ Di workflow saat ini:
 
 1. SSH ke VPS via `appleboy/ssh-action`
 2. `cd /home/ubuntu/projects/jedug_v2`
-3. `git fetch --prune origin`, `git checkout main`, `git reset --hard origin/main`
+3. simpan `PREVIOUS_REF`, lalu `git fetch --prune origin`, `git checkout main`, `git reset --hard origin/main`
 4. pastikan PM2 tersedia di sesi non-interactive:
 
 - jika `pm2` belum ada di PATH, workflow akan install user-local via `npm install -g pm2 --prefix ~/.local`
 
-5. deploy backend dari `/home/ubuntu/projects/jedug_v2/backend`:
+5. jalankan preflight sebelum menyentuh runtime:
+
+- source `backend/.env` dan `frontend/.env` bila file ada
+- validasi tools wajib: `gas`, `pm2`, `curl`, `flock`, `git`, `go`, `node`, `psql`, `ss`
+- backend:
+  - `cd backend && go run ./cmd/preflight`
+  - `cd backend && ./scripts/verify_schema_governance.sh`
+- frontend:
+  - pastikan `PUBLIC_API_BASE_URL` tersedia
+
+6. deploy backend dari `/home/ubuntu/projects/jedug_v2/backend`:
 
 - `gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no`
 
-6. deploy frontend dari `/home/ubuntu/projects/jedug_v2/frontend`:
+7. deploy frontend dari `/home/ubuntu/projects/jedug_v2/frontend`:
 
 - `gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no`
 
-7. verifikasi PM2 status `online` untuk dua proses:
+8. verifikasi PM2 status `online` untuk dua proses:
 
 - `jedug-backend`
 - `jedug-frontend`
 
-8. verifikasi port dalam kondisi LISTEN:
+9. verifikasi port dalam kondisi LISTEN:
 
 - `5000` (backend)
 - `5001` (frontend)
 
-9. `pm2 save`
+10. verifikasi healthcheck HTTP nyata:
+
+- backend: `GET http://127.0.0.1:5000/api/v1/health`
+- frontend: `GET http://127.0.0.1:5001/health`
+
+11. `pm2 save`
+12. jika `gas build` atau runtime verification gagal setelah runtime tersentuh, workflow otomatis rollback ke `PREVIOUS_REF`, rebuild backend+frontend, lalu memverifikasi health lagi
 
 Semua step wajib fail-fast (`set -Eeuo pipefail`) dengan pesan error jelas agar kegagalan terlihat langsung di log GitHub Actions.
 
@@ -63,6 +82,30 @@ Alasan tidak menambah flag strategy/install-deps tambahan pada frontend:
 - kombinasi `--type node-web` + mode non-interactive (`--no-ui --yes`) sudah cukup untuk flow build/start standar app SvelteKit adapter-node saat ini.
 - menghindari coupling ke opsi spesifik yang belum terbukti konsisten lintas versi `gas`.
 - menjaga command tetap minimal, eksplisit, dan stabil.
+
+## Healthcheck Final Yang Dipakai
+
+### Backend
+
+- Endpoint: `GET /api/v1/health`
+- Meaning:
+  - process Fiber benar-benar menerima HTTP request
+  - koneksi DB aktif (`pgxpool.Ping`)
+
+### Frontend
+
+- Endpoint: `GET /health`
+- Meaning:
+  - server SvelteKit adapter-node benar-benar serving HTTP
+  - `PUBLIC_API_BASE_URL` tersedia
+  - frontend bisa menjangkau backend health endpoint yang dikonfigurasi
+
+### Kenapa kombinasi ini dipilih
+
+- `pm2 online` saja tidak cukup karena proses bisa hidup tetapi belum ready.
+- `port LISTEN` saja tidak cukup karena socket bisa bind walau app salah config.
+- HTTP probe backend menangkap failure runtime + DB reachability.
+- HTTP probe frontend menangkap failure runtime + API base mismatch.
 
 ## Nginx
 
@@ -190,14 +233,20 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
 
 Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`. Frontend juga tidak menyimpan secret follower; ia hanya menyimpan `follower_token` hasil `POST /api/v1/followers/auth`.
 
+Workflow deploy sekarang memperlakukan `PUBLIC_API_BASE_URL` sebagai env wajib untuk readiness frontend.
+
 ## Restart / Rollout Checklist
 
 - pastikan DB reachable dari VPS
 - jika deploy ke database baru, jalankan bootstrap schema dari repo sebelum backend start
 - jika deploy ke database existing, jalankan upgrade migrations dari repo sebelum backend start
 - pastikan env backend/frontend up-to-date sebelum restart PM2
+- jalankan preflight backend:
+  - `cd backend && go run ./cmd/preflight`
+  - `cd backend && ./scripts/verify_schema_governance.sh`
 - verifikasi endpoint health setelah deploy:
-  - `GET /api/v1/health`
+  - `GET http://127.0.0.1:5000/api/v1/health`
+  - `GET http://127.0.0.1:5001/health`
 - verifikasi UI publik + admin login setelah build frontend
 - verifikasi browser push:
   - buka JEDUG via origin HTTPS
@@ -207,11 +256,37 @@ Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid
 - verifikasi PM2 status backend/frontend = `online`
 - verifikasi port `5000` dan `5001` = LISTEN
 
+## Minimum Rollback / Recovery Path
+
+Rollback minimum yang sekarang diotomasi workflow:
+
+1. simpan `PREVIOUS_REF` sebelum pindah ke `origin/main`
+2. jika backend/frontend `gas build` gagal atau healthcheck pasca-deploy gagal:
+   - `git reset --hard "$PREVIOUS_REF"`
+   - rerun `gas build` backend
+   - rerun `gas build` frontend
+   - ulangi verifikasi PM2 + port + HTTP health
+   - `pm2 save`
+3. jika rollback juga gagal, workflow fail keras dan butuh intervensi manual di VPS
+
+Recovery manual minimum bila workflow sudah gagal:
+
+1. `cd /home/ubuntu/projects/jedug_v2`
+2. `git log --oneline -n 5`
+3. `git reset --hard <commit-terakhir-yang-stabil>`
+4. `cd backend && gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no`
+5. `cd ../frontend && gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no`
+6. cek:
+   - `curl -fsS http://127.0.0.1:5000/api/v1/health`
+   - `curl -fsS http://127.0.0.1:5001/health`
+7. `pm2 save`
+
 ## Current Implementation
 
 - Deploy single workflow langsung ke VPS.
 - Rollout backend/frontend dilakukan dalam satu job dengan command `gas build` non-interactive.
-- Runtime diverifikasi langsung di server (PM2 + port check) sebelum job dianggap sukses.
+- Runtime diverifikasi langsung di server lewat PM2 status, port LISTEN, dan HTTP healthcheck backend/frontend.
+- Workflow menjalankan preflight env/schema sebelum rollout dan punya rollback minimum ke commit sebelumnya jika rollout gagal di tengah jalan.
 
 ## Intended Direction
 
@@ -224,6 +299,7 @@ Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid
 - dokumentasi deployment infra masih tersebar antara workflow dan konfigurasi server manual.
 - konfigurasi endpoint reverse geocoder production (provider + policy quota) perlu dipastikan sesuai SLA operasional.
 - konfigurasi PM2/Nginx runtime masih belum versioned dalam repo.
+- rollback masih in-place pada working tree yang sama; ini pragmatis untuk VPS saat ini, tetapi belum sekuat release-directory atomic deploy.
 
 ## Read This Next
 

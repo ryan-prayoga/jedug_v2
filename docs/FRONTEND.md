@@ -20,6 +20,7 @@
 - `/issues` peta + list issue publik
 - `/issues/[id]` detail issue
 - `/stats` dashboard statistik agregasi issue publik
+- `/health` readiness route server-side untuk deploy/runtime verification
 - `/api/og/issues/[id]` dynamic Open Graph image generator (PNG 1200x630)
 
 ## Route Admin
