@@ -6,7 +6,17 @@ Backend API JEDUG dibangun dengan Go + Fiber.
 
 ```bash
 cp .env.example .env
+export DATABASE_URL=postgres://...
+make db-bootstrap
 make run
+```
+
+Upgrade database lama ke migration chain repo:
+
+```bash
+export DATABASE_URL=postgres://...
+make db-upgrade
+make db-verify-schema
 ```
 
 ## Dokumentasi Utama

@@ -141,6 +141,20 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - frontend `/lapor` wajib mengirim `anon_token` saat presign dan `upload_token` saat upload/submit.
   - object yang sudah masuk `submission_media` tidak boleh dipakai ulang lintas report.
 
+## 2026-03-20 - Schema Governance Menggunakan Baseline Repo + Migration Additive
+
+- Keputusan:
+  - schema JEDUG dibakukan dalam dua artefak repo:
+    - baseline penuh untuk bootstrap DB baru (`backend/schema/20260320_000000_baseline.sql`)
+    - migration additive/idempotent untuk upgrade DB lama (`backend/migrations/*.sql`)
+  - verifikasi minimum dijalankan lewat script repo (`backend/scripts/verify_schema_governance.sh`).
+- Konteks:
+  - audit menemukan source of truth schema tidak reproducible karena bergantung pada file SQL eksternal dan migration yang hanya tercatat di docs/changelog.
+- Konsekuensi:
+  - fresh deploy dan disaster recovery bisa dilakukan langsung dari repo.
+  - perubahan schema berikutnya harus hadir sebagai migration baru, bukan edit diam-diam pada baseline historis.
+  - mismatch historis seperti query status `verified` / `in_progress` tetap dicatat eksplisit sebagai gap code-vs-schema, bukan diserap diam-diam ke baseline.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.

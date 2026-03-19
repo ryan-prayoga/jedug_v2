@@ -1,4 +1,4 @@
-.PHONY: run build tidy pm2-start pm2-stop pm2-restart pm2-logs
+.PHONY: run build tidy pm2-start pm2-stop pm2-restart pm2-logs db-bootstrap db-upgrade db-verify-schema
 
 APP_NAME=jedug-api
 
@@ -23,3 +23,12 @@ pm2-restart: build
 
 pm2-logs:
 	pm2 logs $(APP_NAME)
+
+db-bootstrap:
+	./scripts/bootstrap_db.sh fresh
+
+db-upgrade:
+	./scripts/bootstrap_db.sh upgrade
+
+db-verify-schema:
+	./scripts/verify_schema_governance.sh

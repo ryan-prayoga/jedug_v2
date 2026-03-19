@@ -174,6 +174,16 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
   - `FOLLOWER_TOKEN_SECRET` (required, minimal 32 karakter random)
   - `FOLLOWER_TOKEN_TTL_SEC` (optional, default `604800`)
 
+### Database bootstrap / upgrade
+
+- Fresh database baru:
+  - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh fresh`
+- Existing database yang mengikuti baseline historis:
+  - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh upgrade`
+- Audit schema setelah apply:
+  - `cd backend && DATABASE_URL=... ./scripts/verify_schema_governance.sh`
+- Script baseline/migration sudah mengelola extension `postgis` dan `pgcrypto`; pastikan role DB punya privilege `CREATE EXTENSION`.
+
 ### Frontend env
 
 - `PUBLIC_API_BASE_URL`
@@ -183,6 +193,8 @@ Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid
 ## Restart / Rollout Checklist
 
 - pastikan DB reachable dari VPS
+- jika deploy ke database baru, jalankan bootstrap schema dari repo sebelum backend start
+- jika deploy ke database existing, jalankan upgrade migrations dari repo sebelum backend start
 - pastikan env backend/frontend up-to-date sebelum restart PM2
 - verifikasi endpoint health setelah deploy:
   - `GET /api/v1/health`
