@@ -13,12 +13,20 @@ import (
 	"jedug_backend/internal/domain"
 )
 
+var ErrModerationTargetNotFound = errors.New("moderation target not found")
+
+type IssueStatusModerationResult struct {
+	PreviousStatus string
+	StatusChanged  bool
+}
+
 type AdminRepository interface {
 	ListIssues(ctx context.Context, limit, offset int, status *string) ([]*domain.AdminIssue, error)
 	FindIssueByID(ctx context.Context, id uuid.UUID) (*domain.AdminIssue, error)
 	FindIssueByIDWithDetail(ctx context.Context, id uuid.UUID) (*domain.AdminIssueDetail, error)
 	UpdateIssueHidden(ctx context.Context, id uuid.UUID, isHidden bool, reason *string) error
-	UpdateIssueStatus(ctx context.Context, id uuid.UUID, status string) error
+	ModerateIssueStatus(ctx context.Context, id uuid.UUID, status string, trustDelta int) (*IssueStatusModerationResult, error)
+	PublishIssueStatusUpdated(ctx context.Context, id uuid.UUID, previousStatus, status string) error
 	BanDevice(ctx context.Context, id uuid.UUID, reason *string) error
 	CreateModerationAction(ctx context.Context, actionType, targetType string, targetID uuid.UUID, adminUsername string, note *string) error
 	GetModerationLog(ctx context.Context, targetType string, targetID uuid.UUID) ([]*domain.ModerationAction, error)
@@ -206,14 +214,25 @@ func (r *adminRepository) FindIssueByIDWithDetail(ctx context.Context, id uuid.U
 }
 
 func (r *adminRepository) UpdateIssueHidden(ctx context.Context, id uuid.UUID, isHidden bool, reason *string) error {
-	_, err := r.db.Exec(ctx, `UPDATE issues SET is_hidden = $1, hidden_reason = $2 WHERE id = $3`, isHidden, reason, id)
-	return err
-}
-
-func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, status string) error {
-	tx, err := r.db.Begin(ctx)
+	tag, err := r.db.Exec(ctx, `UPDATE issues SET is_hidden = $1, hidden_reason = $2 WHERE id = $3`, isHidden, reason, id)
 	if err != nil {
 		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrModerationTargetNotFound
+	}
+	return nil
+}
+
+func (r *adminRepository) ModerateIssueStatus(
+	ctx context.Context,
+	id uuid.UUID,
+	status string,
+	trustDelta int,
+) (*IssueStatusModerationResult, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 
@@ -221,55 +240,79 @@ func (r *adminRepository) UpdateIssueStatus(ctx context.Context, id uuid.UUID, s
 	err = tx.QueryRow(ctx, `SELECT status FROM issues WHERE id = $1 FOR UPDATE`, id).Scan(&previousStatus)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
+			return nil, ErrModerationTargetNotFound
 		}
-		return err
+		return nil, err
 	}
 
-	if _, err := tx.Exec(ctx, `UPDATE issues SET status = $1, updated_at = NOW() WHERE id = $2`, status, id); err != nil {
-		return err
-	}
-
-	var (
-		eventID       int64
-		statusChanged bool
-	)
-
-	if previousStatus != status {
-		statusChanged = true
-		payload, err := json.Marshal(map[string]any{
-			"from_status": previousStatus,
-			"to_status":   status,
-			"source":      "admin",
-		})
-		if err != nil {
-			return err
+	statusChanged := previousStatus != status
+	if statusChanged {
+		if _, err := tx.Exec(ctx, `UPDATE issues SET status = $1, updated_at = NOW() WHERE id = $2`, status, id); err != nil {
+			return nil, err
 		}
-
-		if err := tx.QueryRow(ctx, `
-			INSERT INTO issue_events (issue_id, event_type, event_data)
-			VALUES ($1, 'status_updated', $2::jsonb)
-			RETURNING id
-		`, id, payload).Scan(&eventID); err != nil {
-			return err
+		if trustDelta != 0 {
+			if _, err := tx.Exec(ctx, `
+				UPDATE devices SET trust_score = trust_score + $1
+				WHERE id IN (
+					SELECT DISTINCT device_id FROM issue_submissions WHERE issue_id = $2
+				)
+			`, trustDelta, id); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return &IssueStatusModerationResult{
+		PreviousStatus: previousStatus,
+		StatusChanged:  statusChanged,
+	}, nil
+}
+
+func (r *adminRepository) PublishIssueStatusUpdated(
+	ctx context.Context,
+	id uuid.UUID,
+	previousStatus string,
+	status string,
+) error {
+	payload, err := json.Marshal(map[string]any{
+		"from_status": previousStatus,
+		"to_status":   status,
+		"source":      "admin",
+	})
+	if err != nil {
 		return err
 	}
 
-	if statusChanged {
-		if dispatchErr := DispatchNotificationsForEvent(ctx, r.db, r.pushNotifier, id, eventID, "status_updated", nil); dispatchErr != nil {
-			log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%d error=%v", id, eventID, dispatchErr)
-		}
+	var eventID int64
+	if err := r.db.QueryRow(ctx, `
+		INSERT INTO issue_events (issue_id, event_type, event_data)
+		VALUES ($1, 'status_updated', $2::jsonb)
+		RETURNING id
+	`, id, payload).Scan(&eventID); err != nil {
+		return err
 	}
+
+	if err := DispatchNotificationsForEvent(ctx, r.db, r.pushNotifier, id, eventID, "status_updated", nil); err != nil {
+		log.Printf("[ADMIN] notification_dispatch_error issue=%s event=%d error=%v", id, eventID, err)
+		return err
+	}
+
 	return nil
 }
 
 func (r *adminRepository) BanDevice(ctx context.Context, id uuid.UUID, reason *string) error {
-	_, err := r.db.Exec(ctx, `UPDATE devices SET is_banned = TRUE, ban_reason = $1, trust_score = -100 WHERE id = $2`, reason, id)
-	return err
+	tag, err := r.db.Exec(ctx, `UPDATE devices SET is_banned = TRUE, ban_reason = $1, trust_score = -100 WHERE id = $2`, reason, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrModerationTargetNotFound
+	}
+	return nil
 }
 
 func (r *adminRepository) CreateModerationAction(ctx context.Context, actionType, targetType string, targetID uuid.UUID, adminUsername string, note *string) error {

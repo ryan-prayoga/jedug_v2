@@ -16,8 +16,10 @@ import (
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrModerationTargetNotFound = repository.ErrModerationTargetNotFound
 
 const sessionTTL = 24 * time.Hour
+const moderationAuditTimeout = 5 * time.Second
 
 // AdminSession represents an authenticated admin session.
 type AdminSession struct {
@@ -130,44 +132,76 @@ func (s *adminService) HideIssue(ctx context.Context, id uuid.UUID, username str
 	if err := s.repo.UpdateIssueHidden(ctx, id, true, reason); err != nil {
 		return err
 	}
-	return s.repo.CreateModerationAction(ctx, "hide_issue", "issue", id, username, reason)
+	s.recordModerationAction(ctx, "hide_issue", "issue", id, username, reason)
+	return nil
 }
 
 func (s *adminService) UnhideIssue(ctx context.Context, id uuid.UUID, username string, reason *string) error {
 	if err := s.repo.UpdateIssueHidden(ctx, id, false, nil); err != nil {
 		return err
 	}
-	return s.repo.CreateModerationAction(ctx, "unhide_issue", "issue", id, username, reason)
+	s.recordModerationAction(ctx, "unhide_issue", "issue", id, username, reason)
+	return nil
 }
 
 func (s *adminService) FixIssue(ctx context.Context, id uuid.UUID, username string, reason *string) error {
-	if err := s.repo.UpdateIssueStatus(ctx, id, "fixed"); err != nil {
+	result, err := s.repo.ModerateIssueStatus(ctx, id, "fixed", 1)
+	if err != nil {
 		return err
 	}
-	if err := s.repo.AdjustSubmitterTrustScores(ctx, id, 1); err != nil {
-		log.Printf("[TRUST] fix_adjust_failed issue=%s err=%v", id, err)
+	if result.StatusChanged {
+		s.publishStatusUpdated(ctx, id, result.PreviousStatus, "fixed")
 	}
-	return s.repo.CreateModerationAction(ctx, "mark_fixed", "issue", id, username, reason)
+	s.recordModerationAction(ctx, "mark_fixed", "issue", id, username, reason)
+	return nil
 }
 
 func (s *adminService) RejectIssue(ctx context.Context, id uuid.UUID, username string, reason *string) error {
-	if err := s.repo.UpdateIssueStatus(ctx, id, "rejected"); err != nil {
+	result, err := s.repo.ModerateIssueStatus(ctx, id, "rejected", -2)
+	if err != nil {
 		return err
 	}
-	if err := s.repo.AdjustSubmitterTrustScores(ctx, id, -2); err != nil {
-		log.Printf("[TRUST] reject_adjust_failed issue=%s err=%v", id, err)
+	if result.StatusChanged {
+		s.publishStatusUpdated(ctx, id, result.PreviousStatus, "rejected")
 	}
-	return s.repo.CreateModerationAction(ctx, "reject_issue", "issue", id, username, reason)
+	s.recordModerationAction(ctx, "reject_issue", "issue", id, username, reason)
+	return nil
 }
 
 func (s *adminService) BanDevice(ctx context.Context, id uuid.UUID, username string, reason *string) error {
 	if err := s.repo.BanDevice(ctx, id, reason); err != nil {
 		return err
 	}
-	return s.repo.CreateModerationAction(ctx, "ban_device", "device", id, username, reason)
+	s.recordModerationAction(ctx, "ban_device", "device", id, username, reason)
+	return nil
 }
 
 // GetSessionStore returns the session store for use by the auth middleware.
 func (s *adminService) GetSessionStore() *SessionStore {
 	return s.sessions
+}
+
+func (s *adminService) publishStatusUpdated(ctx context.Context, id uuid.UUID, previousStatus, status string) {
+	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), moderationAuditTimeout)
+	defer cancel()
+
+	if err := s.repo.PublishIssueStatusUpdated(auditCtx, id, previousStatus, status); err != nil {
+		log.Printf("[ADMIN] status_event_failed issue=%s from=%s to=%s err=%v", id, previousStatus, status, err)
+	}
+}
+
+func (s *adminService) recordModerationAction(
+	ctx context.Context,
+	actionType string,
+	targetType string,
+	targetID uuid.UUID,
+	adminUsername string,
+	note *string,
+) {
+	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), moderationAuditTimeout)
+	defer cancel()
+
+	if err := s.repo.CreateModerationAction(auditCtx, actionType, targetType, targetID, adminUsername, note); err != nil {
+		log.Printf("[ADMIN] moderation_log_failed action=%s target_type=%s target_id=%s err=%v", actionType, targetType, targetID, err)
+	}
 }

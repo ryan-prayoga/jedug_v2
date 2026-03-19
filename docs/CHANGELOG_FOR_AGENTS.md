@@ -25,6 +25,30 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Moderation Correctness Boundary Hardening
+
+- Scope:
+  - menutup false success di moderation admin dan memperjelas boundary antara perubahan domain inti vs audit/event.
+
+### Backend
+
+1. `hide/unhide issue` dan `ban device` sekarang mengecek `RowsAffected`; target yang tidak ada dikembalikan sebagai `404` lewat sentinel error yang konsisten.
+2. `fix/reject issue` sekarang memakai satu transaksi domain untuk:
+   - lock issue target
+   - fail eksplisit jika issue tidak ada
+   - update `issues.status`
+   - adjust trust score submitter hanya bila status benar-benar berubah
+3. `status_updated` event tidak lagi diinsert di dalam transaksi utama moderation; event dipublish sesudah commit sebagai best-effort.
+4. `moderation_actions` juga dipindahkan ke post-commit best-effort untuk menghindari `500` palsu setelah action utama sebenarnya sudah committed.
+5. Repeated `fix/reject` pada status yang sama sekarang tidak lagi menggandakan trust adjustment atau `status_updated` event.
+6. Ditambah regression tests untuk:
+   - mapping `404` pada admin handler
+   - audit/event failure yang tidak lagi memblokir success path action utama
+
+### Docs
+
+7. Memperbarui `docs/BACKEND.md` untuk menjelaskan semantics moderation baru: not-found handling, transaksi domain inti, dan audit post-commit.
+
 ## 2026-03-20 - Schema Governance Baseline + Migration Repo
 
 - Scope:
