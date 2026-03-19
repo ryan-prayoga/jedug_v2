@@ -31,7 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_nearby_alert_subscriptions_follower_updated_at
     ON nearby_alert_subscriptions(follower_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_nearby_alert_subscriptions_geog
     ON nearby_alert_subscriptions
-    USING GIST (ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography);
+    USING GIST ((ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography));
 
 DROP TRIGGER IF EXISTS trg_nearby_alert_subscriptions_updated_at ON nearby_alert_subscriptions;
 CREATE TRIGGER trg_nearby_alert_subscriptions_updated_at
