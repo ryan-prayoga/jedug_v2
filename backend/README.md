@@ -6,7 +6,6 @@ Backend API JEDUG dibangun dengan Go + Fiber.
 
 ```bash
 cp .env.example .env
-export DATABASE_URL=postgres://...
 make db-bootstrap
 make run
 ```
@@ -14,10 +13,11 @@ make run
 Upgrade database lama ke migration chain repo:
 
 ```bash
-export DATABASE_URL=postgres://...
 make db-upgrade
 make db-verify-schema
 ```
+
+`make db-bootstrap`, `make db-upgrade`, dan `make db-verify-schema` akan otomatis membaca `backend/.env` bila `DATABASE_URL` belum diexport di shell. `export DATABASE_URL=...` tetap bisa dipakai untuk override sementara.
 
 ## Dokumentasi Utama
 

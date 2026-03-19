@@ -2,8 +2,19 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ENV_FILE="${BACKEND_DIR}/.env"
+
+if [[ -z "${DATABASE_URL:-}" && -f "${ENV_FILE}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "${ENV_FILE}"
+    set +a
+fi
+
 if [[ -z "${DATABASE_URL:-}" ]]; then
-    echo "DATABASE_URL is required" >&2
+    echo "DATABASE_URL is required (export it or set it in backend/.env)" >&2
     exit 1
 fi
 
