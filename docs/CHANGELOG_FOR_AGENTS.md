@@ -64,6 +64,7 @@ Area yang selalu wajib update docs bila berubah:
    - file SQL eksternal lama memiliki typo `submission_media.widthINT/heightINT`
    - sebagian query backend masih defensif terhadap status issue `verified` / `in_progress`, tetapi baseline schema tetap memakai enum issue kanonik yang sudah ada
    - `notifications.event_id` tetap logical reference ke `issue_events.id` tanpa FK untuk rollout-safe compatibility
+7. Script DB helper sekarang juga auto-load `backend/.env` bila `DATABASE_URL` belum diexport di shell, agar `make db-bootstrap` / `make db-upgrade` / `make db-verify-schema` langsung usable di workflow dev biasa.
 
 ## 2026-03-20 - Hardening Upload Publik dengan Device-Bound Upload Ticket
 

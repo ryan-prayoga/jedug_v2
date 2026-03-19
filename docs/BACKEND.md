@@ -29,6 +29,7 @@
   - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh upgrade`
 - Verifikasi governance schema:
   - `cd backend && DATABASE_URL=... ./scripts/verify_schema_governance.sh`
+- Jika `DATABASE_URL` belum ada di shell, kedua script DB di atas akan otomatis mencoba load `backend/.env`.
 - Extension yang diwajibkan oleh schema/code saat ini:
   - `postgis` untuk `GEOGRAPHY/GEOMETRY`, spatial index, `ST_*`
   - `pgcrypto` untuk `gen_random_uuid()` yang dipakai insert notifikasi/push/nearby alert
