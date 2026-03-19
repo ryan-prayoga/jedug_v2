@@ -5,6 +5,7 @@
 	import type {
 		LocationLabelData,
 		PublicStats,
+		PublicStatsRegion,
 		PublicStatsProvinceOption,
 		PublicStatsRegionOption,
 		PublicStatsRegionOptionsData,
@@ -44,9 +45,14 @@
 		return regencyOptions.find((option) => String(option.id) === selectedRegencyID) ?? null;
 	});
 
-	const isEmpty = $derived.by(() => {
+	const isGlobalEmpty = $derived.by(() => {
 		if (!stats) return false;
 		return stats.global.total_issues === 0;
+	});
+
+	const isScopedEmpty = $derived.by(() => {
+		if (!stats) return false;
+		return stats.summary.total_issues === 0;
 	});
 
 	const statusTotal = $derived.by(() => {
@@ -56,7 +62,7 @@
 
 	const activeScopeLabel = $derived.by(() => {
 		const selectedScope = joinLocationParts([selectedRegency?.name, selectedProvince?.name]);
-		return stats?.filters.scope_label || selectedScope || 'Pilih wilayah';
+		return stats?.active_scope.label || stats?.filters.scope_label || selectedScope || 'Semua wilayah publik';
 	});
 
 	onMount(() => {
@@ -388,6 +394,30 @@
 		return `${formatNumber(item.submission_count)} laporan · ${formatNumber(item.casualty_count)} korban · ${formatNumber(item.age_days)} hari`;
 	}
 
+	function getRegionLevelLabel(level: string | null | undefined): string {
+		switch (level) {
+			case 'district':
+				return 'Kecamatan';
+			case 'regency':
+				return 'Kabupaten/Kota';
+			case 'province':
+				return 'Provinsi';
+			default:
+				return 'Wilayah';
+		}
+	}
+
+	function getRegionContext(item: PublicStatsRegion): string {
+		switch (item.region_level) {
+			case 'district':
+				return joinLocationParts([item.regency_name, item.province_name]);
+			case 'regency':
+				return joinLocationParts([item.province_name]);
+			default:
+				return '';
+		}
+	}
+
 	function getGeneratedLabel(statsData: PublicStats | null): string | null {
 		if (!statsData?.generated_at) return null;
 		return formatDate(statsData.generated_at);
@@ -454,7 +484,7 @@
 			<LoadingState message="Memuat statistik publik..." />
 	{:else if pageErrorMessage}
 		<ErrorState message={pageErrorMessage} onretry={() => initPage()} />
-	{:else if stats && isEmpty}
+	{:else if stats && isGlobalEmpty}
 		<EmptyState
 			icon="📊"
 			message="Belum ada statistik publik yang bisa ditampilkan."
@@ -466,7 +496,7 @@
 			<div class="section-head">
 				<div>
 					<h2>Filter Wilayah</h2>
-					<p class="section-copy">Leaderboard dan top issue mengikuti provinsi + kabupaten/kota yang aktif.</p>
+					<p class="section-copy">Ringkasan, status, umur issue, leaderboard, dan top issue mengikuti wilayah aktif yang sama.</p>
 				</div>
 				<span class="scope-pill">{activeScopeLabel}</span>
 			</div>
@@ -534,32 +564,44 @@
 			{#if inlineErrorMessage}
 				<p class="filter-error">{inlineErrorMessage}</p>
 			{/if}
+			{#if isScopedEmpty}
+				<p class="section-empty">Belum ada issue publik di scope ini. Kamu masih bisa ganti wilayah dari filter di atas.</p>
+			{/if}
 		</section>
 
 		<section class="section">
 			<div class="section-head">
-				<h2>Global Stats</h2>
+				<div>
+					<h2>{stats.active_scope.kind === 'global' ? 'Ringkasan Publik' : 'Ringkasan Wilayah Aktif'}</h2>
+					<p class="section-copy">
+						{#if stats.active_scope.kind === 'global'}
+							Semua angka di section ini memakai seluruh issue publik yang tersedia.
+						{:else}
+							Mengikuti {stats.active_scope.label}. Snapshot global tetap {formatNumber(stats.global.total_issues)} issue publik di semua wilayah.
+						{/if}
+					</p>
+				</div>
 			</div>
 			<div class="stats-grid">
 				<article class="stat-card">
 					<span class="stat-label">Total Issue</span>
-					<strong class="stat-value">{formatNumber(stats.global.total_issues)}</strong>
+					<strong class="stat-value">{formatNumber(stats.summary.total_issues)}</strong>
 				</article>
 				<article class="stat-card">
 					<span class="stat-label">Issue Minggu Ini</span>
-					<strong class="stat-value">{formatNumber(stats.global.total_issues_this_week)}</strong>
+					<strong class="stat-value">{formatNumber(stats.summary.total_issues_this_week)}</strong>
 				</article>
 				<article class="stat-card">
 					<span class="stat-label">Total Korban</span>
-					<strong class="stat-value">{formatNumber(stats.global.total_casualties)}</strong>
+					<strong class="stat-value">{formatNumber(stats.summary.total_casualties)}</strong>
 				</article>
 				<article class="stat-card">
 					<span class="stat-label">Total Foto Laporan</span>
-					<strong class="stat-value">{formatNumber(stats.global.total_photos)}</strong>
+					<strong class="stat-value">{formatNumber(stats.summary.total_photos)}</strong>
 				</article>
 				<article class="stat-card">
 					<span class="stat-label">Total Laporan</span>
-					<strong class="stat-value">{formatNumber(stats.global.total_reports)}</strong>
+					<strong class="stat-value">{formatNumber(stats.summary.total_reports)}</strong>
 				</article>
 			</div>
 		</section>
@@ -637,18 +679,23 @@
 			<div class="section-head">
 				<div>
 					<h2>Region Leaderboard</h2>
-					<p class="section-copy">Kecamatan dengan laporan terbanyak di wilayah administratif yang sedang dipilih.</p>
+					<p class="section-copy">Wilayah administratif dengan laporan terbanyak di scope yang sedang dipilih.</p>
 				</div>
 			</div>
 			{#if stats.regions.length === 0}
 				<p class="section-empty">Wilayah administratif belum tersedia untuk scope ini.</p>
 			{:else}
 				<div class="leaderboard-list">
-					{#each stats.regions as region, index (region.district_name)}
+					{#each stats.regions as region, index (region.region_id)}
 						<article class="leaderboard-item">
 							<div class="leaderboard-rank">{index + 1}</div>
 							<div class="leaderboard-body">
-								<h3>{region.district_name}</h3>
+								<h3>{region.region_name}</h3>
+								{#if getRegionContext(region) !== ''}
+									<p class="leaderboard-context">
+										{getRegionLevelLabel(region.region_level)} · {getRegionContext(region)}
+									</p>
+								{/if}
 								<p>
 									{formatNumber(region.issue_count)} issue · {formatNumber(region.report_count)} laporan ·
 									{formatNumber(region.casualty_count)} korban
@@ -1023,6 +1070,10 @@
 		color: #64748B;
 		margin-top: 3px;
 		line-height: 1.5;
+	}
+
+	.leaderboard-context {
+		color: #94A3B8;
 	}
 
 	.top-issue-list {

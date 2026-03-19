@@ -300,10 +300,10 @@
   - manual filter: `province_id`, `regency_id`
 - Struktur section:
   - Filter Wilayah (provinsi + kabupaten/kota)
-  - Global Stats (card grid)
+  - Ringkasan Scope Aktif (card grid)
   - Status Breakdown (card + progress bar)
   - Time Stats (rata-rata umur issue + issue tertua unresolved)
-  - Region Leaderboard administratif (list kecamatan)
+  - Region Leaderboard administratif (list wilayah)
   - Top Issue (card list dengan link ke `/issues/[id]`)
 - State wajib:
   - loading
@@ -321,7 +321,13 @@
   - dropdown provinsi menampilkan loading/error helper yang jelas, bukan kosong tanpa alasan
   - dropdown kabupaten/kota baru aktif setelah provinsi terpilih
   - memilih provinsi tidak lagi memaksa kabupaten/kota pertama; user bisa melihat scope level provinsi atau lanjut memilih kota/kabupaten
-- Region leaderboard tidak lagi memakai label `Sekitar Jalan ...`; frontend merender `regions[].district_name`.
+- Contract stats yang dipakai page:
+  - `global`: snapshot seluruh issue publik untuk pembanding
+  - `summary`: totals yang mengikuti `active_scope`
+  - `status` + `time`: juga mengikuti `active_scope`
+  - `active_scope.kind/label/is_default`: metadata scope yang dipakai seluruh section utama
+- Copy filter dan heading summary kini menegaskan bahwa ringkasan, status, time stats, leaderboard, dan top issue memakai scope aktif yang sama; snapshot global hanya ditampilkan sebagai pembanding kecil saat scope tidak global.
+- Region leaderboard tidak lagi memakai identity/key dari `district_name`; frontend merender `regions[].region_id` + `regions[].region_name`, lalu menampilkan konteks parent administratif (`regency/province`) bila ada.
 - Top issue card sekarang menampilkan:
   - judul issue (`road_name` bila ada)
   - lokasi administratif ringkas dari `district_name`, `regency_name`, `province_name`

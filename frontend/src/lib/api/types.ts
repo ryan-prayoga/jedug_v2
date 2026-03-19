@@ -168,6 +168,12 @@ export interface PublicStatsGlobal {
   total_reports: number;
 }
 
+export interface PublicStatsScope {
+  kind: "global" | "province" | "regency";
+  label: string;
+  is_default: boolean;
+}
+
 export interface PublicStatsStatus {
   open: number;
   fixed: number;
@@ -184,8 +190,14 @@ export interface PublicStatsTime {
 }
 
 export interface PublicStatsRegion {
+  region_id: number;
+  region_level: string;
+  region_name: string;
+  parent_region_name?: string | null;
   district_id?: number | null;
   district_name: string;
+  regency_name?: string | null;
+  province_name?: string | null;
   issue_count: number;
   casualty_count: number;
   report_count: number;
@@ -239,8 +251,10 @@ export interface PublicTopIssue {
 
 export interface PublicStats {
   global: PublicStatsGlobal;
+  summary: PublicStatsGlobal;
   status: PublicStatsStatus;
   time: PublicStatsTime;
+  active_scope: PublicStatsScope;
   filters: PublicStatsFilters;
   regions: PublicStatsRegion[];
   top_issues: PublicTopIssue[];

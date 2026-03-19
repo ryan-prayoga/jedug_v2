@@ -155,6 +155,19 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - perubahan schema berikutnya harus hadir sebagai migration baru, bukan edit diam-diam pada baseline historis.
   - mismatch historis seperti query status `verified` / `in_progress` tetap dicatat eksplisit sebagai gap code-vs-schema, bukan diserap diam-diam ke baseline.
 
+## 2026-03-20 - Stats Dashboard Memisahkan Snapshot Global dari Scope Aktif
+
+- Keputusan:
+  - dashboard `/stats` menyimpan `global` hanya sebagai snapshot pembanding seluruh issue publik.
+  - summary cards utama, status breakdown, time stats, leaderboard wilayah, dan top issue harus mengikuti scope aktif yang sama.
+  - leaderboard wilayah hanya boleh diranking dari identity administratif stabil (`district_id -> regency_id -> province_id`), bukan `GROUP BY` nama wilayah mentah.
+- Konteks:
+  - audit menemukan dashboard publik masih mencampur angka global dengan leaderboard/top issue scoped, serta berisiko menggabungkan wilayah berbeda yang kebetulan bernama sama.
+- Konsekuensi:
+  - contract endpoint stats menjadi lebih eksplisit dengan metadata `active_scope` dan field `summary` yang scoped.
+  - row issue tanpa identity administratif stabil tetap boleh muncul di summary/top issue, tetapi tidak ikut leaderboard agar ranking wilayah tetap trustworthy.
+  - frontend perlu menegaskan label scope aktif dan tidak lagi memakai key leaderboard berbasis nama wilayah.
+
 ## Catatan Governance
 
 - Tambahkan keputusan baru di file ini setiap ada perubahan arsitektur atau kebijakan produk signifikan.
