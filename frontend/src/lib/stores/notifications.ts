@@ -6,7 +6,10 @@ import {
   markNotificationRead,
   type Notification,
 } from "$lib/api/notifications";
-import { ensureFollowerAuthToken } from "$lib/utils/follower-auth";
+import {
+  ensureFollowerAuthToken,
+  ensureFollowerStreamToken,
+} from "$lib/utils/follower-auth";
 import { getOrCreateIssueFollowerId } from "$lib/utils/storage";
 
 interface NotificationState {
@@ -167,17 +170,19 @@ function scheduleReconnect(followerID: string) {
       // best-effort fallback refresh
     }
 
-    const latestToken = await ensureFollowerAuthToken();
-    if (!latestToken) {
+    const latestStreamToken = await ensureFollowerStreamToken({
+      forceRefresh: true,
+    });
+    if (!latestStreamToken) {
       _disconnectSSE();
       return;
     }
 
-    _connectSSE(followerID, latestToken);
+    _connectSSE(followerID, latestStreamToken);
   }, delay);
 }
 
-function _connectSSE(followerID: string, followerToken: string) {
+function _connectSSE(followerID: string, streamToken: string) {
   if (typeof EventSource === "undefined") return;
 
   clearReconnectTimer();
@@ -186,7 +191,7 @@ function _connectSSE(followerID: string, followerToken: string) {
     _es = null;
   }
 
-  const params = new URLSearchParams({ follower_token: followerToken });
+  const params = new URLSearchParams({ stream_token: streamToken });
   const es = new EventSource(
     `${PUBLIC_API_BASE_URL}/api/v1/notifications/stream?${params.toString()}`,
   );
@@ -273,7 +278,14 @@ async function refreshState(
   try {
     await fetchSnapshot(followerID, followerToken, showLoading);
     if (reconnectStream && _realtimeEnabled) {
-      _connectSSE(followerID, followerToken);
+      const streamToken = await ensureFollowerStreamToken({
+        forceRefresh: forceAuthRefresh,
+      });
+      if (streamToken) {
+        _connectSSE(followerID, streamToken);
+      } else {
+        _disconnectSSE();
+      }
     } else if (!_realtimeEnabled) {
       _disconnectSSE();
     }

@@ -71,11 +71,23 @@ func parseFollowerToken(raw string) (string, error) {
 
 func authenticateFollowerToken(c *fiber.Ctx, authSvc service.FollowerAuthService) (uuid.UUID, error) {
 	token, err := parseFollowerToken(firstNonEmpty(
-		c.Query("follower_token"),
 		c.Get("X-Follower-Token"),
+		c.Query("follower_token"),
 	))
 	if err != nil {
 		return uuid.Nil, err
 	}
-	return authSvc.Authenticate(c.Context(), token)
+	return authSvc.AuthenticateNotificationAccess(c.Context(), token, c.Get("X-Device-Token"))
+}
+
+func authenticateFollowerStreamToken(c *fiber.Ctx, authSvc service.FollowerAuthService) (uuid.UUID, error) {
+	token, err := parseFollowerToken(firstNonEmpty(
+		c.Query("stream_token"),
+		c.Get("X-Follower-Stream-Token"),
+		c.Query("follower_token"),
+	))
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return authSvc.AuthenticateNotificationStream(c.Context(), token)
 }

@@ -60,8 +60,9 @@ func TestFollowerAuthServiceIssueAndAuthenticateToken(t *testing.T) {
 	repo := &followerAuthRepoStub{}
 	followRepo := &issueFollowRepoForAuthStub{}
 	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
-		Secret: []byte("01234567890123456789012345678901"),
-		TTL:    time.Hour,
+		Secret:    []byte("01234567890123456789012345678901"),
+		TTL:       time.Hour,
+		StreamTTL: 5 * time.Minute,
 	}).(*followerAuthService)
 
 	followerID := uuid.New()
@@ -73,13 +74,27 @@ func TestFollowerAuthServiceIssueAndAuthenticateToken(t *testing.T) {
 	if token.Token == "" {
 		t.Fatalf("expected non-empty follower token")
 	}
+	if token.StreamToken == "" {
+		t.Fatalf("expected non-empty follower stream token")
+	}
+	if token.StreamExpiresAt == nil {
+		t.Fatalf("expected stream token expiry")
+	}
 
-	authFollowerID, err := svc.Authenticate(context.Background(), token.Token)
+	authFollowerID, err := svc.AuthenticateNotificationAccess(context.Background(), token.Token, "device-token-123")
 	if err != nil {
-		t.Fatalf("Authenticate returned error: %v", err)
+		t.Fatalf("AuthenticateNotificationAccess returned error: %v", err)
 	}
 	if authFollowerID != followerID {
-		t.Fatalf("Authenticate follower mismatch: got %s want %s", authFollowerID, followerID)
+		t.Fatalf("AuthenticateNotificationAccess follower mismatch: got %s want %s", authFollowerID, followerID)
+	}
+
+	streamFollowerID, err := svc.AuthenticateNotificationStream(context.Background(), token.StreamToken)
+	if err != nil {
+		t.Fatalf("AuthenticateNotificationStream returned error: %v", err)
+	}
+	if streamFollowerID != followerID {
+		t.Fatalf("AuthenticateNotificationStream follower mismatch: got %s want %s", streamFollowerID, followerID)
 	}
 }
 
@@ -97,12 +112,55 @@ func TestFollowerAuthServiceRejectsBindingMismatch(t *testing.T) {
 	}
 	followRepo := &issueFollowRepoForAuthStub{}
 	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
-		Secret: []byte("01234567890123456789012345678901"),
-		TTL:    time.Hour,
+		Secret:    []byte("01234567890123456789012345678901"),
+		TTL:       time.Hour,
+		StreamTTL: 5 * time.Minute,
 	})
 
 	_, err := svc.IssueForNotificationAccess(context.Background(), existingFollowerID, "device-token-123")
 	if err != ErrFollowerBindingMismatch {
 		t.Fatalf("expected ErrFollowerBindingMismatch, got %v", err)
+	}
+}
+
+func TestFollowerAuthServiceRejectsNotificationAccessWithoutMatchingDeviceToken(t *testing.T) {
+	repo := &followerAuthRepoStub{}
+	followRepo := &issueFollowRepoForAuthStub{}
+	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
+		Secret:    []byte("01234567890123456789012345678901"),
+		TTL:       time.Hour,
+		StreamTTL: 5 * time.Minute,
+	}).(*followerAuthService)
+
+	token, err := svc.IssueForNotificationAccess(context.Background(), uuid.New(), "device-token-123")
+	if err != nil {
+		t.Fatalf("IssueForNotificationAccess returned error: %v", err)
+	}
+
+	_, err = svc.AuthenticateNotificationAccess(context.Background(), token.Token, "other-device-token")
+	if err != ErrFollowerBindingMismatch {
+		t.Fatalf("expected ErrFollowerBindingMismatch, got %v", err)
+	}
+}
+
+func TestFollowerAuthServiceRejectsWrongTokenPurpose(t *testing.T) {
+	repo := &followerAuthRepoStub{}
+	followRepo := &issueFollowRepoForAuthStub{}
+	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
+		Secret:    []byte("01234567890123456789012345678901"),
+		TTL:       time.Hour,
+		StreamTTL: 5 * time.Minute,
+	}).(*followerAuthService)
+
+	token, err := svc.IssueForNotificationAccess(context.Background(), uuid.New(), "device-token-123")
+	if err != nil {
+		t.Fatalf("IssueForNotificationAccess returned error: %v", err)
+	}
+
+	if _, err := svc.AuthenticateNotificationAccess(context.Background(), token.StreamToken, "device-token-123"); err != ErrFollowerTokenInvalid {
+		t.Fatalf("expected ErrFollowerTokenInvalid for stream token on notification access, got %v", err)
+	}
+	if _, err := svc.AuthenticateNotificationStream(context.Background(), token.Token); err != ErrFollowerTokenInvalid {
+		t.Fatalf("expected ErrFollowerTokenInvalid for access token on stream auth, got %v", err)
 	}
 }

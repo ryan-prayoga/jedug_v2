@@ -4,6 +4,9 @@ const ADMIN_TOKEN_KEY = "jedug_admin_token";
 const ISSUE_FOLLOWER_ID_KEY = "jedug_issue_follower_id";
 const ISSUE_FOLLOWER_TOKEN_KEY = "jedug_issue_follower_token";
 const ISSUE_FOLLOWER_TOKEN_EXP_KEY = "jedug_issue_follower_token_exp";
+const ISSUE_FOLLOWER_STREAM_TOKEN_KEY = "jedug_issue_follower_stream_token";
+const ISSUE_FOLLOWER_STREAM_TOKEN_EXP_KEY =
+  "jedug_issue_follower_stream_token_exp";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -89,6 +92,24 @@ export function getIssueFollowerAuthToken(): string | null {
   return token;
 }
 
+export function getIssueFollowerStreamAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const token = localStorage.getItem(ISSUE_FOLLOWER_STREAM_TOKEN_KEY);
+  const expiresAt = localStorage.getItem(ISSUE_FOLLOWER_STREAM_TOKEN_EXP_KEY);
+  if (!token || !expiresAt) {
+    return null;
+  }
+
+  const expiresAtMs = Date.parse(expiresAt);
+  if (Number.isNaN(expiresAtMs) || expiresAtMs <= Date.now() + 30_000) {
+    clearIssueFollowerStreamAuthToken();
+    return null;
+  }
+
+  return token;
+}
+
 export function setIssueFollowerAuthToken(
   token: string,
   expiresAt: string,
@@ -97,9 +118,23 @@ export function setIssueFollowerAuthToken(
   localStorage.setItem(ISSUE_FOLLOWER_TOKEN_EXP_KEY, expiresAt);
 }
 
+export function setIssueFollowerStreamAuthToken(
+  token: string,
+  expiresAt: string,
+): void {
+  localStorage.setItem(ISSUE_FOLLOWER_STREAM_TOKEN_KEY, token);
+  localStorage.setItem(ISSUE_FOLLOWER_STREAM_TOKEN_EXP_KEY, expiresAt);
+}
+
 export function clearIssueFollowerAuthToken(): void {
   localStorage.removeItem(ISSUE_FOLLOWER_TOKEN_KEY);
   localStorage.removeItem(ISSUE_FOLLOWER_TOKEN_EXP_KEY);
+  clearIssueFollowerStreamAuthToken();
+}
+
+export function clearIssueFollowerStreamAuthToken(): void {
+  localStorage.removeItem(ISSUE_FOLLOWER_STREAM_TOKEN_KEY);
+  localStorage.removeItem(ISSUE_FOLLOWER_STREAM_TOKEN_EXP_KEY);
 }
 
 export function clearIssueFollowerIdentity(): void {

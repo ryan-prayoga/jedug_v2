@@ -39,6 +39,8 @@ func (h *IssueFollowHandler) Follow(c *fiber.Ctx) error {
 	}
 	state.FollowerToken = authToken.Token
 	state.FollowerTokenExpiresAt = &authToken.ExpiresAt
+	state.FollowerStreamToken = authToken.StreamToken
+	state.FollowerStreamTokenExpiresAt = authToken.StreamExpiresAt
 
 	return response.OK(c, state)
 }
@@ -60,6 +62,8 @@ func (h *IssueFollowHandler) Unfollow(c *fiber.Ctx) error {
 	}
 	state.FollowerToken = authToken.Token
 	state.FollowerTokenExpiresAt = &authToken.ExpiresAt
+	state.FollowerStreamToken = authToken.StreamToken
+	state.FollowerStreamTokenExpiresAt = authToken.StreamExpiresAt
 
 	return response.OK(c, state)
 }
@@ -100,6 +104,8 @@ func (h *IssueFollowHandler) Status(c *fiber.Ctx) error {
 	}
 	state.FollowerToken = authToken.Token
 	state.FollowerTokenExpiresAt = &authToken.ExpiresAt
+	state.FollowerStreamToken = authToken.StreamToken
+	state.FollowerStreamTokenExpiresAt = authToken.StreamExpiresAt
 
 	return response.OK(c, state)
 }

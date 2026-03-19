@@ -53,14 +53,14 @@
 - `GET /api/v1/issues/:id/followers/count`
 - `GET /api/v1/issues/:id/follow-status?follower_id=...`
 - `POST /api/v1/followers/auth`
-- `GET /api/v1/nearby-alerts?follower_token=...`
+- `GET /api/v1/nearby-alerts` (`X-Follower-Token` + `X-Device-Token` wajib)
 - `POST /api/v1/nearby-alerts`
 - `PATCH /api/v1/nearby-alerts/:id`
 - `DELETE /api/v1/nearby-alerts/:id`
-- `GET /api/v1/notification-preferences?follower_token=...`
+- `GET /api/v1/notification-preferences` (`X-Follower-Token` + `X-Device-Token` wajib)
 - `PATCH /api/v1/notification-preferences`
 - `POST /api/v1/issues/:id/flag`
-- `GET /api/v1/push/status?follower_token=...`
+- `GET /api/v1/push/status` (`X-Follower-Token` + `X-Device-Token` wajib)
 - `POST /api/v1/push/subscribe`
 - `POST /api/v1/push/unsubscribe`
 - `GET /api/v1/stats/regions/options`
@@ -163,7 +163,7 @@
 - Identity follower memakai `follower_id` UUID dari browser (tanpa login).
 - Hardening tambahan:
   - backend mengikat `follower_id` ke `X-Device-Token` anonim lewat tabel `follower_auth_bindings`
-  - response `follow` / `unfollow` / `follow-status` kini juga dapat mengembalikan `follower_token` bertanda tangan server + `follower_token_expires_at`
+  - response `follow` / `unfollow` / `follow-status` kini juga dapat mengembalikan `follower_token` device-bound untuk endpoint non-SSE, plus `follower_stream_token` khusus SSE
   - endpoint `POST /api/v1/followers/auth` dipakai frontend untuk refresh token notifikasi secara aman tanpa login penuh
 - Endpoint publik additive:
   - `POST /api/v1/issues/:id/follow`
@@ -198,24 +198,28 @@
 - Tabel notifikasi: `notifications` — di-populate otomatis oleh `DispatchNotificationsForEvent` setiap kali event berhasil diinsert.
 - Dispatch function: `repository.DispatchNotificationsForEvent(ctx, db, pushNotifier, issueID, eventID, eventType, excludeFollowerID)` — free function di `notification_repository.go`, dipakai oleh `report_repository` dan `admin_repository`.
 - Endpoint notifikasi in-app publik:
-  - `GET /api/v1/notifications?follower_token=...&limit=50`
-  - `PATCH /api/v1/notifications/:id/read?follower_token=...`
-  - `DELETE /api/v1/notifications/:id?follower_token=...`
-  - `GET /api/v1/notifications/stream?follower_token=...` — **SSE stream** (text/event-stream)
+  - `GET /api/v1/notifications?limit=50` dengan header `X-Follower-Token` + `X-Device-Token`
+  - `PATCH /api/v1/notifications/:id/read` dengan header `X-Follower-Token` + `X-Device-Token`
+  - `DELETE /api/v1/notifications/:id` dengan header `X-Follower-Token` + `X-Device-Token`
+  - `GET /api/v1/notifications/stream?stream_token=...` — **SSE stream** (text/event-stream)
 - Endpoint preferensi notifikasi publik:
-  - `GET /api/v1/notification-preferences?follower_token=...`
+  - `GET /api/v1/notification-preferences` dengan header `X-Follower-Token` + `X-Device-Token`
   - `PATCH /api/v1/notification-preferences`
 - Endpoint nearby alerts publik:
-  - `GET /api/v1/nearby-alerts?follower_token=...`
+  - `GET /api/v1/nearby-alerts` dengan header `X-Follower-Token` + `X-Device-Token`
   - `POST /api/v1/nearby-alerts`
   - `PATCH /api/v1/nearby-alerts/:id`
   - `DELETE /api/v1/nearby-alerts/:id`
 - Endpoint browser push publik:
-  - `GET /api/v1/push/status?follower_token=...`
+  - `GET /api/v1/push/status` dengan header `X-Follower-Token` + `X-Device-Token`
   - `POST /api/v1/push/subscribe`
   - `POST /api/v1/push/unsubscribe`
-- Semua endpoint notifikasi/push sekarang mengekstrak `follower_id` dari `follower_token` bertanda tangan server; ownership tidak lagi bergantung pada UUID mentah dari caller.
-- Endpoint preferensi juga memakai `follower_token` yang sama; backend tidak menerima `follower_id` mentah sebagai bearer secret untuk mengubah settings.
+- `POST /api/v1/followers/auth` kini menerbitkan dua token bertanda tangan server:
+  - `follower_token` untuk endpoint non-SSE, wajib diverifikasi bersama `X-Device-Token`
+  - `stream_token` untuk SSE, purpose-limited dan TTL pendek agar query string tidak membawa token umum
+- Semua endpoint notifikasi/push sekarang mengekstrak `follower_id` dari token bertanda tangan server; ownership tidak lagi bergantung pada UUID mentah dari caller.
+- Endpoint non-SSE menolak token tanpa `X-Device-Token` yang cocok, sehingga token yang bocor tidak cukup dipakai sendiri.
+- Endpoint preferensi juga memakai boundary yang sama; backend tidak menerima `follower_id` mentah sebagai bearer secret untuk mengubah settings.
 - Mark-as-read tetap dikunci di DB oleh pasangan `notification_id + follower_id` dan mengembalikan `read_at` persisten; jika row tidak ditemukan, response `404`.
 - Delete notification tetap dikunci oleh pasangan `notification_id + follower_id`; response `deleted: true|false` dibuat aman/idempotent tanpa membocorkan ownership follower lain.
 - Storage preferensi notifikasi:
@@ -237,7 +241,7 @@
   - dispatcher skip follower yang sama dengan actor (`excludeFollowerID`) agar pengirim update tidak menerima notifikasi untuk event yang ia buat sendiri.
   - behavior ini hanya diterapkan pada event dari flow submit report; event admin tetap broadcast ke seluruh follower.
 - **Nearby Alerts** (`nearby_alert_subscriptions` + `nearby_alert_deliveries`):
-  - memakai identity yang sama dengan notification center: `follower_id` + `follower_token` + device-bound follower auth.
+  - memakai identity yang sama dengan notification center: `follower_id` + token follower device-bound untuk non-SSE + stream token khusus SSE.
   - subscription minimum menyimpan `latitude`, `longitude`, `radius_m`, `label`, `enabled`.
   - guard service:
     - maksimum `10` watched locations per follower/browser
@@ -255,6 +259,7 @@
   - contoh: `Foto baru ditambahkan pada laporan di Jalan ...`.
 - **SSE Hub** (`internal/sse/hub.go`):
   - Singleton `sse.Default` dipakai oleh dispatcher dan endpoint stream.
+  - endpoint stream hanya menerima `stream_token` purpose `notification_stream`; token non-SSE tidak valid di jalur ini.
   - `DispatchNotificationsForEvent` kini memakai `RETURNING` untuk mendapat follower IDs yang baru di-insert, lalu memanggil `sse.Default.Push(followerID, msg)` untuk setiap row.
   - Setiap SSE connection di-buffer (channel 16 slot, non-blocking drop).
   - Koneksi di-cleanup otomatis saat client disconnect (Flush error) via `defer done()`.
@@ -298,6 +303,8 @@
   - `UPLOAD_TOKEN_SECRET` dipakai untuk menandatangani `upload_token`; jika kosong backend fallback ke `FOLLOWER_TOKEN_SECRET`.
   - `UPLOAD_TICKET_TTL_SEC` mengatur TTL upload ticket (default `600` detik).
   - `FOLLOWER_TOKEN_SECRET` wajib ada dan minimal 32 karakter; backend memakai secret ini untuk menandatangani `follower_token`.
+  - `FOLLOWER_TOKEN_TTL_SEC` default sekarang `43200` detik (12 jam) untuk token non-SSE.
+  - `FOLLOWER_STREAM_TOKEN_TTL_SEC` default `600` detik (10 menit) untuk token SSE/query string.
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)
 

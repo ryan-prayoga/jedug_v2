@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"jedug_backend/internal/domain"
 	"jedug_backend/internal/http/response"
 	"jedug_backend/internal/service"
@@ -15,15 +16,15 @@ type NotificationPreferencesHandler struct {
 }
 
 type notificationPreferencesPatchBody struct {
-	FollowerToken            string `json:"follower_token"`
-	NotificationsEnabled     *bool  `json:"notifications_enabled"`
-	InAppEnabled             *bool  `json:"in_app_enabled"`
-	PushEnabled              *bool  `json:"push_enabled"`
-	NotifyOnPhotoAdded       *bool  `json:"notify_on_photo_added"`
-	NotifyOnStatusUpdated    *bool  `json:"notify_on_status_updated"`
-	NotifyOnSeverityChanged  *bool  `json:"notify_on_severity_changed"`
-	NotifyOnCasualtyReported *bool  `json:"notify_on_casualty_reported"`
-	NotifyOnNearbyIssueCreated *bool `json:"notify_on_nearby_issue_created"`
+	FollowerToken              string `json:"follower_token"`
+	NotificationsEnabled       *bool  `json:"notifications_enabled"`
+	InAppEnabled               *bool  `json:"in_app_enabled"`
+	PushEnabled                *bool  `json:"push_enabled"`
+	NotifyOnPhotoAdded         *bool  `json:"notify_on_photo_added"`
+	NotifyOnStatusUpdated      *bool  `json:"notify_on_status_updated"`
+	NotifyOnSeverityChanged    *bool  `json:"notify_on_severity_changed"`
+	NotifyOnCasualtyReported   *bool  `json:"notify_on_casualty_reported"`
+	NotifyOnNearbyIssueCreated *bool  `json:"notify_on_nearby_issue_created"`
 }
 
 func NewNotificationPreferencesHandler(svc service.NotificationPreferencesService, authSvc service.FollowerAuthService) *NotificationPreferencesHandler {
@@ -50,28 +51,19 @@ func (h *NotificationPreferencesHandler) Patch(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	rawToken, err := parseFollowerToken(firstNonEmpty(
-		strings.TrimSpace(body.FollowerToken),
-		c.Query("follower_token"),
-		c.Get("X-Follower-Token"),
-	))
-	if err != nil {
-		return mapFollowerAuthError(c, err)
-	}
-
-	followerID, err := h.authSvc.Authenticate(c.Context(), rawToken)
+	followerID, err := authenticateFollowerTokenWithBody(c, h.authSvc, strings.TrimSpace(body.FollowerToken))
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}
 
 	patch := domain.NotificationPreferencesPatch{
-		NotificationsEnabled:     body.NotificationsEnabled,
-		InAppEnabled:             body.InAppEnabled,
-		PushEnabled:              body.PushEnabled,
-		NotifyOnPhotoAdded:       body.NotifyOnPhotoAdded,
-		NotifyOnStatusUpdated:    body.NotifyOnStatusUpdated,
-		NotifyOnSeverityChanged:  body.NotifyOnSeverityChanged,
-		NotifyOnCasualtyReported: body.NotifyOnCasualtyReported,
+		NotificationsEnabled:       body.NotificationsEnabled,
+		InAppEnabled:               body.InAppEnabled,
+		PushEnabled:                body.PushEnabled,
+		NotifyOnPhotoAdded:         body.NotifyOnPhotoAdded,
+		NotifyOnStatusUpdated:      body.NotifyOnStatusUpdated,
+		NotifyOnSeverityChanged:    body.NotifyOnSeverityChanged,
+		NotifyOnCasualtyReported:   body.NotifyOnCasualtyReported,
 		NotifyOnNearbyIssueCreated: body.NotifyOnNearbyIssueCreated,
 	}
 	if patch.IsEmpty() {
@@ -84,4 +76,16 @@ func (h *NotificationPreferencesHandler) Patch(c *fiber.Ctx) error {
 	}
 
 	return response.OK(c, prefs)
+}
+
+func authenticateFollowerTokenWithBody(c *fiber.Ctx, authSvc service.FollowerAuthService, bodyToken string) (uuid.UUID, error) {
+	token, err := parseFollowerToken(firstNonEmpty(
+		bodyToken,
+		c.Get("X-Follower-Token"),
+		c.Query("follower_token"),
+	))
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return authSvc.AuthenticateNotificationAccess(c.Context(), token, c.Get("X-Device-Token"))
 }

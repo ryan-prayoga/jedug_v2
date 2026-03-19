@@ -149,7 +149,11 @@
 - Response follow/status kini juga bisa membawa:
   - `follower_token`
   - `follower_token_expires_at`
-- Frontend menyimpan `follower_token` di localStorage dan memakainya khusus untuk endpoint notification/push.
+  - `follower_stream_token`
+  - `follower_stream_token_expires_at`
+- Frontend menyimpan dua token di localStorage:
+  - `follower_token` untuk endpoint notification/push non-SSE
+  - `follower_stream_token` khusus koneksi SSE
 - Untuk bugfix kompatibilitas, helper frontend follow sekarang memiliki fallback 404 terarah ke alias backend lama/alternatif:
   - status fallback: `/api/v1/issues/:id/follow/status`
   - count fallback: `/api/v1/issues/:id/count`
@@ -194,16 +198,17 @@
 - Jika `follower_token` belum ada/expired, frontend mencoba refresh lewat `POST /api/v1/followers/auth` memakai `X-Device-Token`.
 - Endpoint yang dipakai:
   - auth refresh: `POST /api/v1/followers/auth`
-  - list: `GET /api/v1/notifications?follower_token=...&limit=50`
-  - mark read: `PATCH /api/v1/notifications/:id/read?follower_token=...`
-  - delete: `DELETE /api/v1/notifications/:id?follower_token=...`
-  - stream realtime: `GET /api/v1/notifications/stream?follower_token=...` (SSE)
-  - preferences get: `GET /api/v1/notification-preferences?follower_token=...`
+  - list: `GET /api/v1/notifications?limit=50` dengan `X-Follower-Token` + `X-Device-Token`
+  - mark read: `PATCH /api/v1/notifications/:id/read` dengan `X-Follower-Token` + `X-Device-Token`
+  - delete: `DELETE /api/v1/notifications/:id` dengan `X-Follower-Token` + `X-Device-Token`
+  - stream realtime: `GET /api/v1/notifications/stream?stream_token=...` (SSE)
+  - preferences get: `GET /api/v1/notification-preferences` dengan `X-Follower-Token` + `X-Device-Token`
   - preferences patch: `PATCH /api/v1/notification-preferences`
-  - nearby alerts list: `GET /api/v1/nearby-alerts?follower_token=...`
+  - nearby alerts list: `GET /api/v1/nearby-alerts` dengan `X-Follower-Token` + `X-Device-Token`
   - nearby alerts create: `POST /api/v1/nearby-alerts`
   - nearby alerts patch: `PATCH /api/v1/nearby-alerts/:id`
   - nearby alerts delete: `DELETE /api/v1/nearby-alerts/:id`
+- Frontend tidak lagi menaruh token notification umum di query string untuk endpoint non-SSE; query string kini dipakai hanya untuk `stream_token` SSE yang TTL-nya pendek.
 - UX behavior:
   - badge menampilkan jumlah item dengan `read_at = null`
   - dropdown panel menampilkan title/message/waktu + action hapus ringan per item
@@ -240,7 +245,7 @@
   - memeriksa capability browser, permission saat ini, status backend, existing subscription bila permission sudah `granted`, serta mode iOS `Home Screen` vs tab browser biasa
 - Endpoint yang dipakai:
   - `POST /api/v1/followers/auth`
-  - `GET /api/v1/push/status?follower_token=...`
+  - `GET /api/v1/push/status` dengan `X-Follower-Token` + `X-Device-Token`
   - `POST /api/v1/push/subscribe`
   - `POST /api/v1/push/unsubscribe`
 - CTA UI:
@@ -263,7 +268,7 @@
     - edit label + radius
     - aktif/nonaktifkan watched location
     - hapus watched location
-  - Nearby Alerts tetap memakai `follower_token` yang sama dengan notifikasi/push sehingga tidak menambah auth flow baru.
+  - Nearby Alerts tetap memakai token notif non-SSE yang sama dengan notifikasi/push ditambah `X-Device-Token`, sehingga tidak menambah auth flow baru.
 - Flow enable:
   1. user klik `Aktifkan notifikasi browser`
   2. browser memanggil `Notification.requestPermission()`

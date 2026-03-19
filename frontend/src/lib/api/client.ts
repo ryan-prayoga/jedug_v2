@@ -31,23 +31,42 @@ function resolveUrl(path: string): string {
   return `${PUBLIC_API_BASE_URL}${path}`;
 }
 
-function getHeaders(token?: string): HeadersInit {
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers["X-Device-Token"] = token;
+interface ApiRequestOptions {
+  deviceToken?: string;
+  headers?: HeadersInit;
+}
+
+function normalizeRequestOptions(
+  options?: string | ApiRequestOptions,
+): ApiRequestOptions {
+  if (typeof options === "string") {
+    return { deviceToken: options };
+  }
+  return options ?? {};
+}
+
+function getHeaders(
+  options?: string | ApiRequestOptions,
+  includeJSON = true,
+): Headers {
+  const resolved = normalizeRequestOptions(options);
+  const headers = new Headers(resolved.headers);
+  if (includeJSON && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (resolved.deviceToken) {
+    headers.set("X-Device-Token", resolved.deviceToken);
   }
   return headers;
 }
 
 export async function apiGet<T>(
   path: string,
-  token?: string,
+  options?: string | ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
   const res = await fetch(resolveUrl(path), {
     method: "GET",
-    headers: getHeaders(token),
+    headers: getHeaders(options),
   });
   return parseResponse<T>(res);
 }
@@ -55,11 +74,11 @@ export async function apiGet<T>(
 export async function apiPost<T>(
   path: string,
   body?: unknown,
-  token?: string,
+  options?: string | ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
   const res = await fetch(resolveUrl(path), {
     method: "POST",
-    headers: getHeaders(token),
+    headers: getHeaders(options),
     body: body ? JSON.stringify(body) : undefined,
   });
   return parseResponse<T>(res);
@@ -68,11 +87,11 @@ export async function apiPost<T>(
 export async function apiDelete<T>(
   path: string,
   body?: unknown,
-  token?: string,
+  options?: string | ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
   const res = await fetch(resolveUrl(path), {
     method: "DELETE",
-    headers: getHeaders(token),
+    headers: getHeaders(options),
     body: body ? JSON.stringify(body) : undefined,
   });
   return parseResponse<T>(res);
@@ -81,11 +100,11 @@ export async function apiDelete<T>(
 export async function apiPatch<T>(
   path: string,
   body?: unknown,
-  token?: string,
+  options?: string | ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
   const res = await fetch(resolveUrl(path), {
     method: "PATCH",
-    headers: getHeaders(token),
+    headers: getHeaders(options),
     body: body ? JSON.stringify(body) : undefined,
   });
   return parseResponse<T>(res);

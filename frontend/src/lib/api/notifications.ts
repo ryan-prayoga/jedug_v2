@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPatch } from "./client";
 import type { ApiResponse } from "./types";
+import { getAnonToken } from "$lib/utils/storage";
 
 export interface Notification {
   id: string;
@@ -24,24 +25,36 @@ export interface NotificationDeleteResult {
   deleted: boolean;
 }
 
+function withFollowerTokenHeader(followerToken: string) {
+  return {
+    deviceToken: getAnonToken() ?? undefined,
+    headers: {
+      "X-Follower-Token": followerToken,
+    },
+  };
+}
+
 export async function getNotifications(
   followerToken: string,
   limit = 50,
 ): Promise<ApiResponse<NotificationList>> {
   const params = new URLSearchParams({
-    follower_token: followerToken,
     limit: String(limit),
   });
-  return apiGet<NotificationList>(`/api/v1/notifications?${params}`);
+  return apiGet<NotificationList>(
+    `/api/v1/notifications?${params}`,
+    withFollowerTokenHeader(followerToken),
+  );
 }
 
 export async function markNotificationRead(
   notificationID: string,
   followerToken: string,
 ): Promise<ApiResponse<NotificationReadResult>> {
-  const params = new URLSearchParams({ follower_token: followerToken });
   return apiPatch<NotificationReadResult>(
-    `/api/v1/notifications/${notificationID}/read?${params}`,
+    `/api/v1/notifications/${notificationID}/read`,
+    undefined,
+    withFollowerTokenHeader(followerToken),
   );
 }
 
@@ -49,8 +62,9 @@ export async function deleteNotification(
   notificationID: string,
   followerToken: string,
 ): Promise<ApiResponse<NotificationDeleteResult>> {
-  const params = new URLSearchParams({ follower_token: followerToken });
   return apiDelete<NotificationDeleteResult>(
-    `/api/v1/notifications/${notificationID}?${params}`,
+    `/api/v1/notifications/${notificationID}`,
+    undefined,
+    withFollowerTokenHeader(followerToken),
   );
 }

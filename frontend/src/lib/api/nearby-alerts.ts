@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 import type { ApiResponse } from "./types";
+import { getAnonToken } from "$lib/utils/storage";
 
 export interface NearbyAlertSubscription {
   id: string;
@@ -29,21 +30,33 @@ export interface NearbyAlertPatch {
   enabled?: boolean;
 }
 
+function withFollowerTokenHeader(followerToken: string) {
+  return {
+    deviceToken: getAnonToken() ?? undefined,
+    headers: {
+      "X-Follower-Token": followerToken,
+    },
+  };
+}
+
 export async function getNearbyAlerts(
   followerToken: string,
 ): Promise<ApiResponse<NearbyAlertSubscription[]>> {
-  const params = new URLSearchParams({ follower_token: followerToken });
-  return apiGet<NearbyAlertSubscription[]>(`/api/v1/nearby-alerts?${params}`);
+  return apiGet<NearbyAlertSubscription[]>(
+    "/api/v1/nearby-alerts",
+    withFollowerTokenHeader(followerToken),
+  );
 }
 
 export async function createNearbyAlert(
   followerToken: string,
   input: NearbyAlertCreateInput,
 ): Promise<ApiResponse<NearbyAlertSubscription>> {
-  return apiPost<NearbyAlertSubscription>("/api/v1/nearby-alerts", {
-    follower_token: followerToken,
-    ...input,
-  });
+  return apiPost<NearbyAlertSubscription>(
+    "/api/v1/nearby-alerts",
+    input,
+    withFollowerTokenHeader(followerToken),
+  );
 }
 
 export async function patchNearbyAlert(
@@ -53,10 +66,8 @@ export async function patchNearbyAlert(
 ): Promise<ApiResponse<NearbyAlertSubscription>> {
   return apiPatch<NearbyAlertSubscription>(
     `/api/v1/nearby-alerts/${encodeURIComponent(id)}`,
-    {
-      follower_token: followerToken,
-      ...patch,
-    },
+    patch,
+    withFollowerTokenHeader(followerToken),
   );
 }
 
@@ -66,8 +77,7 @@ export async function deleteNearbyAlert(
 ): Promise<ApiResponse<{ deleted: boolean }>> {
   return apiDelete<{ deleted: boolean }>(
     `/api/v1/nearby-alerts/${encodeURIComponent(id)}`,
-    {
-      follower_token: followerToken,
-    },
+    undefined,
+    withFollowerTokenHeader(followerToken),
   );
 }

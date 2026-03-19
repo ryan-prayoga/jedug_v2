@@ -55,7 +55,7 @@ func (h *PushHandler) Subscribe(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token")))
+	followerID, err := authenticateFollowerTokenWithBody(c, h.authSvc, body.FollowerToken)
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}
@@ -83,7 +83,7 @@ func (h *PushHandler) Unsubscribe(c *fiber.Ctx) error {
 		}
 	}
 
-	followerID, err := h.authSvc.Authenticate(c.Context(), firstNonEmpty(body.FollowerToken, c.Query("follower_token")))
+	followerID, err := authenticateFollowerTokenWithBody(c, h.authSvc, body.FollowerToken)
 	if err != nil {
 		return mapFollowerAuthError(c, err)
 	}

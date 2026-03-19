@@ -215,7 +215,8 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
   - `WEB_PUSH_TTL_SEC` (optional, default `300`)
 - auth notifikasi follower:
   - `FOLLOWER_TOKEN_SECRET` (required, minimal 32 karakter random)
-  - `FOLLOWER_TOKEN_TTL_SEC` (optional, default `604800`)
+  - `FOLLOWER_TOKEN_TTL_SEC` (optional, default `43200`)
+  - `FOLLOWER_STREAM_TOKEN_TTL_SEC` (optional, default `600`)
 
 ### Database bootstrap / upgrade
 
@@ -231,7 +232,7 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
 
 - `PUBLIC_API_BASE_URL`
 
-Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`. Frontend juga tidak menyimpan secret follower; ia hanya menyimpan `follower_token` hasil `POST /api/v1/followers/auth`.
+Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`. Frontend juga tidak menyimpan secret follower; ia hanya menyimpan `follower_token` non-SSE dan `stream_token` SSE hasil `POST /api/v1/followers/auth`.
 
 Workflow deploy sekarang memperlakukan `PUBLIC_API_BASE_URL` sebagai env wajib untuk readiness frontend.
 
