@@ -103,18 +103,64 @@ jobs:
             }
 
             ensure_pm2_logrotate() {
-              if pm2 module:list | grep -q "pm2-logrotate"; then
-                echo "[DEPLOY] PM2 logrotate sudah terpasang"
-              else
-                echo "[DEPLOY] Install pm2-logrotate untuk retention log runtime"
-                pm2 install pm2-logrotate || fail "install pm2-logrotate gagal"
+              local module_list_output
+              local install_output
+
+              echo "[DEPLOY] Cek pm2-logrotate (best-effort, non-blocking)"
+
+              set +e
+
+              pm2 ping >/dev/null 2>&1
+              if [ "$?" -ne 0 ]; then
+                echo "[DEPLOY][WARN] PM2 daemon belum responsif untuk module command. Lewati setup pm2-logrotate."
+                set -e
+                return 0
               fi
 
-              pm2 set pm2-logrotate:max_size 10M >/dev/null || fail "set pm2-logrotate:max_size gagal"
-              pm2 set pm2-logrotate:retain 7 >/dev/null || fail "set pm2-logrotate:retain gagal"
-              pm2 set pm2-logrotate:compress true >/dev/null || fail "set pm2-logrotate:compress gagal"
-              pm2 set pm2-logrotate:rotateInterval '0 0 * * *' >/dev/null || fail "set pm2-logrotate:rotateInterval gagal"
+              module_list_output="$(pm2 module:list 2>&1)"
+              if [ "$?" -ne 0 ]; then
+                echo "[DEPLOY][WARN] Gagal membaca daftar PM2 module. Lewati setup pm2-logrotate."
+                printf '%s\n' "$module_list_output"
+                set -e
+                return 0
+              fi
 
+              if printf '%s\n' "$module_list_output" | grep -q "pm2-logrotate"; then
+                echo "[DEPLOY] PM2 logrotate sudah terpasang"
+              else
+                echo "[DEPLOY] PM2 logrotate belum terpasang. Mencoba install (best-effort)..."
+                install_output="$(pm2 install pm2-logrotate 2>&1)"
+                if [ "$?" -ne 0 ]; then
+                  echo "[DEPLOY][WARN] Install pm2-logrotate gagal. Deploy utama tetap dilanjutkan tanpa logrotate."
+                  printf '%s\n' "$install_output"
+                  set -e
+                  return 0
+                fi
+                printf '%s\n' "$install_output"
+              fi
+
+              if ! pm2 set pm2-logrotate:max_size 10M >/dev/null 2>&1; then
+                echo "[DEPLOY][WARN] Gagal set pm2-logrotate:max_size. Deploy tetap dilanjutkan."
+                set -e
+                return 0
+              fi
+              if ! pm2 set pm2-logrotate:retain 7 >/dev/null 2>&1; then
+                echo "[DEPLOY][WARN] Gagal set pm2-logrotate:retain. Deploy tetap dilanjutkan."
+                set -e
+                return 0
+              fi
+              if ! pm2 set pm2-logrotate:compress true >/dev/null 2>&1; then
+                echo "[DEPLOY][WARN] Gagal set pm2-logrotate:compress. Deploy tetap dilanjutkan."
+                set -e
+                return 0
+              fi
+              if ! pm2 set pm2-logrotate:rotateInterval '0 0 * * *' >/dev/null 2>&1; then
+                echo "[DEPLOY][WARN] Gagal set pm2-logrotate:rotateInterval. Deploy tetap dilanjutkan."
+                set -e
+                return 0
+              fi
+
+              set -e
               echo "[DEPLOY] PM2 logrotate siap (max_size=10M retain=7 compress=true rotate=daily)"
             }
 
