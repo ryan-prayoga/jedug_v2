@@ -67,6 +67,13 @@ type IssueLocationLike = Pick<
 	| 'longitude'
 >;
 
+const ROAD_TYPE_LABELS: Record<string, string> = {
+	national: 'Jalan nasional',
+	provincial: 'Jalan provinsi',
+	city: 'Jalan kota/kabupaten',
+	village: 'Jalan desa/lingkungan'
+};
+
 export function getSeverityLabel(value: number): string {
 	return SEVERITY_LABELS[value] || `Level ${value}`;
 }
@@ -145,6 +152,28 @@ export function getIssueRegionLabel(issue: IssueLocationLike): string | null {
 		joinLocationParts([issue.district_name, issue.regency_name, issue.province_name]) ||
 		normalizeLocationText(issue.region_name)
 	);
+}
+
+export function getIssueRoadTypeLabel(issue: IssueLocationLike): string | null {
+	const raw = normalizeLocationText(issue.road_type);
+	if (!raw || raw === 'unknown') return null;
+	return ROAD_TYPE_LABELS[raw] || raw;
+}
+
+export function getIssueSecondaryLocationLine(issue: IssueLocationLike): string | null {
+	const roadType = getIssueRoadTypeLabel(issue);
+	const regionLabel = getIssueRegionLabel(issue);
+	const locationLabel = getIssueLocationLabel(issue);
+	const parts: string[] = [];
+
+	if (roadType) {
+		parts.push(roadType);
+	}
+	if (regionLabel && regionLabel !== locationLabel) {
+		parts.push(regionLabel);
+	}
+
+	return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 export function getIssueLocationLabel(issue: IssueLocationLike): string {

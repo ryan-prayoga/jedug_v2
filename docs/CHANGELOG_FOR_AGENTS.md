@@ -1534,6 +1534,26 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - `road_type` masih tetap kosong bila geocoder/schema tidak menyediakan sumber yang tepercaya; patch ini hanya memperbaiki sinkronisasi label lokasi manusiawi, bukan klasifikasi tipe jalan.
 
+## 2026-03-20 - Polish Presentasi Issue Detail
+
+- Scope:
+  - merapikan issue detail agar lokasi lebih manusiawi, koordinat tidak dominan, dan copy waktu/status lebih konsisten tanpa redesign total layout.
+- Dampak area:
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+  - `frontend/src/lib/components/IssueHeader.svelte`
+  - `frontend/src/lib/components/IssueStats.svelte`
+  - `frontend/src/lib/utils/issue-detail.ts`
+  - `frontend/src/lib/utils/date.ts`
+  - `design-docs/guide.md`
+  - `design-docs/component-spec.md`
+- File docs yang diupdate:
+  - `docs/FRONTEND.md`
+  - `design-docs/guide.md`
+  - `design-docs/component-spec.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - `road_type` tetap hanya muncul jika backend punya nilai yang tepercaya; UI sekarang sengaja memilih menyembunyikan field kosong daripada menampilkan placeholder noisy.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

@@ -221,6 +221,14 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - metadata SEO/OG/Twitter canonical disiapkan dari SSR data route
   - OG image memakai generator dinamis `/api/og/issues/{id}` dengan komposisi teks issue + background foto (jika ada) atau gradient brand fallback
 - Desktop issue detail memakai container lebih lebar dari route publik biasa, dengan card action/share di kolom samping agar halaman terasa lebih lega tanpa mengubah flow `/issues` map-first.
+- Hierarki konten issue detail harus menjaga fokus:
+  - judul issue = label lokasi paling manusiawi
+  - hero/meta card = severity/status/verifikasi + konteks wilayah ringkas
+  - `Ringkasan Publik` = identitas lokasi inti, bukan pengulangan koordinat
+  - `Status & Jejak Waktu` = lifecycle publik issue
+  - koordinat mentah cukup tampil sekali sebagai informasi sekunder di kartu lokasi
+- Jika `road_type` kosong atau tidak tepercaya, jangan tampilkan placeholder `Belum tersedia` yang menambah noise.
+- Label waktu yang berdiri sendiri harus konsisten dan terasa polished, misalnya `Baru saja` alih-alih satu label lowercase yang menyolok sendiri.
 - Fallback states wajib:
   - not found
   - error
