@@ -66,7 +66,10 @@ func (n *reportLocationNormalizer) NormalizeForReport(
 		} else if reverse != nil {
 			out.RoadName = nonEmptyPtrFromPtr(reverse.RoadName)
 			if out.RegionName == nil {
-				out.RegionName = nonEmptyPtrFromPtr(reverse.RegionName)
+				out.RegionName = firstAvailableLocationLabel(
+					nonEmptyPtrFromPtr(reverse.RegionName),
+					displayNamePreview(reverse.DisplayName),
+				)
 			}
 			if out.CityName == nil {
 				out.CityName = nonEmptyPtrFromPtr(reverse.CityName)

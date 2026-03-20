@@ -10,15 +10,29 @@ import (
 
 func TestHTTPReverseGeocoderMappingAndCache(t *testing.T) {
 	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
+		if got := r.URL.Query().Get("accept-language"); got != "id" {
+			t.Fatalf("expected accept-language=id query param, got %q", got)
+		}
+		if got := r.Header.Get("Accept-Language"); got != "id" {
+			t.Fatalf("expected Accept-Language=id header, got %q", got)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
+			"display_name": "Jl. MH Thamrin, Menteng, Jakarta Pusat, DKI Jakarta, Indonesia",
+			"category": "highway",
+			"type": "primary",
+			"addresstype": "road",
+			"place_rank": 26,
 			"address": {
 				"road": "Jl. MH Thamrin",
-				"suburb": "Menteng",
+				"neighbourhood": "Menteng",
 				"city": "Jakarta Pusat",
-				"state": "DKI Jakarta"
+				"state": "Special Capital Region of Jakarta",
+				"postcode": "10110",
+				"country": "Indonesia",
+				"country_code": "id"
 			}
 		}`))
 	}))
@@ -45,8 +59,32 @@ func TestHTTPReverseGeocoderMappingAndCache(t *testing.T) {
 	if first.RegencyName == nil || *first.RegencyName != "Jakarta Pusat" {
 		t.Fatalf("unexpected first regency name: %#v", first)
 	}
-	if first.ProvinceName == nil || *first.ProvinceName != "DKI Jakarta" {
+	if first.ProvinceName == nil || *first.ProvinceName != "Daerah Khusus Ibukota Jakarta" {
 		t.Fatalf("unexpected first province name: %#v", first)
+	}
+	if first.DisplayName == nil || *first.DisplayName == "" {
+		t.Fatalf("unexpected display name: %#v", first)
+	}
+	if first.Postcode == nil || *first.Postcode != "10110" {
+		t.Fatalf("unexpected postcode: %#v", first)
+	}
+	if first.CountryName == nil || *first.CountryName != "Indonesia" {
+		t.Fatalf("unexpected country name: %#v", first)
+	}
+	if first.CountryCode == nil || *first.CountryCode != "ID" {
+		t.Fatalf("unexpected country code: %#v", first)
+	}
+	if first.Category == nil || *first.Category != "highway" {
+		t.Fatalf("unexpected category: %#v", first)
+	}
+	if first.Type == nil || *first.Type != "primary" {
+		t.Fatalf("unexpected type: %#v", first)
+	}
+	if first.AddressType == nil || *first.AddressType != "road" {
+		t.Fatalf("unexpected addresstype: %#v", first)
+	}
+	if first.PlaceRank == nil || *first.PlaceRank != 26 {
+		t.Fatalf("unexpected place rank: %#v", first)
 	}
 
 	second, err := geocoder.ReverseLookup(context.Background(), 106.81666, -6.20000)

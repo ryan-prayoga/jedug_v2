@@ -79,13 +79,19 @@ func regionPriorityExpr(column string) string {
 }
 
 var statsScopedIssuesCTE = fmt.Sprintf(`
-	WITH latest_submission_regions AS (
+	WITH latest_submission_locations AS (
 		SELECT DISTINCT ON (s.issue_id)
 			s.issue_id,
-			s.region_id
+			s.region_id,
+			NULLIF(BTRIM(s.district_name), '') AS district_name,
+			NULLIF(BTRIM(s.regency_name), '') AS regency_name,
+			NULLIF(BTRIM(s.province_name), '') AS province_name
 		FROM issue_submissions s
 		WHERE s.region_id IS NOT NULL
-		ORDER BY s.issue_id, s.reported_at DESC
+		   OR NULLIF(BTRIM(s.district_name), '') IS NOT NULL
+		   OR NULLIF(BTRIM(s.regency_name), '') IS NOT NULL
+		   OR NULLIF(BTRIM(s.province_name), '') IS NOT NULL
+		ORDER BY s.issue_id, s.reported_at DESC, s.created_at DESC
 	), base_issues AS (
 	SELECT
 		i.id,
@@ -98,10 +104,13 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 		i.last_seen_at,
 		COALESCE(i.first_seen_at, i.created_at) AS first_seen_at,
 		i.region_id AS issue_region_id,
-			latest.region_id AS latest_region_id,
-			i.public_location::geometry AS public_location_geom
+		latest.region_id AS latest_region_id,
+		latest.district_name AS latest_district_name,
+		latest.regency_name AS latest_regency_name,
+		latest.province_name AS latest_province_name,
+		i.public_location::geometry AS public_location_geom
 		FROM issues i
-		LEFT JOIN latest_submission_regions latest ON latest.issue_id = i.id
+		LEFT JOIN latest_submission_locations latest ON latest.issue_id = i.id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
 	), effective_regions AS (
@@ -115,6 +124,9 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 			base.created_at,
 			base.last_seen_at,
 			base.first_seen_at,
+			base.latest_district_name,
+			base.latest_regency_name,
+			base.latest_province_name,
 			COALESCE(base.issue_region_id, base.latest_region_id, spatial.region_id) AS base_region_id
 		FROM base_issues base
 		LEFT JOIN LATERAL (
@@ -140,6 +152,9 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 			base.created_at,
 			base.last_seen_at,
 			base.first_seen_at,
+			base.latest_district_name,
+			base.latest_regency_name,
+			base.latest_province_name,
 			r0.id AS region_id_0,
 			NULLIF(TRIM(r0.name), '') AS region_name_0,
 			%s AS region_level_0,
@@ -181,14 +196,17 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 				WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_id_4
 				ELSE NULL
 			END AS district_id,
-			CASE
-				WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
-				WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
-				WHEN resolved.region_level_2 IN ('district', 'subdistrict') THEN resolved.region_name_2
-				WHEN resolved.region_level_3 IN ('district', 'subdistrict') THEN resolved.region_name_3
-				WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_name_4
-				ELSE NULL
-			END AS district_name,
+			COALESCE(
+				resolved.latest_district_name,
+				CASE
+					WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
+					WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
+					WHEN resolved.region_level_2 IN ('district', 'subdistrict') THEN resolved.region_name_2
+					WHEN resolved.region_level_3 IN ('district', 'subdistrict') THEN resolved.region_name_3
+					WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_name_4
+					ELSE NULL
+				END
+			) AS district_name,
 			CASE
 				WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_id_0
 				WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_id_1
@@ -197,14 +215,17 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 				WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_id_4
 				ELSE NULL
 			END AS regency_id,
-			CASE
-				WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_name_0
-				WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_name_1
-				WHEN resolved.region_level_2 IN ('city', 'regency') THEN resolved.region_name_2
-				WHEN resolved.region_level_3 IN ('city', 'regency') THEN resolved.region_name_3
-				WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_name_4
-				ELSE NULL
-			END AS regency_name,
+			COALESCE(
+				resolved.latest_regency_name,
+				CASE
+					WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_name_0
+					WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_name_1
+					WHEN resolved.region_level_2 IN ('city', 'regency') THEN resolved.region_name_2
+					WHEN resolved.region_level_3 IN ('city', 'regency') THEN resolved.region_name_3
+					WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_name_4
+					ELSE NULL
+				END
+			) AS regency_name,
 			CASE
 				WHEN resolved.region_level_0 = 'province' THEN resolved.region_id_0
 				WHEN resolved.region_level_1 = 'province' THEN resolved.region_id_1
@@ -213,15 +234,53 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 				WHEN resolved.region_level_4 = 'province' THEN resolved.region_id_4
 				ELSE NULL
 			END AS province_id,
-			CASE
-				WHEN resolved.region_level_0 = 'province' THEN resolved.region_name_0
-				WHEN resolved.region_level_1 = 'province' THEN resolved.region_name_1
-				WHEN resolved.region_level_2 = 'province' THEN resolved.region_name_2
-				WHEN resolved.region_level_3 = 'province' THEN resolved.region_name_3
-				WHEN resolved.region_level_4 = 'province' THEN resolved.region_name_4
-				ELSE NULL
-			END AS province_name,
 			COALESCE(
+				resolved.latest_province_name,
+				CASE
+					WHEN resolved.region_level_0 = 'province' THEN resolved.region_name_0
+					WHEN resolved.region_level_1 = 'province' THEN resolved.region_name_1
+					WHEN resolved.region_level_2 = 'province' THEN resolved.region_name_2
+					WHEN resolved.region_level_3 = 'province' THEN resolved.region_name_3
+					WHEN resolved.region_level_4 = 'province' THEN resolved.region_name_4
+					ELSE NULL
+				END
+			) AS province_name,
+			COALESCE(
+				NULLIF(CONCAT_WS(', ',
+					COALESCE(
+						resolved.latest_district_name,
+						CASE
+							WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
+							WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
+							WHEN resolved.region_level_2 IN ('district', 'subdistrict') THEN resolved.region_name_2
+							WHEN resolved.region_level_3 IN ('district', 'subdistrict') THEN resolved.region_name_3
+							WHEN resolved.region_level_4 IN ('district', 'subdistrict') THEN resolved.region_name_4
+							ELSE NULL
+						END
+					),
+					COALESCE(
+						resolved.latest_regency_name,
+						CASE
+							WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_name_0
+							WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_name_1
+							WHEN resolved.region_level_2 IN ('city', 'regency') THEN resolved.region_name_2
+							WHEN resolved.region_level_3 IN ('city', 'regency') THEN resolved.region_name_3
+							WHEN resolved.region_level_4 IN ('city', 'regency') THEN resolved.region_name_4
+							ELSE NULL
+						END
+					),
+					COALESCE(
+						resolved.latest_province_name,
+						CASE
+							WHEN resolved.region_level_0 = 'province' THEN resolved.region_name_0
+							WHEN resolved.region_level_1 = 'province' THEN resolved.region_name_1
+							WHEN resolved.region_level_2 = 'province' THEN resolved.region_name_2
+							WHEN resolved.region_level_3 = 'province' THEN resolved.region_name_3
+							WHEN resolved.region_level_4 = 'province' THEN resolved.region_name_4
+							ELSE NULL
+						END
+					)
+				), ''),
 				CASE
 					WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
 					WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
