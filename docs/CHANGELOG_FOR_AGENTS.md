@@ -366,7 +366,7 @@ Area yang selalu wajib update docs bila berubah:
    - `push_delivery_jobs.delivered_at`
    - `push_delivery_jobs.failed_at`
 8. Baseline schema dan governance script diperbarui agar fresh bootstrap dan verify tetap sinkron.
-9. Deploy workflow sekarang memastikan `pm2-logrotate` aktif dengan retention log runtime default (`10M`, retain `7`, compress, rotate harian).
+9. Saat patch ini dibuat, deploy workflow sempat menegakkan `pm2-logrotate`; per 2026-03-20 langkah itu sudah dikeluarkan dari critical deploy path dan dipindah menjadi setup manual satu kali di VPS.
 
 ### Docs
 
@@ -1497,6 +1497,18 @@ Area yang selalu wajib update docs bila berubah:
   - `docs/CHANGELOG_FOR_AGENTS.md`
 - Mismatch baru (jika ada):
   - replay SSE tetap ringan dan dibatasi snapshot/history terbaru; notifikasi realtime masih process-local dan belum cross-instance.
+
+## 2026-03-20 - Deploy Path Tidak Lagi Menjalankan pm2-logrotate
+
+- Scope:
+  - mengeluarkan setup `pm2-logrotate` dari critical deploy path agar GitHub Actions tidak macet pada command PM2 module di shell non-interactive.
+- Dampak area:
+  - `.github/workflows/deploy.yml`
+- File docs yang diupdate:
+  - `docs/DEPLOYMENT.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - `pm2-logrotate` tetap perlu dipasang manual sekali di VPS; workflow deploy tidak lagi menegakkan konfigurasi modul tersebut.
 
 ## Template Entri Berikutnya
 

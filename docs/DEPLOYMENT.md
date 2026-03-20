@@ -19,11 +19,7 @@ Di workflow saat ini:
 4. pastikan PM2 tersedia di sesi non-interactive:
 
 - jika `pm2` belum ada di PATH, workflow akan install user-local via `npm install -g pm2 --prefix ~/.local`
-- workflow juga memastikan modul `pm2-logrotate` terpasang dan dikonfigurasi:
-  - `max_size=10M`
-  - `retain=7`
-  - `compress=true`
-  - rotate harian
+- `pm2-logrotate` **bukan** lagi bagian deploy step; anggap sebagai setup manual satu kali di VPS
 
 5. jalankan preflight sebelum menyentuh runtime:
 
@@ -78,6 +74,21 @@ Asumsi proses PM2 di server:
 - `jedug-frontend` untuk frontend (port `5001`)
 
 Catatan: file ecosystem PM2 tidak ada di repo ini.
+
+### Setup Manual `pm2-logrotate` di VPS
+
+Lakukan sekali saja di server, di luar GitHub Actions deploy:
+
+```bash
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 7
+pm2 set pm2-logrotate:compress true
+pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
+pm2 save
+```
+
+Jika step ini gagal, deploy aplikasi tetap bisa berjalan. Yang hilang hanya otomasi rotasi log PM2, bukan health runtime aplikasi.
 
 ## Command Deploy Non-Interactive (Source of Truth)
 
@@ -352,7 +363,7 @@ Recovery manual minimum bila workflow sudah gagal:
 - Deploy sekarang membedakan dua lapis verifikasi:
   - runtime lokal di server
   - smoke test publik via ingress/domain
-- PM2 log runtime sekarang diputar otomatis via `pm2-logrotate`; tetap pantau disk VPS, tetapi log tidak lagi tumbuh tanpa batas secara default.
+- `pm2-logrotate` sekarang diperlakukan sebagai setup manual satu kali di VPS, bukan bagian dari critical deploy path.
 - Workflow menjalankan preflight env/schema sebelum rollout dan punya rollback minimum ke commit sebelumnya jika rollout gagal di tengah jalan.
 
 ## Intended Direction
