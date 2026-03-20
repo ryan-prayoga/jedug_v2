@@ -25,6 +25,26 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Admin Issue Detail Hard-Refresh Loading Fix
+
+- Scope:
+  - memperbaiki admin shell yang bisa berhenti di state `Memuat...` saat membuka route detail issue secara initial load/hard refresh.
+
+### Frontend
+
+1. `frontend/src/routes/admin/+layout.svelte` sekarang memakai null-safe access untuk `afterNavigate.from?.url?.pathname`.
+2. Pengecekan sesi admin kembali berjalan pada initial navigation ketika objek `from` belum ada, sehingga route `/admin/issues/[id]` tidak macet sebelum `adminMe()` dipanggil.
+
+### Root Cause
+
+3. Implementasi sebelumnya memakai `from?.url.pathname`; pada initial mount, `from` bisa `null`, callback `afterNavigate` melempar runtime error, dan shell admin tertinggal di fallback loading.
+
+### Docs
+
+4. Diperbarui:
+   - `docs/FRONTEND.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-20 - Deploy Public Smoke Test + Versioned Nginx Template
 
 - Scope:

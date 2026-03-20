@@ -32,6 +32,7 @@
 - admin frontend tidak lagi menyimpan bearer token di `localStorage`
 - helper `src/lib/api/admin.ts` sekarang selalu memakai `credentials: 'include'` agar browser mengirim cookie session admin
 - logout dilakukan lewat `POST /api/v1/admin/logout`, bukan sekadar menghapus state client
+- shell admin kini aman pada initial load/hard refresh route nested (`/admin/issues/[id]`); pengecekan sesi tidak lagi crash saat `afterNavigate.from` bernilai `null`
 
 ## Komponen Penting
 

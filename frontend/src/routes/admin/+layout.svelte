@@ -11,7 +11,7 @@
 	const isLoginPage = $derived($page.url.pathname === '/admin/login');
 
 	afterNavigate(({ from }) => {
-		void syncAdminSession(from?.url.pathname);
+		void syncAdminSession(from?.url?.pathname);
 	});
 
 	async function syncAdminSession(fromPathname?: string) {
