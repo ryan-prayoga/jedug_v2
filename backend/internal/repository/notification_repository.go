@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 type PushDelivery struct {
 	FollowerID uuid.UUID
 	IssueID    uuid.UUID
+	EventID    int64
 	Type       string
 	Title      string
 	Message    string
@@ -133,6 +135,7 @@ func DispatchNotificationsForEvent(
 			pushDeliveries = append(pushDeliveries, PushDelivery{
 				FollowerID: target.FollowerID,
 				IssueID:    issueID,
+				EventID:    eventID,
 				Type:       eventType,
 				Title:      title,
 				Message:    message,
@@ -178,7 +181,10 @@ func DispatchNotificationsForEvent(
 			if jsonErr != nil {
 				continue
 			}
-			sse.Default.Push(followerID.String(), "event: notification\ndata: "+string(payload)+"\n\n")
+			sse.Default.Push(
+				followerID.String(),
+				sse.FormatEvent("notification", payload, strconv.FormatInt(eventID, 10)),
+			)
 		}
 		if err := rows.Err(); err != nil {
 			return err
@@ -257,6 +263,7 @@ func notificationEventPreferenceExpr(eventType string) string {
 // NotificationRepository reads notification data for a given follower.
 type NotificationRepository interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
+	GetByFollowerIDSinceEventID(ctx context.Context, followerID uuid.UUID, afterEventID int64, limit int) ([]*domain.Notification, error)
 	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (*time.Time, bool, error)
 	Delete(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error)
 }
@@ -285,6 +292,33 @@ func (r *notificationRepository) GetByFollowerID(ctx context.Context, followerID
 	}
 	defer rows.Close()
 
+	return scanNotifications(rows)
+}
+
+func (r *notificationRepository) GetByFollowerIDSinceEventID(ctx context.Context, followerID uuid.UUID, afterEventID int64, limit int) ([]*domain.Notification, error) {
+	if afterEventID <= 0 {
+		return []*domain.Notification{}, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT id, issue_id, event_id, type, title, message, created_at, read_at
+		FROM notifications
+		WHERE follower_id = $1
+		  AND event_id > $2
+		ORDER BY event_id ASC, created_at ASC
+		LIMIT $3
+	`, followerID, afterEventID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanNotifications(rows)
+}
+
+func scanNotifications(rows pgx.Rows) ([]*domain.Notification, error) {
 	result := make([]*domain.Notification, 0)
 	for rows.Next() {
 		var n domain.Notification

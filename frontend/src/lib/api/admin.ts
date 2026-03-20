@@ -7,7 +7,6 @@ import type {
   AdminMeResponse,
 } from "./types";
 import { ApiError } from "./client";
-import { getAdminToken } from "$lib/utils/storage";
 
 async function parseResponse<T>(res: Response): Promise<ApiResponse<T>> {
   const json: ApiResponse<T> = await res.json();
@@ -17,21 +16,15 @@ async function parseResponse<T>(res: Response): Promise<ApiResponse<T>> {
   return json;
 }
 
-function adminHeaders(withAuth: boolean): HeadersInit {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (withAuth) {
-    const token = getAdminToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-  }
-  return headers;
+function adminHeaders(): HeadersInit {
+  return { "Content-Type": "application/json" };
 }
 
 async function adminGet<T>(path: string): Promise<ApiResponse<T>> {
   const res = await fetch(`${PUBLIC_API_BASE_URL}${path}`, {
     method: "GET",
-    headers: adminHeaders(true),
+    credentials: "include",
+    headers: adminHeaders(),
   });
   return parseResponse<T>(res);
 }
@@ -42,20 +35,25 @@ async function adminPost<T>(
 ): Promise<ApiResponse<T>> {
   const res = await fetch(`${PUBLIC_API_BASE_URL}${path}`, {
     method: "POST",
-    headers: adminHeaders(true),
+    credentials: "include",
+    headers: adminHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   });
   return parseResponse<T>(res);
 }
 
 export async function adminLogin(username: string, password: string) {
-  // Login does NOT send Bearer auth (no token yet)
   const res = await fetch(`${PUBLIC_API_BASE_URL}/api/v1/admin/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    headers: adminHeaders(),
     body: JSON.stringify({ username, password }),
   });
   return parseResponse<AdminLoginResponse>(res);
+}
+
+export async function adminLogout() {
+  return adminPost<undefined>("/api/v1/admin/logout");
 }
 
 export async function adminMe() {

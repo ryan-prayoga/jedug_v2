@@ -58,6 +58,12 @@ jobs:
               command -v "$cmd" >/dev/null 2>&1 || fail "Command wajib tidak ditemukan: $cmd"
             }
 
+            normalize_url() {
+              local raw="${1:-}"
+              raw="${raw%/}"
+              printf '%s' "$raw"
+            }
+
             ensure_gas_ready() {
               if command -v gas >/dev/null 2>&1; then
                 echo "[DEPLOY] gas tersedia: $(command -v gas)"
@@ -96,6 +102,22 @@ jobs:
               echo "[DEPLOY] PM2 siap: $(command -v pm2)"
             }
 
+            ensure_pm2_logrotate() {
+              if pm2 module:list | grep -q "pm2-logrotate"; then
+                echo "[DEPLOY] PM2 logrotate sudah terpasang"
+              else
+                echo "[DEPLOY] Install pm2-logrotate untuk retention log runtime"
+                pm2 install pm2-logrotate || fail "install pm2-logrotate gagal"
+              fi
+
+              pm2 set pm2-logrotate:max_size 10M >/dev/null || fail "set pm2-logrotate:max_size gagal"
+              pm2 set pm2-logrotate:retain 7 >/dev/null || fail "set pm2-logrotate:retain gagal"
+              pm2 set pm2-logrotate:compress true >/dev/null || fail "set pm2-logrotate:compress gagal"
+              pm2 set pm2-logrotate:rotateInterval '0 0 * * *' >/dev/null || fail "set pm2-logrotate:rotateInterval gagal"
+
+              echo "[DEPLOY] PM2 logrotate siap (max_size=10M retain=7 compress=true rotate=daily)"
+            }
+
             check_pm2_online() {
               local process_name="$1"
               local status_line
@@ -114,9 +136,11 @@ jobs:
               fi
             }
 
-            http_healthcheck() {
+            http_check_exact() {
               local name="$1"
               local url="$2"
+              local expected_status="$3"
+              local expected_substring="${4:-}"
               local body_file
               local status_code
 
@@ -132,37 +156,117 @@ jobs:
                   --retry-connrefused \
                   --connect-timeout 2 \
                   --max-time 5 \
+                  --location \
                   "$url"
               )" || {
-                echo "[DEPLOY][ERROR] HTTP healthcheck ${name} gagal menghubungi ${url}" >&2
+                echo "[DEPLOY][ERROR] HTTP check ${name} gagal menghubungi ${url}" >&2
                 cat "$body_file" >&2 || true
                 rm -f "$body_file"
                 return 1
               }
 
-              if [ "$status_code" != "200" ]; then
-                echo "[DEPLOY][ERROR] HTTP healthcheck ${name} gagal (status=${status_code}, url=${url})" >&2
+              if [ "$status_code" != "$expected_status" ]; then
+                echo "[DEPLOY][ERROR] HTTP check ${name} gagal (expected=${expected_status}, actual=${status_code}, url=${url})" >&2
                 cat "$body_file" >&2 || true
                 rm -f "$body_file"
                 return 1
               fi
 
-              echo "[DEPLOY] HTTP healthcheck ${name} OK (${url})"
+              if [ -n "$expected_substring" ] && ! grep -F "$expected_substring" "$body_file" >/dev/null 2>&1; then
+                echo "[DEPLOY][ERROR] HTTP check ${name} body tidak mengandung substring wajib: ${expected_substring}" >&2
+                cat "$body_file" >&2 || true
+                rm -f "$body_file"
+                return 1
+              fi
+
+              echo "[DEPLOY] HTTP check ${name} OK (${url})"
               rm -f "$body_file"
             }
 
-            verify_runtime() {
-              echo "[DEPLOY] Verifikasi PM2 proses online"
+            http_check_any_status() {
+              local name="$1"
+              local url="$2"
+              local allowed_statuses="$3"
+              local expected_substring="${4:-}"
+              local body_file
+              local status_code
+              local allowed_match="0"
+
+              body_file="$(mktemp)"
+              status_code="$(
+                curl \
+                  --silent \
+                  --show-error \
+                  --output "$body_file" \
+                  --write-out '%{http_code}' \
+                  --retry 8 \
+                  --retry-delay 2 \
+                  --retry-connrefused \
+                  --connect-timeout 3 \
+                  --max-time 8 \
+                  --location \
+                  "$url"
+              )" || {
+                echo "[DEPLOY][ERROR] HTTP check ${name} gagal menghubungi ${url}" >&2
+                cat "$body_file" >&2 || true
+                rm -f "$body_file"
+                return 1
+              }
+
+              for candidate in $allowed_statuses; do
+                if [ "$status_code" = "$candidate" ]; then
+                  allowed_match="1"
+                  break
+                fi
+              done
+
+              if [ "$allowed_match" != "1" ]; then
+                echo "[DEPLOY][ERROR] HTTP check ${name} gagal (allowed=${allowed_statuses}, actual=${status_code}, url=${url})" >&2
+                cat "$body_file" >&2 || true
+                rm -f "$body_file"
+                return 1
+              fi
+
+              if [ -n "$expected_substring" ] && ! grep -F "$expected_substring" "$body_file" >/dev/null 2>&1; then
+                echo "[DEPLOY][ERROR] HTTP check ${name} body tidak mengandung substring wajib: ${expected_substring}" >&2
+                cat "$body_file" >&2 || true
+                rm -f "$body_file"
+                return 1
+              fi
+
+              echo "[DEPLOY] HTTP check ${name} OK (${url})"
+              rm -f "$body_file"
+            }
+
+            verify_runtime_local() {
+              echo "[DEPLOY] Verifikasi runtime lokal: PM2 proses online"
               check_pm2_online "$BACKEND_PM2"
               check_pm2_online "$FRONTEND_PM2"
 
-              echo "[DEPLOY] Verifikasi port backend/frontend LISTEN"
+              echo "[DEPLOY] Verifikasi runtime lokal: port backend/frontend LISTEN"
               check_port_listen "$BACKEND_PORT"
               check_port_listen "$FRONTEND_PORT"
 
-              echo "[DEPLOY] Verifikasi healthcheck HTTP backend/frontend"
-              http_healthcheck "backend" "http://127.0.0.1:${BACKEND_PORT}/api/v1/health" || return 1
-              http_healthcheck "frontend" "http://127.0.0.1:${FRONTEND_PORT}/health" || return 1
+              echo "[DEPLOY] Verifikasi runtime lokal: healthcheck HTTP backend/frontend"
+              http_check_exact "backend-local-health" "http://127.0.0.1:${BACKEND_PORT}/api/v1/health" "200" '"status":"ok"' || return 1
+              http_check_exact "frontend-local-health" "http://127.0.0.1:${FRONTEND_PORT}/health" "200" '"status":"ok"' || return 1
+            }
+
+            verify_public_ingress() {
+              local public_app_url
+              local public_api_url
+
+              public_app_url="$(normalize_url "${PUBLIC_APP_BASE_URL:-}")"
+              public_api_url="$(normalize_url "${PUBLIC_API_BASE_URL:-}")"
+
+              [ -n "$public_app_url" ] || fail "PUBLIC_APP_BASE_URL belum terkonfigurasi untuk smoke test publik"
+              [ -n "$public_api_url" ] || fail "PUBLIC_API_BASE_URL belum terkonfigurasi untuk smoke test publik"
+
+              echo "[DEPLOY] Verifikasi ingress publik via domain/proxy"
+              http_check_exact "frontend-public-health" "${public_app_url}/health" "200" '"status":"ok"' || return 1
+              http_check_exact "backend-public-health" "${public_api_url}/api/v1/health" "200" '"status":"ok"' || return 1
+              http_check_exact "api-public-issues" "${public_api_url}/api/v1/issues" "200" '"success":true' || return 1
+              http_check_any_status "sse-public-route" "${public_api_url}/api/v1/notifications/stream" "401 403" '"success":false' || return 1
             }
 
             rollback_or_fail() {
@@ -190,7 +294,8 @@ jobs:
               cd "$FRONTEND_DIR" || fail "Rollback gagal: frontend directory tidak ditemukan"
               gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || fail "Rollback gagal: gas build frontend gagal"
 
-              verify_runtime || fail "Rollback gagal: runtime commit sebelumnya tidak healthy"
+              verify_runtime_local || fail "Rollback gagal: runtime lokal commit sebelumnya tidak healthy"
+              verify_public_ingress || fail "Rollback gagal: ingress publik commit sebelumnya tetap tidak healthy"
               pm2 save || fail "Rollback gagal: pm2 save gagal"
 
               fail "${reason}; rollback ke ${PREVIOUS_REF} berhasil dijalankan"
@@ -209,6 +314,7 @@ jobs:
               echo "[DEPLOY] Frontend preflight env checks"
               cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
               [ -n "${PUBLIC_API_BASE_URL:-}" ] || fail "PUBLIC_API_BASE_URL belum terkonfigurasi untuk frontend"
+              [ -n "${PUBLIC_APP_BASE_URL:-}" ] || fail "PUBLIC_APP_BASE_URL belum terkonfigurasi untuk smoke test publik frontend"
             }
 
             echo "[DEPLOY] Masuk ke project directory"
@@ -226,6 +332,7 @@ jobs:
 
             echo "[DEPLOY] Pastikan runtime tools tersedia di environment CI non-interactive"
             ensure_pm2_ready
+            ensure_pm2_logrotate
             ensure_gas_ready
             require_command curl
             require_command flock
@@ -250,9 +357,10 @@ jobs:
             cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
             gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || rollback_or_fail "gas build frontend gagal"
 
-            verify_runtime || rollback_or_fail "runtime verification gagal"
+            verify_runtime_local || rollback_or_fail "runtime verification lokal gagal"
+            verify_public_ingress || rollback_or_fail "public ingress smoke test gagal"
 
             echo "[DEPLOY] Simpan process list PM2"
             pm2 save || fail "pm2 save gagal"
 
-            echo "[DEPLOY] Sukses: backend + frontend healthy di commit ${TARGET_REF}"
+            echo "[DEPLOY] Sukses: backend + frontend healthy secara lokal dan publik di commit ${TARGET_REF}"

@@ -18,6 +18,7 @@ Status dokumen ini merefleksikan implementasi aktual per 2026-03-10.
 2. Frontend memanggil backend API untuk issue list/detail, upload, dan submit report.
 3. Backend menulis data ke Postgres/PostGIS dan media ke storage driver aktif.
 4. Admin mengakses route admin untuk moderasi issue/device.
+5. Realtime/browser push tetap async; delivery push sekarang melewati outbox DB ringan sebelum worker Go mengirim ke provider.
 
 ## Arsitektur Backend (Layer)
 
@@ -62,8 +63,8 @@ Dependency flow: `handler -> service -> repository/storage`.
 ### C) Moderation
 
 1. Admin login via env credential.
-2. Backend membuat session token in-memory.
-3. Admin action update issue/device.
+2. Backend membuat session in-memory dan mengirim cookie HttpOnly ke browser admin.
+3. Admin frontend memanggil `/api/v1/admin/*` dengan `credentials: include`.
 4. Backend catat action ke `moderation_actions`.
 
 ## Infra & Operasional
@@ -75,9 +76,14 @@ Dependency flow: `handler -> service -> repository/storage`.
 ## Current Implementation
 
 - Satu backend service monolith + satu frontend app.
-- Session admin tidak persisted (memory store).
+- Session admin tidak persisted (memory store), tetapi transport aktif sudah memakai cookie HttpOnly/SameSite ketat alih-alih bearer token di browser storage.
 - Storage migration strategy sudah mempertimbangkan media local lama.
 - Schema baseline dan migration additive sekarang versioned di repo (`backend/schema/`, `backend/migrations/`).
+- Browser push tidak lagi hanya mengandalkan queue in-memory; pending delivery disimpan di tabel `push_delivery_jobs` dan diproses worker background dengan retry terbatas.
+- Observability/retention minimum dijalankan pragmatis di dalam backend yang sama:
+  - `/api/v1/health` mengembalikan snapshot queue/runtime ringan
+  - maintenance runner periodik melakukan cleanup data yang aman dibatasi
+  - PM2 log rotation dikonfigurasi dari flow deploy
 
 ## Intended Direction
 

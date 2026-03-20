@@ -25,6 +25,79 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Deploy Public Smoke Test + Versioned Nginx Template
+
+- Scope:
+  - menutup false-green deploy risk tanpa mengganti stack GitHub Actions + VPS + gas build + PM2 + nginx.
+
+### Workflow / Deploy
+
+1. Workflow deploy sekarang membedakan dua tahap verifikasi:
+   - runtime lokal di server (`pm2`, port LISTEN, localhost health)
+   - smoke test publik via origin/domain/proxy
+2. Smoke test publik yang wajib lulus:
+   - `${PUBLIC_APP_BASE_URL}/health`
+   - `${PUBLIC_API_BASE_URL}/api/v1/health`
+   - `${PUBLIC_API_BASE_URL}/api/v1/issues`
+   - `${PUBLIC_API_BASE_URL}/api/v1/notifications/stream` dengan expected auth error `401/403`
+3. `preflight_frontend` sekarang juga mensyaratkan `PUBLIC_APP_BASE_URL`, bukan hanya `PUBLIC_API_BASE_URL`.
+4. Rollback minimum sekarang mengulang verifikasi lokal **dan** smoke test publik; jika public smoke tetap gagal setelah rollback, indikasinya bergeser ke ingress/nginx/domain/runtime config server.
+
+### Runtime Config / Docs
+
+5. Ditambahkan template nginx minimum yang terversioning di repo:
+   - `deploy/nginx/jedug.conf.example`
+6. `frontend/.env.example` sekarang juga memuat:
+   - `PUBLIC_APP_BASE_URL`
+7. `docs/DEPLOYMENT.md` diperbarui untuk:
+   - flow deploy aktual pasca public smoke
+   - source-of-truth template nginx repo
+   - checklist manual smoke publik
+   - rollback semantics baru
+8. `docs/DECISIONS.md` diperbarui untuk mencatat keputusan pemisahan runtime-local vs public-ingress verification.
+
+## 2026-03-20 - Upload Abuse Hardening + Orphan Cleanup
+
+- Scope:
+  - menutup blocker abuse pada flow upload/report tanpa mengganti model anonymous device + upload ticket yang sudah live.
+
+### Backend
+
+1. `POST /api/v1/uploads/file/*` sekarang dilindungi rate limit spesifik `10/15m` per-IP.
+2. `POST /api/v1/uploads/presign` diperkeras dari sisi service:
+   - setiap presign membuat row pending di tabel baru `report_upload_tickets`
+   - presign baru ditolak bila device sudah punya terlalu banyak upload pending dalam window pendek (`UPLOAD_PENDING_LIMIT`, default `4`; `UPLOAD_PENDING_WINDOW_SEC`, default `1800`)
+3. `UploadService` tidak hanya memverifikasi HMAC `upload_token`, tetapi juga memastikan `object_key` masih punya pending ticket yang dikenal backend dan metadata ticket cocok (`device_id`, `mime_type`, `size_bytes`, expiry).
+4. `ReportRepository.SubmitReport` sekarang menghapus row pending upload di transaction yang sama setelah `submission_media` berhasil dipersist, sehingga media yang sudah dipakai report tidak lagi terlihat sebagai orphan.
+5. Maintenance runner sekarang juga membersihkan orphan upload:
+   - pilih row `report_upload_tickets` yang lebih tua dari `UPLOAD_ORPHAN_RETENTION_SEC` (default `43200`)
+   - hapus object storage berdasarkan `upload_mode`
+   - baru hapus row ticket dari DB
+6. Health snapshot sekarang additive memuat:
+   - `upload_orphans_over_retention`
+   - `report_upload_tickets_estimate`
+
+### Schema / Config
+
+7. Ditambah migration `backend/migrations/202603200004_create_report_upload_tickets.sql`.
+8. Baseline schema dan governance verifier diperbarui agar tabel/index upload ticket menjadi bagian source of truth repo.
+9. Env baru:
+   - `UPLOAD_PENDING_WINDOW_SEC`
+   - `UPLOAD_PENDING_LIMIT`
+   - `UPLOAD_ORPHAN_RETENTION_SEC`
+
+### Tests / Docs
+
+10. Ditambah regression test upload service untuk pending upload limit.
+11. Diperbarui:
+   - `backend/.env.example`
+   - `docs/BACKEND.md`
+   - `docs/STORAGE_AND_MEDIA.md`
+   - `docs/SCHEMA.md`
+   - `docs/DEPLOYMENT.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-20 - Report Submit Idempotency Hardening
 
 - Scope:
@@ -60,6 +133,56 @@ Area yang selalu wajib update docs bila berubah:
   - jalankan migration `backend/migrations/202603200001_harden_report_idempotency.sql` sebelum backend baru menerima traffic penuh.
   - verifikasi unique lama `issue_submissions_client_request_id_key` sudah hilang dan unique baru `(device_id, client_request_id)` aktif.
   - smoke test retry submit yang sama pada koneksi buruk untuk memastikan replay kembali `issue_id/submission_id` yang sama tanpa 429.
+
+## 2026-03-20 - Admin Login Rate Limit + Session Cookie Hardening
+
+- Scope:
+  - memperkeras boundary admin auth tanpa mengganti model env credential + in-memory session secara total.
+
+### Backend
+
+1. `POST /api/v1/admin/login` sekarang dilindungi hard rate limit `10/15m` per-IP di router.
+2. `AdminService` menambah guard in-memory per fingerprint `ip|username`:
+   - window `15 menit`
+   - lockout setelah `5` gagal
+   - lockout duration `30 menit`
+3. Login gagal tetap generic (`username atau password salah`) agar tidak membuka oracle credential.
+4. Session admin tetap opaque/random dan in-memory, tetapi login sukses sekarang:
+   - merotasi session lama untuk username yang sama
+   - mengirim cookie `jedug_admin_session` (`HttpOnly`, `SameSite=Strict`, path `/api/v1/admin`, `Secure` saat production)
+5. Ditambah endpoint `POST /api/v1/admin/logout` untuk revoke session server-side + clear cookie.
+6. Middleware admin auth sekarang membaca cookie session admin; bearer header lama hanya fallback kompatibilitas.
+7. Semua route `/api/v1/admin/*` sekarang diberi header `Cache-Control: no-store`.
+8. Config admin diperkeras:
+   - `ADMIN_USERNAME` wajib eksplisit
+   - `ADMIN_PASSWORD` minimal 12 karakter
+
+### Frontend
+
+9. Helper `src/lib/api/admin.ts` sekarang memakai `credentials: 'include'` untuk seluruh request admin.
+10. Admin frontend berhenti menyimpan token auth di `localStorage`.
+11. Halaman login dan shell admin sekarang memeriksa sesi lewat `GET /api/v1/admin/me`, dan logout memanggil backend revoke alih-alih sekadar menghapus state client.
+
+### Tests
+
+12. Ditambah regression tests untuk:
+   - login cookie set
+   - logout revoke + clear cookie
+   - middleware auth membaca cookie
+   - lockout setelah login gagal berulang
+   - rotasi session saat login ulang
+
+### Docs
+
+13. Diperbarui:
+   - `backend/.env.example`
+   - `docs/BACKEND.md`
+   - `docs/FRONTEND.md`
+   - `docs/ARCHITECTURE.md`
+   - `docs/DEPLOYMENT.md`
+   - `docs/MODERATION.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
 
 ## 2026-03-20 - Notification Auth Transport Hardening
 
@@ -165,6 +288,95 @@ Area yang selalu wajib update docs bila berubah:
 ### Docs
 
 7. Memperbarui `docs/BACKEND.md` untuk menjelaskan semantics moderation baru: not-found handling, transaksi domain inti, dan audit post-commit.
+
+## 2026-03-20 - Browser Push Delivery Durability via DB Outbox
+
+- Scope:
+  - mengurangi loss pada browser push async tanpa menambah broker eksternal atau sistem streaming besar.
+
+### Backend
+
+1. Browser push tidak lagi hanya mengandalkan queue in-memory; `DeliverBatch(...)` sekarang menulis batch ke tabel outbox `push_delivery_jobs`.
+2. Ditambahkan repository baru `pushDeliveryJobRepository` untuk:
+   - enqueue idempotent per `(event_id, follower_id)`
+   - claim batch siap kirim via `FOR UPDATE SKIP LOCKED`
+   - mark `delivered`, `retry`, atau `failed`
+3. Worker push sekarang memproses outbox DB dengan poll + wake ringan, sehingga restart/crash tidak menghilangkan job yang belum selesai.
+4. Retry behavior dibuat eksplisit:
+   - maksimum `5` attempt
+   - backoff `30s -> 2m -> 5m -> 15m`
+   - `429` dan `5xx` dianggap retryable
+   - `404/410` men-disable subscription dan tidak di-retry
+5. Job failure sekarang tercatat di DB lewat `attempt_count`, `next_attempt_at`, `delivered_at`, `failed_at`, dan `last_error`, sehingga loss tidak lagi hanya terlihat di log.
+6. Notification dispatch biasa dan nearby alert sekarang selalu membawa `event_id` ke jalur push agar dedupe outbox stabil.
+7. Ditambahkan regression tests untuk enqueue outbox, retry/fail boundary, dan handling job tanpa subscription aktif.
+
+### Schema
+
+8. Ditambahkan migration `backend/migrations/202603200002_create_push_delivery_jobs.sql`.
+9. Baseline `backend/schema/20260320_000000_baseline.sql` dan governance script schema diperbarui agar fresh bootstrap dan verify repo-aware tetap lulus.
+
+### Docs
+
+10. Diperbarui:
+   - `docs/BACKEND.md`
+   - `docs/SCHEMA.md`
+   - `docs/ARCHITECTURE.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
+## 2026-03-20 - Observability + Retention Minimum untuk Runtime Data
+
+- Scope:
+  - menutup gap observability dasar dan retention minimum tanpa menambah monitoring stack besar atau broker baru.
+
+### Backend
+
+1. `GET /api/v1/health` sekarang mengembalikan snapshot ringan berisi:
+   - uptime
+   - DB check
+   - SSE follower/connection count + cumulative dropped frames
+   - push queue ready + failed 24 jam terakhir
+   - retention debt (`notifications`, stale/disabled `push_subscriptions`)
+   - estimasi growth `issue_events`, `notifications`, `push_subscriptions`, `push_delivery_jobs`
+2. Ditambahkan package `internal/ops` untuk:
+   - health snapshot query
+   - retention cleanup query
+   - runner periodik in-process dengan advisory lock DB
+3. Runner retention default:
+   - interval `6 jam`
+   - delete `notifications` > `90 hari`
+   - soft-disable active `push_subscriptions` yang stale > `180 hari`
+   - delete disabled `push_subscriptions` > `30 hari`
+   - delete `push_delivery_jobs.delivered` > `14 hari`
+   - delete `push_delivery_jobs.failed` > `30 hari`
+4. Ditambahkan command manual `go run ./cmd/maintenance` dan target `make ops-retention`.
+5. `issue_events` belum di-prune otomatis; policy saat ini adalah keep + observe karena tabel ini masih dipakai sebagai timeline publik/audit.
+6. Logging penting diperjelas:
+   - report failure sekarang menyertakan request id
+   - admin login/moderation success/failure lebih eksplisit
+   - SSE stream open/close sekarang di-log dengan replay count dan close reason
+
+### Schema / Ops
+
+7. Ditambahkan migration `backend/migrations/202603200003_add_retention_indexes.sql` untuk query retention/health yang lebih murah:
+   - `notifications.created_at`
+   - `push_subscriptions.disabled_at`
+   - `push_subscriptions.updated_at` (active partial)
+   - `push_delivery_jobs.delivered_at`
+   - `push_delivery_jobs.failed_at`
+8. Baseline schema dan governance script diperbarui agar fresh bootstrap dan verify tetap sinkron.
+9. Deploy workflow sekarang memastikan `pm2-logrotate` aktif dengan retention log runtime default (`10M`, retain `7`, compress, rotate harian).
+
+### Docs
+
+10. Diperbarui:
+   - `docs/BACKEND.md`
+   - `docs/SCHEMA.md`
+   - `docs/ARCHITECTURE.md`
+   - `docs/DEPLOYMENT.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
 
 ## 2026-03-20 - Schema Governance Baseline + Migration Repo
 
@@ -1263,6 +1475,28 @@ Area yang selalu wajib update docs bila berubah:
   - `docs/CHANGELOG_FOR_AGENTS.md`
 - Mismatch baru (jika ada):
   - asumsi runtime frontend production berbasis adapter-node (bukan edge runtime) agar rendering `@vercel/og` berjalan konsisten di VPS + PM2.
+
+## 2026-03-20 - SSE Replay Cursor + Notification Reconciliation Ringan
+
+- Scope:
+  - memperkuat reliability notification realtime tanpa mengganti SSE dan tanpa membangun sistem replay penuh.
+- Dampak area:
+  - `backend/internal/http/handlers/notification_handler.go`
+  - `backend/internal/http/handlers/notification_handler_test.go`
+  - `backend/internal/repository/notification_repository.go`
+  - `backend/internal/repository/nearby_alert_repository.go`
+  - `backend/internal/service/notification_service.go`
+  - `backend/internal/sse/hub.go`
+  - `backend/internal/sse/hub_test.go`
+  - `frontend/src/lib/stores/notifications.ts`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `docs/DEPLOYMENT.md`
+  - `docs/DECISIONS.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - replay SSE tetap ringan dan dibatasi snapshot/history terbaru; notifikasi realtime masih process-local dan belum cross-instance.
 
 ## Template Entri Berikutnya
 

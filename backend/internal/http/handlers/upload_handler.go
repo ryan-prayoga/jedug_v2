@@ -43,6 +43,9 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 		if errors.Is(err, service.ErrDeviceBanned) {
 			return response.ErrorWithCode(c, fiber.StatusForbidden, "DEVICE_BANNED", "device is banned")
 		}
+		if errors.Is(err, service.ErrUploadPendingLimitReached) {
+			return response.ErrorWithCode(c, fiber.StatusTooManyRequests, "UPLOAD_RATE_LIMITED", "terlalu banyak upload yang belum dipakai. Coba lagi beberapa saat lagi.")
+		}
 		if storage.IsValidationError(err) {
 			return response.Error(c, fiber.StatusBadRequest, err.Error())
 		}

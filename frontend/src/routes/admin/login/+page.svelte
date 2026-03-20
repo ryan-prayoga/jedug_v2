@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { adminLogin } from '$lib/api/admin';
-	import { setAdminToken, getAdminToken } from '$lib/utils/storage';
+	import { adminLogin, adminMe } from '$lib/api/admin';
 	import { onMount } from 'svelte';
 
 	let username = $state('');
@@ -10,10 +9,17 @@
 	let loading = $state(false);
 
 	onMount(() => {
-		if (getAdminToken()) {
-			goto('/admin');
-		}
+		void redirectIfSessionExists();
 	});
+
+	async function redirectIfSessionExists() {
+		try {
+			await adminMe();
+			goto('/admin');
+		} catch {
+			// No active admin session; stay on login page.
+		}
+	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -21,11 +27,8 @@
 		loading = true;
 
 		try {
-			const res = await adminLogin(username, password);
-			if (res.data?.token) {
-				setAdminToken(res.data.token);
-				goto('/admin');
-			}
+			await adminLogin(username, password);
+			goto('/admin');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login gagal';
 		} finally {

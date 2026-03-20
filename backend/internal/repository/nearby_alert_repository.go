@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -143,15 +144,15 @@ func (r *nearbyAlertRepository) Delete(ctx context.Context, followerID, subscrip
 }
 
 type nearbyAlertDispatchTarget struct {
-	FollowerID  uuid.UUID
-	Label       *string
-	DistanceM   float64
-	SendInApp   bool
-	SendPush    bool
-	MatchCount  int
-	IssueID     uuid.UUID
-	Title       string
-	Message     string
+	FollowerID uuid.UUID
+	Label      *string
+	DistanceM  float64
+	SendInApp  bool
+	SendPush   bool
+	MatchCount int
+	IssueID    uuid.UUID
+	Title      string
+	Message    string
 }
 
 func DispatchNearbyAlertsForIssueCreated(
@@ -187,6 +188,7 @@ func DispatchNearbyAlertsForIssueCreated(
 			pushDeliveries = append(pushDeliveries, PushDelivery{
 				FollowerID: target.FollowerID,
 				IssueID:    issueID,
+				EventID:    eventID,
 				Type:       "nearby_issue_created",
 				Title:      title,
 				Message:    message,
@@ -232,7 +234,10 @@ func DispatchNearbyAlertsForIssueCreated(
 			if jsonErr != nil {
 				continue
 			}
-			sse.Default.Push(followerID.String(), "event: notification\ndata: "+string(payload)+"\n\n")
+			sse.Default.Push(
+				followerID.String(),
+				sse.FormatEvent("notification", payload, strconv.FormatInt(eventID, 10)),
+			)
 		}
 		if err := rows.Err(); err != nil {
 			return err
@@ -312,11 +317,11 @@ func listNearbyAlertDispatchTargets(
 	for rows.Next() {
 		var (
 			subscriptionID uuid.UUID
-			followerID    uuid.UUID
-			label         *string
-			distanceM     float64
-			sendInApp     bool
-			sendPush      bool
+			followerID     uuid.UUID
+			label          *string
+			distanceM      float64
+			sendInApp      bool
+			sendPush       bool
 		)
 		if err := rows.Scan(&subscriptionID, &followerID, &label, &distanceM, &sendInApp, &sendPush); err != nil {
 			return nil, err

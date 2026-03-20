@@ -55,6 +55,19 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - sesi hilang saat restart service.
   - belum memanfaatkan tabel `users/user_sessions` untuk admin runtime.
 
+## 2026-03-20 - Admin Session Transport Dipindah ke HttpOnly Cookie + Login Lockout Ringan
+
+- Keputusan:
+  - admin tetap memakai env credential dan session store in-memory yang ada, tetapi browser tidak lagi menyimpan bearer token admin di `localStorage`.
+  - session admin dikirim sebagai cookie `HttpOnly`, `SameSite=Strict`, path-scoped ke `/api/v1/admin`, dan `Secure` saat production.
+  - login route memakai dua lapis proteksi: hard rate limit per-IP dan lockout ringan per fingerprint `ip|username`.
+- Konteks:
+  - audit readiness menemukan endpoint login admin belum punya boundary brute-force yang memadai dan token admin masih mudah dieksfiltrasi lewat XSS/session theft dari browser storage.
+- Konsekuensi:
+  - frontend admin wajib memakai `credentials: include` untuk request admin API.
+  - logout harus memanggil backend agar session di memory store benar-benar dicabut.
+  - development cross-origin membutuhkan `CORS_ALLOW_ORIGINS` eksplisit; wildcard `*` tidak cukup untuk credentialed request.
+
 ## 2026-03-10 - Community Flag Auto-Hide Threshold = 3 Unique Devices
 
 - Keputusan:
@@ -168,6 +181,77 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - contract endpoint stats menjadi lebih eksplisit dengan metadata `active_scope` dan field `summary` yang scoped.
   - row issue tanpa identity administratif stabil tetap boleh muncul di summary/top issue, tetapi tidak ikut leaderboard agar ranking wilayah tetap trustworthy.
   - frontend perlu menegaskan label scope aktif dan tidak lagi memakai key leaderboard berbasis nama wilayah.
+
+## 2026-03-20 - SSE Notifications Memakai Replay Cursor Ringan + Snapshot Reconciliation
+
+- Keputusan:
+  - tetap memakai SSE untuk realtime notification.
+  - server menandai frame notification dengan `id: <event_id>` dan menerima `last_event_id` saat reconnect untuk replay gap pendek.
+  - frontend memakai snapshot `GET /notifications` sebagai reconciliation ringan setelah reconnect, tab resume, dan secara periodik saat visible.
+- Konteks:
+  - event realtime bisa hilang diam-diam saat koneksi drop singkat, tab background/sleep, atau buffer SSE process-local menjatuhkan event.
+- Konsekuensi:
+  - gap pendek tertutup langsung lewat replay ringan tanpa sistem replay besar.
+  - gap lebih panjang tetap ditutup oleh snapshot refresh ringan, bukan replay tak terbatas.
+  - notifikasi realtime masih process-local; scale-out multi-instance tetap butuh strategi fanout lain jika arsitektur berubah.
+
+## 2026-03-20 - Browser Push Delivery Dipindah ke DB-Backed Outbox Ringan
+
+- Keputusan:
+  - delivery browser push tetap async, tetapi queue utama tidak lagi hanya channel in-memory.
+  - backend menulis job ke tabel `push_delivery_jobs`, lalu worker Go meng-claim dan mengirim job tersebut ke provider Web Push.
+  - retry dibatasi dan eksplisit, bukan best-effort tanpa jejak.
+- Konteks:
+  - audit reliability menemukan batch push dapat hilang diam-diam saat proses restart, crash, queue penuh, atau provider lambat/error.
+- Konsekuensi:
+  - request submit/moderation tetap cepat karena hanya enqueue ke DB.
+  - operator bisa mengaudit job pending/delivered/failed langsung dari DB lewat `attempt_count`, `next_attempt_at`, `delivered_at`, `failed_at`, dan `last_error`.
+  - solusi ini masih cocok untuk satu service/VPS; bila nanti multi-instance atau volume jauh lebih besar, fanout dan worker coordination mungkin perlu dinaikkan lagi.
+
+## 2026-03-20 - Observability dan Retention Minimum Tetap In-Repo + In-Process
+
+- Keputusan:
+  - tidak menambah observability stack eksternal besar untuk sprint ini.
+  - backend menyediakan health snapshot yang sedikit lebih kaya, maintenance runner retention periodik, dan deploy memastikan PM2 log rotation aktif.
+  - `issue_events` belum dihapus otomatis; tabel ini masih diperlakukan sebagai histori publik dan hanya di-observe pertumbuhannya.
+- Konteks:
+  - audit reliability menemukan queue/runtime failure masih sulit dilihat cepat dan beberapa surface data tumbuh tanpa policy minimum yang eksplisit.
+- Konsekuensi:
+  - operator bisa membaca status dasar sistem cukup dari `/api/v1/health`, PM2 logs, dan tabel runtime tanpa stack monitoring berat.
+  - notifications, push delivery jobs, dan push subscriptions sekarang punya retention default yang lebih jelas.
+  - solusi ini belum menggantikan metrics/alerting dedicated bila trafik dan kompleksitas operasional naik signifikan.
+
+## 2026-03-20 - Public Upload Abuse Hardening Menggunakan Pending Ticket Registry + Orphan Cleanup
+
+- Keputusan:
+  - upload/report flow tetap memakai device-bound `upload_token`, tetapi backend sekarang juga mencatat pending upload ke tabel `report_upload_tickets`.
+  - presign dibatasi dua lapis:
+    - rate limit router
+    - backlog limit per device (`UPLOAD_PENDING_LIMIT` dalam `UPLOAD_PENDING_WINDOW_SEC`)
+  - orphan upload dibersihkan dari maintenance runner berdasarkan usia ticket (`UPLOAD_ORPHAN_RETENTION_SEC`) dan keberadaan row pending yang belum pernah dikonsumsi report.
+- Konteks:
+  - final verification menunjukkan ownership media dan idempotency submit sudah cukup baik, tetapi actor anonim yang valid masih bisa churn presign/upload untuk membakar bandwidth/storage, terutama karena upload lokal belum punya limiter keras dan object orphan belum punya lifecycle jelas.
+- Konsekuensi:
+  - abuse presign/upload menjadi lebih mahal tanpa membangun auth user penuh atau mengganti flow submit.
+  - media yang sukses dipakai report aman karena row pending dihapus di transaction submit yang sama dengan insert `submission_media`.
+  - cleanup object lama tidak lagi menebak dari bucket/filesystem penuh; backend memakai registry pending yang kecil dan terkontrol.
+
+## 2026-03-20 - Deploy Verification Dipisah Menjadi Runtime Lokal dan Smoke Test Publik
+
+- Keputusan:
+  - workflow deploy tidak lagi berhenti pada `pm2 online + port listen + localhost healthcheck`.
+  - setelah verifikasi runtime lokal, workflow wajib menjalankan smoke test lewat origin publik:
+    - frontend `/health`
+    - backend `/api/v1/health`
+    - sample API `/api/v1/issues`
+    - jalur SSE `/api/v1/notifications/stream` dengan expected auth error
+  - template Nginx minimum disimpan di repo sebagai acuan sinkronisasi runtime.
+- Konteks:
+  - final verification menunjukkan pipeline masih bisa hijau walau reverse proxy/domain ingress rusak, karena verifikasi sebelumnya hanya melihat process lokal di VPS.
+- Konsekuensi:
+  - deploy success sekarang lebih merepresentasikan kondisi user publik.
+  - rollback akan mengulang verifikasi lokal dan publik; jika publik tetap gagal setelah rollback, masalah dianggap berada di ingress/runtime config server.
+  - repo kini punya source-of-truth minimal untuk routing frontend/API/SSE lewat `deploy/nginx/jedug.conf.example`, walau file aktif server tetap perlu dikelola operasional.
 
 ## Catatan Governance
 

@@ -75,3 +75,15 @@ func (s *Service) Stat(ctx context.Context, objectKey string) (*ObjectInfo, erro
 	}
 	return s.active.Stat(ctx, objectKey)
 }
+
+func (s *Service) Delete(ctx context.Context, uploadMode, objectKey string) error {
+	if err := ValidateObjectKey(objectKey); err != nil {
+		return err
+	}
+
+	key := NormalizeObjectKey(objectKey)
+	if uploadMode == "local" && s.legacyLocal != nil {
+		return s.legacyLocal.Delete(ctx, key)
+	}
+	return s.active.Delete(ctx, key)
+}
