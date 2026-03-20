@@ -1,20 +1,16 @@
 <script lang="ts">
-	import { formatDate, relativeTime } from '$lib/utils/date';
-
 	const numberFormatter = new Intl.NumberFormat('id-ID');
 
 	let {
 		submissionCount,
 		photoCount,
 		casualtyCount,
-		reactionCount,
-		updatedAt
+		reactionCount
 	}: {
 		submissionCount: number;
 		photoCount: number;
 		casualtyCount: number;
 		reactionCount: number;
-		updatedAt: string;
 	} = $props();
 </script>
 
@@ -38,11 +34,6 @@
 		<span class="label">Reaksi</span>
 		<strong>{numberFormatter.format(reactionCount)}</strong>
 		<small>{reactionCount > 0 ? 'Dukungan publik tercatat' : 'Belum ada reaksi publik'}</small>
-	</article>
-	<article class="stat-card">
-		<span class="label">Diperbarui</span>
-		<strong>{relativeTime(updatedAt)}</strong>
-		<small>{formatDate(updatedAt)}</small>
 	</article>
 </section>
 
@@ -93,7 +84,7 @@
 
 	@media (min-width: 768px) {
 		.issue-stats {
-			grid-template-columns: repeat(5, minmax(0, 1fr));
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 		}
 	}
 </style>

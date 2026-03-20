@@ -20,6 +20,12 @@ export function relativeTime(dateStr: string): string {
   });
 }
 
+export function relativeTimeLabel(dateStr: string): string {
+  const value = relativeTime(dateStr);
+  if (value.length === 0) return value;
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
 export function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("id-ID", {
     day: "numeric",

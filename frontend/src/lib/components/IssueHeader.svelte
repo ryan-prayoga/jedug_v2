@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { IssueDetail, MediaItem } from '$lib/api/types';
-	import { formatDate, relativeTime } from '$lib/utils/date';
+	import { formatDate, relativeTimeLabel } from '$lib/utils/date';
 
 	type Tone = {
 		bg: string;
@@ -11,7 +11,7 @@
 		issue,
 		locationLabel,
 		locationContext,
-		coordinatesLabel,
+		secondaryLocationLine,
 		severityLabel,
 		severityColor,
 		statusLabel,
@@ -26,7 +26,7 @@
 		issue: IssueDetail;
 		locationLabel: string;
 		locationContext: string;
-		coordinatesLabel: string;
+		secondaryLocationLine: string | null;
 		severityLabel: string;
 		severityColor: string;
 		statusLabel: string;
@@ -83,20 +83,14 @@
 		</div>
 
 		<h1>{locationLabel}</h1>
-		<p class="lede">
-			{#if issue.road_type}
-				{issue.road_type}
-			{:else}
-				Titik laporan publik
-			{/if}
-			<span aria-hidden="true">·</span>
-			{coordinatesLabel}
-		</p>
+		{#if secondaryLocationLine}
+			<p class="lede">{secondaryLocationLine}</p>
+		{/if}
 		<p class="snapshot">{snapshot}</p>
 
 		<div class="meta-grid">
 			<article class="meta-item">
-				<span class="meta-label">Lokasi</span>
+				<span class="meta-label">Wilayah</span>
 				<strong>{locationContext}</strong>
 			</article>
 			<article class="meta-item">
@@ -105,7 +99,7 @@
 			</article>
 			<article class="meta-item">
 				<span class="meta-label">Terakhir terlihat</span>
-				<strong>{relativeTime(issue.last_seen_at)}</strong>
+				<strong>{relativeTimeLabel(issue.last_seen_at)}</strong>
 				<small>{formatDate(issue.last_seen_at)}</small>
 			</article>
 		</div>

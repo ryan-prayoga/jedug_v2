@@ -113,8 +113,8 @@
   - treat `400/404` sebagai not-found publik
 - UI detail page bersifat mobile-first:
   - hero media + fallback placeholder
-  - meta issue (severity/status/verification/lokasi/first seen/last seen)
-  - metrik ringkas (laporan/foto/korban/reaksi/update terakhir)
+  - meta issue (severity/status/verification/wilayah/first seen/last seen)
+  - metrik ringkas (laporan/foto/korban/reaksi)
   - galeri media publik sederhana + preview lightbox
   - timeline vertikal `Riwayat Laporan` (event terbaru di atas)
   - detail tambahan + `public_note` ringkas + aktivitas terbaru yang memakai `recent_submissions[].public_note`
@@ -129,6 +129,10 @@
   - `road_name` bila benar-benar nama jalan/area
   - fallback ke `district_name/regency_name/province_name` bila `road_name` lama hanya berisi copy koordinat sintetis
   - fallback koordinat hanya dipakai jika semua label manusiawi kosong
+- Koordinat issue detail sekarang diperlakukan sebagai informasi sekunder:
+  - tidak lagi diulang di hero + ringkasan + aside sekaligus
+  - tetap tersedia jelas di kartu lokasi samping
+- `Tipe jalan` hanya ditampilkan bila backend memang mengirim nilai yang layak pakai; field kosong tidak lagi dirender sebagai noise `Belum tersedia`.
 - State wajib tersedia:
   - loading (retry fetch)
   - not found

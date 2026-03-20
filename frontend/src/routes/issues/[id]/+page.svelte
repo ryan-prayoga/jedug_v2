@@ -20,7 +20,7 @@
 	import IssueStats from '$lib/components/IssueStats.svelte';
 	import LoadingState from '$lib/components/LoadingState.svelte';
 	import ShareActions from '$lib/components/ShareActions.svelte';
-	import { formatDate, relativeTime } from '$lib/utils/date';
+	import { formatDate, relativeTime, relativeTimeLabel } from '$lib/utils/date';
 		import { onIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
 		import { persistFollowerAuthFromIssueState } from '$lib/utils/follower-auth';
 		import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
@@ -32,6 +32,8 @@
 		getIssuePrimaryMedia,
 		getIssueRegionLabel,
 		getIssueRegionOrCoordinates,
+		getIssueRoadTypeLabel,
+		getIssueSecondaryLocationLine,
 		getIssueSnapshot,
 		getPrimaryMedia,
 		getPublicIssueNote,
@@ -80,6 +82,8 @@
 	const locationContext = $derived(issue ? getIssueRegionOrCoordinates(issue) : '-');
 	const roadOrAreaLabel = $derived(issue ? getIssueRoadOrAreaLabel(issue) : null);
 	const regionLabel = $derived(issue ? getIssueRegionLabel(issue) : null);
+	const roadTypeLabel = $derived(issue ? getIssueRoadTypeLabel(issue) : null);
+	const secondaryLocationLine = $derived(issue ? getIssueSecondaryLocationLine(issue) : null);
 	const coordinatesLabel = $derived(
 		issue ? formatCoordinates(issue.latitude, issue.longitude, 5) : '-'
 	);
@@ -621,7 +625,7 @@
 			{issue}
 			{locationLabel}
 			{locationContext}
-			{coordinatesLabel}
+			{secondaryLocationLine}
 			{severityLabel}
 			{severityColor}
 			{statusLabel}
@@ -639,7 +643,6 @@
 			photoCount={issue.photo_count}
 			casualtyCount={issue.casualty_count}
 			reactionCount={issue.reaction_count}
-			updatedAt={issue.updated_at}
 		/>
 
 		<section class="detail-card follow-card" aria-live="polite">
@@ -703,7 +706,7 @@
 					<div class="section-header">
 						<div>
 							<h2>Ringkasan Publik</h2>
-							<p>Informasi utama yang aman ditampilkan untuk pressure publik dan share link.</p>
+							<p>Informasi lokasi inti yang aman dibagikan untuk pressure publik dan share link.</p>
 						</div>
 					</div>
 
@@ -719,25 +722,15 @@
 							<dt>Nama jalan / area</dt>
 							<dd>{roadOrAreaLabel || 'Belum tersedia'}</dd>
 						</div>
-						<div class="detail-row">
-							<dt>Tipe jalan</dt>
-							<dd>{issue.road_type || 'Belum tersedia'}</dd>
-						</div>
+						{#if roadTypeLabel}
+							<div class="detail-row">
+								<dt>Tipe jalan</dt>
+								<dd>{roadTypeLabel}</dd>
+							</div>
+						{/if}
 						<div class="detail-row">
 							<dt>Wilayah</dt>
 							<dd>{regionLabel || 'Belum tersedia'}</dd>
-						</div>
-						<div class="detail-row">
-							<dt>Koordinat</dt>
-							<dd>{coordinatesLabel}</dd>
-						</div>
-						<div class="detail-row">
-							<dt>Pertama terlihat</dt>
-							<dd>{formatDate(issue.first_seen_at)}</dd>
-						</div>
-						<div class="detail-row">
-							<dt>Terakhir terlihat</dt>
-							<dd>{formatDate(issue.last_seen_at)}</dd>
 						</div>
 					</dl>
 				</section>
@@ -746,7 +739,7 @@
 					<div class="section-header">
 						<div>
 							<h2>Status & Jejak Waktu</h2>
-							<p>Ringkasan lifecycle publik issue ini.</p>
+							<p>Ringkasan lifecycle publik issue ini tanpa mengulang informasi lokasi.</p>
 						</div>
 					</div>
 
@@ -762,8 +755,13 @@
 							<small>{issueSnapshot}</small>
 						</article>
 						<article class="timeline-item">
+							<span class="timeline-label">Pertama terlihat</span>
+							<strong>{formatDate(issue.first_seen_at)}</strong>
+							<small>Mulai tercatat di titik ini</small>
+						</article>
+						<article class="timeline-item">
 							<span class="timeline-label">Terakhir terlihat</span>
-							<strong>{relativeTime(issue.last_seen_at)}</strong>
+							<strong>{relativeTimeLabel(issue.last_seen_at)}</strong>
 							<small>{formatDate(issue.last_seen_at)}</small>
 						</article>
 					</div>
@@ -784,7 +782,7 @@
 								<article class="submission-item">
 									<div class="submission-head">
 										<strong>{getSeverityLabel(submission.severity)}</strong>
-										<span>{relativeTime(submission.reported_at)}</span>
+										<span>{relativeTimeLabel(submission.reported_at)}</span>
 									</div>
 									<p class="submission-meta">{formatDate(submission.reported_at)}</p>
 									{#if getSubmissionPublicNote(submission)}
@@ -862,9 +860,12 @@
 					/>
 
 					<section class="detail-card compact-card">
-						<h2>Lokasi Singkat</h2>
-						<p class="compact-text">{locationContext}</p>
-						<p class="compact-text muted">{coordinatesLabel}</p>
+						<h2>Lokasi</h2>
+						<p class="compact-title">{locationLabel}</p>
+						{#if regionLabel && regionLabel !== locationLabel}
+							<p class="compact-text">{regionLabel}</p>
+						{/if}
+						<p class="compact-text muted">Koordinat {coordinatesLabel}</p>
 					</section>
 				</div>
 			</div>
@@ -1302,6 +1303,14 @@
 
 	.compact-card {
 		gap: 8px;
+	}
+
+	.compact-title {
+		margin-top: 8px;
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 1.4;
+		color: #0f172a;
 	}
 
 	.compact-text {

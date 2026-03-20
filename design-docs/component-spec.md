@@ -160,13 +160,12 @@ Dokumen ini bukan sumber utama token desain.
 
 ## IssueStats
 
-- Grid 2 kolom di mobile, 5 kolom di desktop
+- Grid 2 kolom di mobile, 4 kolom di desktop
 - Item wajib:
   - laporan
   - foto
   - korban
   - reaksi
-  - update terakhir
 - Card korban boleh diberi state alert ringan jika `casualty_count > 0`
 
 ## IssueFollowCard
