@@ -51,6 +51,55 @@ func (r *uploadTestReportRepo) HasSubmissionMediaObjectKey(_ context.Context, ob
 	return r.used[objectKey], nil
 }
 
+type uploadTestTicketRepo struct {
+	ticketsByKey       map[string]*repository.ReportUploadTicket
+	pendingCount       int
+	lastCreated        *repository.CreateReportUploadTicketInput
+	countPendingCalled bool
+}
+
+func (r *uploadTestTicketRepo) CreateOrReplace(_ context.Context, input repository.CreateReportUploadTicketInput) error {
+	copied := input
+	r.lastCreated = &copied
+	if r.ticketsByKey == nil {
+		r.ticketsByKey = make(map[string]*repository.ReportUploadTicket)
+	}
+	r.ticketsByKey[input.ObjectKey] = &repository.ReportUploadTicket{
+		ObjectKey:   input.ObjectKey,
+		DeviceID:    input.DeviceID,
+		ContentType: input.ContentType,
+		SizeBytes:   input.SizeBytes,
+		UploadMode:  input.UploadMode,
+		IssuedAt:    time.Now().UTC(),
+		ExpiresAt:   input.ExpiresAt,
+	}
+	return nil
+}
+
+func (r *uploadTestTicketRepo) FindByObjectKey(_ context.Context, objectKey string) (*repository.ReportUploadTicket, error) {
+	if r.ticketsByKey == nil {
+		return nil, nil
+	}
+	return r.ticketsByKey[objectKey], nil
+}
+
+func (r *uploadTestTicketRepo) CountPendingByDeviceSince(_ context.Context, _ uuid.UUID, _ time.Time) (int, error) {
+	r.countPendingCalled = true
+	return r.pendingCount, nil
+}
+
+func (*uploadTestTicketRepo) ListOrphansBefore(context.Context, time.Time, int) ([]repository.OrphanedReportUpload, error) {
+	return nil, nil
+}
+
+func (*uploadTestTicketRepo) DeleteByObjectKeys(context.Context, []string) (int64, error) {
+	return 0, nil
+}
+
+func (*uploadTestTicketRepo) CountOrphansBefore(context.Context, time.Time) (int64, error) {
+	return 0, nil
+}
+
 type uploadTestDriver struct {
 	name      string
 	statByKey map[string]*storage.ObjectInfo
@@ -85,6 +134,8 @@ func (d *uploadTestDriver) Stat(_ context.Context, objectKey string) (*storage.O
 	return d.statByKey[objectKey], nil
 }
 
+func (*uploadTestDriver) Delete(context.Context, string) error { return nil }
+
 func TestUploadServiceCreateReportUploadRequiresKnownDevice(t *testing.T) {
 	t.Parallel()
 
@@ -92,6 +143,7 @@ func TestUploadServiceCreateReportUploadRequiresKnownDevice(t *testing.T) {
 	svc := NewUploadService(
 		&uploadTestDeviceRepo{},
 		&uploadTestReportRepo{used: map[string]bool{}},
+		&uploadTestTicketRepo{},
 		store,
 		UploadServiceConfig{Secret: []byte("12345678901234567890123456789012")},
 	)
@@ -116,9 +168,11 @@ func TestUploadServiceValidateLocalUploadChecksTicketBinding(t *testing.T) {
 	}
 	driver := &uploadTestDriver{name: "local", statByKey: map[string]*storage.ObjectInfo{}}
 	store := storage.NewService(driver, nil)
+	ticketRepo := &uploadTestTicketRepo{}
 	svc := NewUploadService(
 		&uploadTestDeviceRepo{device: device},
 		&uploadTestReportRepo{used: map[string]bool{}},
+		ticketRepo,
 		store,
 		UploadServiceConfig{Secret: []byte("12345678901234567890123456789012")},
 	)
@@ -135,6 +189,9 @@ func TestUploadServiceValidateLocalUploadChecksTicketBinding(t *testing.T) {
 
 	if err := svc.ValidateLocalUpload(context.Background(), result.UploadToken, result.ObjectKey, "image/webp", 2048); err != nil {
 		t.Fatalf("expected valid local upload ticket, got %v", err)
+	}
+	if !ticketRepo.countPendingCalled {
+		t.Fatalf("expected pending upload count to be checked during presign")
 	}
 
 	if err := svc.ValidateLocalUpload(context.Background(), result.UploadToken, result.ObjectKey, "image/png", 2048); !errors.Is(err, ErrUploadTokenInvalid) {
@@ -160,9 +217,11 @@ func TestUploadServiceValidateReportMediaRejectsMissingOrReusedObject(t *testing
 	}
 	reportRepo := &uploadTestReportRepo{used: map[string]bool{}}
 	store := storage.NewService(driver, nil)
+	ticketRepo := &uploadTestTicketRepo{}
 	svc := NewUploadService(
 		&uploadTestDeviceRepo{device: device},
 		reportRepo,
+		ticketRepo,
 		store,
 		UploadServiceConfig{Secret: []byte("12345678901234567890123456789012")},
 	)
@@ -208,5 +267,35 @@ func TestUploadServiceValidateReportMediaRejectsMissingOrReusedObject(t *testing
 	}})
 	if !errors.Is(err, ErrUploadAlreadyUsed) {
 		t.Fatalf("expected ErrUploadAlreadyUsed, got %v", err)
+	}
+}
+
+func TestUploadServiceCreateReportUploadRejectsTooManyPendingTickets(t *testing.T) {
+	t.Parallel()
+
+	device := &domain.Device{
+		ID:            uuid.New(),
+		AnonTokenHash: hashToken("anon-token"),
+	}
+	store := storage.NewService(&uploadTestDriver{name: "local", statByKey: map[string]*storage.ObjectInfo{}}, nil)
+	svc := NewUploadService(
+		&uploadTestDeviceRepo{device: device},
+		&uploadTestReportRepo{used: map[string]bool{}},
+		&uploadTestTicketRepo{pendingCount: 4},
+		store,
+		UploadServiceConfig{
+			Secret:       []byte("12345678901234567890123456789012"),
+			PendingLimit: 4,
+		},
+	)
+
+	_, err := svc.CreateReportUpload(context.Background(), CreateReportUploadRequest{
+		AnonToken:   "anon-token",
+		Filename:    "photo.webp",
+		ContentType: "image/webp",
+		SizeBytes:   1024,
+	})
+	if !errors.Is(err, ErrUploadPendingLimitReached) {
+		t.Fatalf("expected ErrUploadPendingLimitReached, got %v", err)
 	}
 }

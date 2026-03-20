@@ -184,6 +184,11 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 			input.DeviceID, submissionID, len(input.Media), err)
 		return nil, fmt.Errorf("create media: %w", err)
 	}
+	if err := deletePendingUploadTickets(ctx, tx, input.Media); err != nil {
+		log.Printf("[REPORT] delete_upload_tickets_failed device=%s submission=%s media_count=%d error=%v",
+			input.DeviceID, submissionID, len(input.Media), err)
+		return nil, fmt.Errorf("delete upload tickets: %w", err)
+	}
 
 	if !isNew {
 		if err := updateIssueAggregatesOnMerge(ctx, tx, issueID, regionID, input); err != nil {
@@ -226,6 +231,21 @@ func (r *reportRepository) HasSubmissionMediaObjectKey(ctx context.Context, obje
 		return false, err
 	}
 	return exists, nil
+}
+
+func deletePendingUploadTickets(ctx context.Context, tx pgx.Tx, media []SubmitMediaInput) error {
+	if len(media) == 0 {
+		return nil
+	}
+	objectKeys := make([]string, 0, len(media))
+	for _, item := range media {
+		objectKeys = append(objectKeys, item.ObjectKey)
+	}
+	_, err := tx.Exec(ctx, `
+		DELETE FROM report_upload_tickets
+		WHERE object_key = ANY($1::text[])
+	`, objectKeys)
+	return err
 }
 
 // insertTimelineEvents records audit events for a completed submission.

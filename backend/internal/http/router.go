@@ -10,9 +10,11 @@ import (
 	"jedug_backend/internal/config"
 	"jedug_backend/internal/http/handlers"
 	"jedug_backend/internal/http/middleware"
+	"jedug_backend/internal/ops"
 	"jedug_backend/internal/push"
 	"jedug_backend/internal/repository"
 	"jedug_backend/internal/service"
+	"jedug_backend/internal/sse"
 	"jedug_backend/internal/storage"
 )
 
@@ -58,6 +60,9 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	issueFollowRepo := repository.NewIssueFollowRepository(db)
 	nearbyAlertRepo := repository.NewNearbyAlertRepository(db)
 	pushRepo := repository.NewPushSubscriptionRepository(db)
+	pushDeliveryJobRepo := repository.NewPushDeliveryJobRepository(db)
+	reportUploadTicketRepo := repository.NewReportUploadTicketRepository(db)
+	opsStore := ops.NewStore(db)
 	followerAuthRepo := repository.NewFollowerAuthRepository(db)
 	pushNotifier := push.NewNotifier(push.Config{
 		Enabled:         cfg.WebPushVAPIDPublicKey != "",
@@ -66,7 +71,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 		VAPIDPublicKey:  cfg.WebPushVAPIDPublicKey,
 		VAPIDPrivateKey: cfg.WebPushVAPIDPrivateKey,
 		TTLSeconds:      cfg.WebPushTTLSeconds,
-	}, pushRepo)
+	}, pushRepo, pushDeliveryJobRepo)
 	statsRepo := repository.NewStatsRepository(db)
 	reportRepo := repository.NewReportRepository(db, repository.ReportRepositoryConfig{
 		DuplicateRadiusM: cfg.DuplicateRadiusM,
@@ -104,16 +109,25 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 		cfg.ReverseGeocodeCacheTTL,
 	)
 	locationNormalizer := service.NewReportLocationNormalizer(locationRepo, reverseGeocoder)
-	uploadSvc := service.NewUploadService(deviceRepo, reportRepo, store, service.UploadServiceConfig{
-		Secret: []byte(cfg.UploadTokenSecret),
-		TTL:    cfg.UploadTicketTTL,
+	uploadSvc := service.NewUploadService(deviceRepo, reportRepo, reportUploadTicketRepo, store, service.UploadServiceConfig{
+		Secret:        []byte(cfg.UploadTokenSecret),
+		TTL:           cfg.UploadTicketTTL,
+		PendingWindow: cfg.UploadPendingWindow,
+		PendingLimit:  cfg.UploadPendingLimit,
 	})
 	reportSvc := service.NewReportService(deviceRepo, reportRepo, locationNormalizer, uploadSvc)
 	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo)
 	flagSvc := service.NewFlagService(deviceRepo, flagRepo, adminRepo)
 	locationSvc := service.NewLocationService(locationRepo, reverseGeocoder)
 
-	healthHandler := handlers.NewHealthHandler(db)
+	healthHandler := handlers.NewHealthHandler(db, opsStore, sse.Default, ops.RetentionPolicy{
+		NotificationsRetention:             cfg.NotificationsRetention,
+		PushSubscriptionsStaleAfter:        cfg.PushSubscriptionsStaleAfter,
+		PushSubscriptionsDisabledRetention: cfg.PushSubscriptionsDisabledRetention,
+		PushDeliveryDeliveredRetention:     cfg.PushDeliveryDeliveredRetention,
+		PushDeliveryFailedRetention:        cfg.PushDeliveryFailedRetention,
+		UploadOrphanRetention:              cfg.UploadOrphanRetention,
+	})
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc)
 	issueHandler := handlers.NewIssueHandler(issueSvc, store)
 	issueFollowHandler := handlers.NewIssueFollowHandler(issueFollowSvc, followerAuthSvc)
@@ -125,19 +139,21 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	statsHandler := handlers.NewStatsHandler(statsSvc)
 	uploadHandler := handlers.NewUploadHandler(uploadSvc, store)
 	reportHandler := handlers.NewReportHandler(reportSvc)
-	adminHandler := handlers.NewAdminHandler(adminSvc, store)
+	adminHandler := handlers.NewAdminHandler(adminSvc, store, cfg.AppEnv == "production")
 	flagHandler := handlers.NewFlagHandler(flagSvc)
 	locationHandler := handlers.NewLocationHandler(locationSvc)
 
 	// Rate limiters
 	rlBootstrap := middleware.RateLimit(10, 1*time.Minute)
 	rlConsent := middleware.RateLimit(10, 1*time.Minute)
-	rlPresign := middleware.RateLimit(20, 1*time.Minute)
+	rlPresign := middleware.RateLimit(10, 15*time.Minute)
+	rlUploadFile := middleware.RateLimit(10, 15*time.Minute)
 	rlReport := middleware.RateLimit(5, 1*time.Minute)
 	rlFlag := middleware.RateLimit(10, 1*time.Minute)
 	rlFollow := middleware.RateLimit(30, 1*time.Minute)
 	rlPush := middleware.RateLimit(20, 1*time.Minute)
 	rlNearbyAlerts := middleware.RateLimit(30, 1*time.Minute)
+	rlAdminLogin := middleware.RateLimit(10, 15*time.Minute)
 
 	// Routes
 	api := app.Group("/api/v1")
@@ -150,7 +166,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 
 	uploads := api.Group("/uploads")
 	uploads.Post("/presign", rlPresign, uploadHandler.Presign)
-	uploads.Post("/file/*", uploadHandler.UploadFile)
+	uploads.Post("/file/*", rlUploadFile, uploadHandler.UploadFile)
 
 	api.Post("/reports", rlReport, reportHandler.Submit)
 
@@ -191,10 +207,12 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 
 	// Admin routes
 	admin := api.Group("/admin")
-	admin.Post("/login", adminHandler.Login)
+	admin.Use(middleware.NoStore())
+	admin.Post("/login", rlAdminLogin, adminHandler.Login)
 
 	// Protected admin routes
 	adminAuth := admin.Group("", middleware.AdminAuth(adminSvc))
+	adminAuth.Post("/logout", adminHandler.Logout)
 	adminAuth.Get("/me", adminHandler.Me)
 	adminAuth.Get("/issues", adminHandler.ListIssues)
 	adminAuth.Get("/issues/:id", adminHandler.GetIssue)

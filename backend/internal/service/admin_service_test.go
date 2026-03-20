@@ -134,6 +134,55 @@ func TestAdminServiceFixIssueDoesNotFailOnAuditErrors(t *testing.T) {
 	}
 }
 
+func TestAdminServiceLoginRevokesPreviousSession(t *testing.T) {
+	repoFake := &adminRepoFake{}
+	svc := NewAdminService("moderator", "super-secret-123", repoFake)
+
+	firstToken, err := svc.Login("moderator", "super-secret-123", "127.0.0.1|moderator")
+	if err != nil {
+		t.Fatalf("first login returned error: %v", err)
+	}
+	if svc.ValidateSession(firstToken) == nil {
+		t.Fatal("expected first session to be valid")
+	}
+
+	secondToken, err := svc.Login("moderator", "super-secret-123", "127.0.0.1|moderator")
+	if err != nil {
+		t.Fatalf("second login returned error: %v", err)
+	}
+	if secondToken == firstToken {
+		t.Fatal("expected login to rotate session token")
+	}
+	if svc.ValidateSession(firstToken) != nil {
+		t.Fatal("expected previous session to be revoked")
+	}
+	if svc.ValidateSession(secondToken) == nil {
+		t.Fatal("expected new session to be valid")
+	}
+}
+
+func TestAdminServiceLoginLocksAfterRepeatedFailures(t *testing.T) {
+	repoFake := &adminRepoFake{}
+	svc := NewAdminService("moderator", "super-secret-123", repoFake)
+	fingerprint := "127.0.0.1|moderator"
+
+	for i := 0; i < adminLoginMaxFailures; i++ {
+		_, err := svc.Login("moderator", "wrong-password", fingerprint)
+		if !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("attempt %d: expected ErrInvalidCredentials, got %v", i+1, err)
+		}
+	}
+
+	_, err := svc.Login("moderator", "super-secret-123", fingerprint)
+	var throttledErr *AdminLoginThrottleError
+	if !errors.As(err, &throttledErr) {
+		t.Fatalf("expected AdminLoginThrottleError, got %v", err)
+	}
+	if throttledErr.RetryAfter <= 0 {
+		t.Fatalf("expected positive retry_after, got %v", throttledErr.RetryAfter)
+	}
+}
+
 func TestAdminServiceRejectIssueReturnsNotFound(t *testing.T) {
 	repoFake := &adminRepoFake{
 		moderateIssueErr: repository.ErrModerationTargetNotFound,

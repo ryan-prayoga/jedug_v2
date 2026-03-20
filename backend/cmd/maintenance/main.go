@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"jedug_backend/internal/config"
 	"jedug_backend/internal/database"
-	apphttp "jedug_backend/internal/http"
 	"jedug_backend/internal/ops"
 	"jedug_backend/internal/storage"
 )
@@ -22,23 +19,19 @@ func main() {
 	}
 
 	cfg := config.Load()
-
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	appCtx, cancelApp := context.WithCancel(context.Background())
-	defer cancelApp()
-
-	store, err := buildStorageService(context.Background(), cfg)
+	storeService, err := buildStorageService(context.Background(), cfg)
 	if err != nil {
 		log.Fatalf("failed to initialize storage service: %v", err)
 	}
 
-	opsStore := ops.NewStore(db)
-	opsRunner := ops.NewRunner(opsStore, store, ops.RetentionPolicy{
+	store := ops.NewStore(db)
+	runner := ops.NewRunner(store, storeService, ops.RetentionPolicy{
 		NotificationsRetention:             cfg.NotificationsRetention,
 		PushSubscriptionsStaleAfter:        cfg.PushSubscriptionsStaleAfter,
 		PushSubscriptionsDisabledRetention: cfg.PushSubscriptionsDisabledRetention,
@@ -46,26 +39,28 @@ func main() {
 		PushDeliveryFailedRetention:        cfg.PushDeliveryFailedRetention,
 		UploadOrphanRetention:              cfg.UploadOrphanRetention,
 	}, cfg.MaintenanceInterval, cfg.MaintenanceEnabled)
-	opsRunner.Start(appCtx)
 
-	app, err := apphttp.NewRouter(cfg, db)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	summary, err := runner.RunOnce(ctx)
 	if err != nil {
-		log.Fatalf("failed to build router: %v", err)
+		log.Fatalf("maintenance failed: %v", err)
+	}
+	if summary == nil || summary.Skipped {
+		log.Printf("[OPS] maintenance skipped")
+		return
 	}
 
-	go func() {
-		if err := app.Listen(":" + cfg.AppPort); err != nil {
-			log.Fatalf("server error: %v", err)
-		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
-
-	log.Println("shutting down server...")
-	cancelApp()
-	_ = app.Shutdown()
+	log.Printf(
+		"[OPS] maintenance completed notifications_deleted=%d push_subscriptions_disabled=%d push_subscriptions_deleted=%d push_deliveries_delivered_deleted=%d push_deliveries_failed_deleted=%d upload_orphans_deleted=%d",
+		summary.NotificationsDeleted,
+		summary.PushSubscriptionsDisabled,
+		summary.PushSubscriptionsDeleted,
+		summary.PushDeliveriesDeliveredDeleted,
+		summary.PushDeliveriesFailedDeleted,
+		summary.UploadOrphansDeleted,
+	)
 }
 
 func buildStorageService(ctx context.Context, cfg *config.Config) (*storage.Service, error) {

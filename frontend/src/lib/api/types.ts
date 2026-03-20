@@ -265,7 +265,7 @@ export interface PublicStats {
 
 // Admin types
 export interface AdminLoginResponse {
-  token: string;
+  username: string;
 }
 
 export interface AdminMeResponse {

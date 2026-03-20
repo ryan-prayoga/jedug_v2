@@ -221,6 +221,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_submission_media_primary_per_submission
     ON submission_media(submission_id)
     WHERE is_primary = TRUE;
 
+CREATE TABLE IF NOT EXISTS report_upload_tickets (
+    object_key TEXT PRIMARY KEY,
+    device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    content_type VARCHAR(100) NOT NULL,
+    size_bytes INT NOT NULL CHECK (size_bytes > 0),
+    upload_mode VARCHAR(20) NOT NULL CHECK (upload_mode IN ('local', 'r2')),
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_report_upload_tickets_device_issued_at
+    ON report_upload_tickets(device_id, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_report_upload_tickets_issued_at
+    ON report_upload_tickets(issued_at);
+
 CREATE TABLE IF NOT EXISTS issue_reactions (
     issue_id UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
     device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
@@ -308,6 +323,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_issue_id ON notifications(issue_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_follower_created_at ON notifications(follower_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -325,10 +341,56 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_follower_id ON push_subscripti
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_active_follower_id
     ON push_subscriptions(follower_id)
     WHERE disabled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_disabled_at
+    ON push_subscriptions(disabled_at)
+    WHERE disabled_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_active_updated_at
+    ON push_subscriptions(updated_at)
+    WHERE disabled_at IS NULL;
 
 DROP TRIGGER IF EXISTS trg_push_subscriptions_updated_at ON push_subscriptions;
 CREATE TRIGGER trg_push_subscriptions_updated_at
 BEFORE UPDATE ON push_subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS push_delivery_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    follower_id UUID NOT NULL,
+    issue_id UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    event_id BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at TIMESTAMPTZ,
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    failed_at TIMESTAMPTZ,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_push_delivery_jobs_event_follower UNIQUE (event_id, follower_id),
+    CONSTRAINT chk_push_delivery_jobs_attempt_count_non_negative CHECK (attempt_count >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_delivery_jobs_follower_id
+    ON push_delivery_jobs(follower_id);
+
+CREATE INDEX IF NOT EXISTS idx_push_delivery_jobs_ready
+    ON push_delivery_jobs(next_attempt_at, created_at)
+    WHERE delivered_at IS NULL AND failed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_push_delivery_jobs_delivered_at
+    ON push_delivery_jobs(delivered_at)
+    WHERE delivered_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_push_delivery_jobs_failed_at
+    ON push_delivery_jobs(failed_at)
+    WHERE failed_at IS NOT NULL;
+
+DROP TRIGGER IF EXISTS trg_push_delivery_jobs_updated_at ON push_delivery_jobs;
+CREATE TRIGGER trg_push_delivery_jobs_updated_at
+BEFORE UPDATE ON push_delivery_jobs
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

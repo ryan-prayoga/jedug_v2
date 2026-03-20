@@ -47,6 +47,10 @@ func (d fakeDriver) Stat(_ context.Context, objectKey string) (*ObjectInfo, erro
 	}, nil
 }
 
+func (d fakeDriver) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
 func TestValidateObjectKey(t *testing.T) {
 	t.Parallel()
 

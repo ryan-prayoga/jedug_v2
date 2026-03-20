@@ -147,3 +147,11 @@ func (d *R2Driver) Stat(ctx context.Context, objectKey string) (*ObjectInfo, err
 		ContentType: NormalizeContentType(aws.ToString(result.ContentType)),
 	}, nil
 }
+
+func (d *R2Driver) Delete(ctx context.Context, objectKey string) error {
+	_, err := d.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(d.bucket),
+		Key:    aws.String(NormalizeObjectKey(objectKey)),
+	})
+	return err
+}

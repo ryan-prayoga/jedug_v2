@@ -20,6 +20,9 @@ Dokumen ini disusun dari:
   - `backend/migrations/202603160003_create_notification_preferences.sql`
   - `backend/migrations/202603160004_create_nearby_alerts.sql`
   - `backend/migrations/202603200001_harden_report_idempotency.sql`
+  - `backend/migrations/202603200002_create_push_delivery_jobs.sql`
+  - `backend/migrations/202603200003_add_retention_indexes.sql`
+  - `backend/migrations/202603200004_create_report_upload_tickets.sql`
 - Helper operasional:
   - `backend/scripts/bootstrap_db.sh`
   - `backend/scripts/verify_schema_governance.sh`
@@ -106,6 +109,22 @@ Dokumen ini disusun dari:
 - Rawan salah paham:
   - backend menganggap media terkait submission, bukan langsung issue.
   - object_key harus key storage, bukan URL mutlak.
+
+### `report_upload_tickets`
+
+- Fungsi: registry pending upload publik sebelum object benar-benar dikonsumsi oleh `submission_media`.
+- Relasi: FK ke `devices`; tidak ada FK ke `submission_media` karena row ini sengaja bersifat sementara.
+- Kolom penting: `object_key`, `device_id`, `content_type`, `size_bytes`, `upload_mode`, `issued_at`, `expires_at`.
+- Constraint/index penting:
+  - PK `object_key`
+  - index `(device_id, issued_at DESC)` untuk menghitung backlog upload belum dipakai per device
+  - index `issued_at` untuk cleanup orphan by age
+- Business meaning:
+  - satu row = satu ticket upload yang sudah diterbitkan tetapi belum tentu benar-benar dipakai report.
+  - service upload memakai tabel ini untuk membatasi churn presign anonim dan memverifikasi bahwa `upload_token` mengacu ke ticket yang memang dikenal backend.
+- Rawan salah paham:
+  - tabel ini bukan arsip permanen media; submit report yang sukses akan menghapus row pending-nya dalam transaction yang sama.
+  - cleanup orphan hanya menyentuh row yang masih tertinggal di tabel ini setelah TTL retention, sehingga media yang sudah terhubung ke report tidak ikut terhapus.
 
 ### `issue_flags`
 
@@ -197,6 +216,29 @@ Dokumen ini disusun dari:
   - follower yang sama tetap bisa punya beberapa row historis bila browser merotasi endpoint dari waktu ke waktu.
   - public VAPID key tidak disimpan di tabel; ia berasal dari env backend dan diexpose via endpoint status.
 - Migration: `backend/migrations/202603160001_create_push_subscriptions.sql` — WAJIB DIJALANKAN DI PROD.
+
+### `push_delivery_jobs`
+
+- Fungsi: outbox delivery browser push yang tahan restart ringan dan menjadi source of truth status pengiriman async.
+- Relasi:
+  - FK `issue_id -> issues(id)` (`ON DELETE CASCADE`)
+  - `follower_id` tetap UUID anonim client-side yang sama dengan sistem notifikasi (tanpa FK ke tabel lain).
+- Kolom penting:
+  - payload: `event_id`, `type`, `title`, `message`
+  - retry/audit: `attempt_count`, `last_attempt_at`, `next_attempt_at`, `last_error`
+  - lifecycle worker: `locked_at`, `delivered_at`, `failed_at`
+- Constraint/index penting:
+  - unique `(event_id, follower_id)` agar enqueue push tetap idempotent per event notifikasi
+  - partial index ready `(next_attempt_at, created_at)` untuk claim worker job yang belum `delivered/failed`
+  - check `attempt_count >= 0`
+- Business meaning:
+  - request utama hanya perlu menulis row outbox; worker background akan mengirim ke provider Web Push sesudah commit.
+  - job yang tertinggal saat restart atau crash tetap bisa di-claim ulang karena state-nya persisten di DB.
+- Rawan salah paham:
+  - tabel ini bukan source of truth daftar notifikasi user; daftar in-app tetap berasal dari `notifications`.
+  - `delivered_at` berarti minimal satu subscription aktif follower menerima push dengan sukses; bukan jaminan user melihat notif di OS/browser.
+  - `failed_at` berarti retry budget habis atau semua subscription aktif gagal permanen; row sengaja dibiarkan untuk audit.
+- Migration: `backend/migrations/202603200002_create_push_delivery_jobs.sql` — WAJIB DIJALANKAN DI PROD.
 
 ### `follower_auth_bindings`
 
@@ -356,7 +398,7 @@ Dokumen ini disusun dari:
 ## Current Implementation
 
 - Query backend paling banyak memakai tabel:
-  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`, `notifications`, `push_subscriptions`
+  - `devices`, `device_consents`, `issues`, `issue_submissions`, `submission_media`, `issue_flags`, `issue_followers`, `moderation_actions`, `issue_events`, `notifications`, `push_subscriptions`, `push_delivery_jobs`
 - sebagian tabel schema sudah ada namun belum dipakai penuh (users/oauth/sessions/reactions/submission_flags/daily_stats/history).
 
 ## Migration SQL di Repo
@@ -372,6 +414,9 @@ Dokumen ini disusun dari:
   - `backend/migrations/202603160002_create_follower_auth_bindings.sql`
   - `backend/migrations/202603160003_create_notification_preferences.sql`
   - `backend/migrations/202603160004_create_nearby_alerts.sql`
+  - `backend/migrations/202603200001_harden_report_idempotency.sql`
+  - `backend/migrations/202603200002_create_push_delivery_jobs.sql`
+  - `backend/migrations/202603200003_add_retention_indexes.sql`
 - Index performa yang dipakai timeline:
   - `idx_issue_events_issue_id_created_at (issue_id, created_at DESC, id DESC)`
 

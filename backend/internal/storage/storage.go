@@ -79,6 +79,7 @@ type Driver interface {
 	BuildPublicURL(objectKey string) string
 	Upload(ctx context.Context, objectKey, contentType string, body []byte) error
 	Stat(ctx context.Context, objectKey string) (*ObjectInfo, error)
+	Delete(ctx context.Context, objectKey string) error
 }
 
 func AllowedContentTypes() []string {
@@ -290,6 +291,14 @@ func (d *LocalDriver) Stat(_ context.Context, objectKey string) (*ObjectInfo, er
 	return &ObjectInfo{
 		SizeBytes: info.Size(),
 	}, nil
+}
+
+func (d *LocalDriver) Delete(_ context.Context, objectKey string) error {
+	err := os.Remove(d.AbsPath(objectKey))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 func (d *LocalDriver) AbsPath(objectKey string) string {

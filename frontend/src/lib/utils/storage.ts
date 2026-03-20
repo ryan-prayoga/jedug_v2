@@ -1,6 +1,5 @@
 const TOKEN_KEY = "jedug_anon_token";
 const CONSENT_KEY = "jedug_terms_accepted";
-const ADMIN_TOKEN_KEY = "jedug_admin_token";
 const ISSUE_FOLLOWER_ID_KEY = "jedug_issue_follower_id";
 const ISSUE_FOLLOWER_TOKEN_KEY = "jedug_issue_follower_token";
 const ISSUE_FOLLOWER_TOKEN_EXP_KEY = "jedug_issue_follower_token_exp";
@@ -34,19 +33,6 @@ export function setConsentGiven(): void {
 
 export function clearConsentGiven(): void {
   localStorage.removeItem(CONSENT_KEY);
-}
-
-export function getAdminToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ADMIN_TOKEN_KEY);
-}
-
-export function setAdminToken(token: string): void {
-  localStorage.setItem(ADMIN_TOKEN_KEY, token);
-}
-
-export function clearAdminToken(): void {
-  localStorage.removeItem(ADMIN_TOKEN_KEY);
 }
 
 export function getIssueFollowerId(): string | null {

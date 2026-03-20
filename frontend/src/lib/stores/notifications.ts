@@ -1,4 +1,4 @@
-import { derived, writable } from "svelte/store";
+import { derived, get, writable } from "svelte/store";
 import { PUBLIC_API_BASE_URL } from "$env/static/public";
 import {
   deleteNotification,
@@ -44,6 +44,12 @@ let _reconnectDelay = 1_000;
 const _maxReconnectDelay = 30_000;
 let _reconnectAttempts = 0;
 let _realtimeEnabled = true;
+let _lastEventID = 0;
+let _lastSnapshotAt = 0;
+let _needsRecoveryRefresh = false;
+let _reconcileLifecycleStarted = false;
+const _snapshotStaleAfter = 60_000;
+const _periodicReconcileInterval = 90_000;
 const NOTIFICATION_SYNC_KEY = "jedug_notification_sync";
 const channel =
   typeof window !== "undefined" && "BroadcastChannel" in window
@@ -124,6 +130,11 @@ function setSnapshot(
   items: Notification[],
   loading: boolean,
 ) {
+  _lastEventID = items.reduce(
+    (maxEventID, item) => Math.max(maxEventID, item.event_id ?? 0),
+    0,
+  );
+  _lastSnapshotAt = Date.now();
   state.update((prev) => ({
     ...prev,
     items,
@@ -153,8 +164,72 @@ async function fetchSnapshot(
   setSnapshot(followerID, followerToken, result.data?.items ?? [], false);
 }
 
+function mergeIncomingNotification(incoming: Notification, eventID = incoming.event_id) {
+  _lastEventID = Math.max(_lastEventID, eventID ?? 0);
+  _lastSnapshotAt = Date.now();
+  state.update((prev) => {
+    if (prev.items.some((item) => item.id === incoming.id)) {
+      return prev;
+    }
+
+    return {
+      ...prev,
+      items: [incoming, ...prev.items].slice(0, 50),
+    };
+  });
+}
+
+function shouldReconcileSnapshot() {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+    return false;
+  }
+  return Date.now() - _lastSnapshotAt >= _snapshotStaleAfter;
+}
+
+async function reconcileNotifications(forceAuthRefresh = false) {
+  const currentState = get(state);
+
+  if (!currentState.initialized) return;
+
+  const shouldReconnect = _realtimeEnabled && _es === null;
+  if (!shouldReconnect && !_needsRecoveryRefresh && !shouldReconcileSnapshot()) {
+    return;
+  }
+
+  _needsRecoveryRefresh = false;
+  await refreshState(false, shouldReconnect, forceAuthRefresh);
+}
+
+function startReconciliationLifecycle() {
+  if (_reconcileLifecycleStarted || typeof window === "undefined") {
+    return;
+  }
+
+  _reconcileLifecycleStarted = true;
+
+  window.setInterval(() => {
+    if (!_realtimeEnabled) return;
+    if (!shouldReconcileSnapshot()) return;
+    void reconcileNotifications(false);
+  }, _periodicReconcileInterval);
+
+  const handleResume = () => {
+    _needsRecoveryRefresh = true;
+    void reconcileNotifications(false);
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      handleResume();
+    }
+  });
+  window.addEventListener("focus", handleResume);
+  window.addEventListener("pageshow", handleResume);
+}
+
 function scheduleReconnect(followerID: string) {
   clearReconnectTimer();
+  _needsRecoveryRefresh = true;
 
   const delay = _reconnectDelay;
   _reconnectDelay = Math.min(_reconnectDelay * 2, _maxReconnectDelay);
@@ -164,7 +239,8 @@ function scheduleReconnect(followerID: string) {
 
     try {
       if (_reconnectAttempts >= 3) {
-        await refreshState(false, false, true);
+        await refreshState(false, true, true);
+        return;
       }
     } catch {
       // best-effort fallback refresh
@@ -192,27 +268,37 @@ function _connectSSE(followerID: string, streamToken: string) {
   }
 
   const params = new URLSearchParams({ stream_token: streamToken });
+  if (_lastEventID > 0) {
+    params.set("last_event_id", String(_lastEventID));
+  }
   const es = new EventSource(
     `${PUBLIC_API_BASE_URL}/api/v1/notifications/stream?${params.toString()}`,
   );
   _es = es;
 
-  es.addEventListener("connected", () => {
+  es.onopen = () => {
     _reconnectDelay = 1_000;
     _reconnectAttempts = 0;
-  });
+    if (_needsRecoveryRefresh) {
+      void reconcileNotifications(false);
+    }
+  };
+
+  es.addEventListener("connected", () => {});
 
   es.addEventListener("notification", (e: MessageEvent) => {
     try {
       const incoming = JSON.parse(e.data) as Notification;
-      state.update((prev) => {
-        if (prev.items.some((item) => item.id === incoming.id)) return prev;
-        return { ...prev, items: [incoming, ...prev.items] };
-      });
+      const eventID = Number.parseInt(e.lastEventId || "", 10);
+      mergeIncomingNotification(
+        incoming,
+        Number.isFinite(eventID) ? eventID : incoming.event_id,
+      );
       _reconnectDelay = 1_000;
       _reconnectAttempts = 0;
     } catch {
-      // ignore malformed notification payload
+      _needsRecoveryRefresh = true;
+      void reconcileNotifications(false);
     }
   });
 
@@ -247,6 +333,8 @@ async function refreshState(
   const followerID = getOrCreateIssueFollowerId();
   if (!followerID) {
     _disconnectSSE();
+    _lastEventID = 0;
+    _lastSnapshotAt = 0;
     state.update((prev) => ({
       ...prev,
       loading: false,
@@ -264,6 +352,8 @@ async function refreshState(
 
   if (!followerToken) {
     _disconnectSSE();
+    _lastEventID = 0;
+    _lastSnapshotAt = 0;
     state.update((prev) => ({
       ...prev,
       loading: false,
@@ -304,6 +394,8 @@ export const notificationsState = {
   subscribe: state.subscribe,
 
   async init() {
+    startReconciliationLifecycle();
+
     let shouldInit = false;
     state.update((prev) => {
       if (!prev.initialized) {
@@ -318,15 +410,12 @@ export const notificationsState = {
   },
 
   async refresh() {
-    await refreshState(false, true);
+    _needsRecoveryRefresh = true;
+    await reconcileNotifications(false);
   },
 
   async markRead(notificationID: string) {
-    let followerToken: string | null = null;
-    state.update((prev) => {
-      followerToken = prev.followerToken;
-      return prev;
-    });
+    let followerToken: string | null = get(state).followerToken;
 
     followerToken =
       followerToken ?? (await ensureFollowerAuthToken().catch(() => null));
@@ -349,21 +438,17 @@ export const notificationsState = {
   },
 
   async delete(notificationID: string) {
-    let followerToken: string | null = null;
-    let shouldDelete = false;
-    state.update((prev) => {
-      followerToken = prev.followerToken;
-      if (prev.deletingIDs.includes(notificationID)) {
-        return prev;
-      }
+    let followerToken: string | null = get(state).followerToken;
+    const currentState = get(state);
+    const shouldDelete = !currentState.deletingIDs.includes(notificationID);
 
-      shouldDelete = true;
-      return {
+    if (shouldDelete) {
+      state.update((prev) => ({
         ...prev,
         error: null,
         deletingIDs: [...prev.deletingIDs, notificationID],
-      };
-    });
+      }));
+    }
 
     if (!shouldDelete) {
       return false;
@@ -412,17 +497,15 @@ export const notificationsState = {
       return;
     }
 
-    let shouldRefresh = false;
-    state.update((prev) => {
-      shouldRefresh =
-        prev.initialized &&
-        Boolean(prev.followerID) &&
-        Boolean(prev.followerToken);
-      return prev;
-    });
+    const currentState = get(state);
+    const shouldRefresh =
+      currentState.initialized &&
+      Boolean(currentState.followerID) &&
+      Boolean(currentState.followerToken);
 
     if (shouldRefresh) {
-      void refreshState(false, true);
+      _needsRecoveryRefresh = true;
+      void reconcileNotifications(false);
     }
   },
 };

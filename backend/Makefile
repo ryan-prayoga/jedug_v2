@@ -1,4 +1,4 @@
-.PHONY: run build tidy pm2-start pm2-stop pm2-restart pm2-logs db-bootstrap db-upgrade db-verify-schema
+.PHONY: run build tidy pm2-start pm2-stop pm2-restart pm2-logs db-bootstrap db-upgrade db-verify-schema ops-retention
 
 APP_NAME=jedug-api
 
@@ -32,3 +32,6 @@ db-upgrade:
 
 db-verify-schema:
 	./scripts/verify_schema_governance.sh
+
+ops-retention:
+	go run ./cmd/maintenance

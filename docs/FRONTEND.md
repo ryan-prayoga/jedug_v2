@@ -20,7 +20,7 @@
 - `/issues` peta + list issue publik
 - `/issues/[id]` detail issue
 - `/stats` dashboard statistik agregasi issue publik
-- `/health` readiness route server-side untuk deploy/runtime verification
+- `/health` readiness route server-side untuk deploy/runtime verification; jalur publik ini sekarang dipakai workflow smoke test melalui `PUBLIC_APP_BASE_URL`
 - `/api/og/issues/[id]` dynamic Open Graph image generator (PNG 1200x630)
 
 ## Route Admin
@@ -29,6 +29,9 @@
 - `/admin` (redirect ke `/admin/issues`)
 - `/admin/issues`
 - `/admin/issues/[id]`
+- admin frontend tidak lagi menyimpan bearer token di `localStorage`
+- helper `src/lib/api/admin.ts` sekarang selalu memakai `credentials: 'include'` agar browser mengirim cookie session admin
+- logout dilakukan lewat `POST /api/v1/admin/logout`, bukan sekadar menghapus state client
 
 ## Komponen Penting
 
@@ -201,7 +204,7 @@
   - list: `GET /api/v1/notifications?limit=50` dengan `X-Follower-Token` + `X-Device-Token`
   - mark read: `PATCH /api/v1/notifications/:id/read` dengan `X-Follower-Token` + `X-Device-Token`
   - delete: `DELETE /api/v1/notifications/:id` dengan `X-Follower-Token` + `X-Device-Token`
-  - stream realtime: `GET /api/v1/notifications/stream?stream_token=...` (SSE)
+  - stream realtime: `GET /api/v1/notifications/stream?stream_token=...&last_event_id=...` (SSE)
   - preferences get: `GET /api/v1/notification-preferences` dengan `X-Follower-Token` + `X-Device-Token`
   - preferences patch: `PATCH /api/v1/notification-preferences`
   - nearby alerts list: `GET /api/v1/nearby-alerts` dengan `X-Follower-Token` + `X-Device-Token`
@@ -224,7 +227,10 @@
   - jika mark-read gagal sinkron ke backend, store menampilkan error ringan dan refresh ulang list dari server agar unread badge tetap konsisten dengan DB
   - jika delete gagal sinkron ke backend, store menampilkan copy `Belum bisa menghapus notifikasi. Coba lagi.` lalu refresh snapshot server agar state tetap akurat
   - read/delete juga disiarkan antar tab via `BroadcastChannel` + fallback `storage` event agar badge/list tetap sinkron
-  - reconnect SSE tidak lagi hard-stop setelah beberapa kegagalan; store membersihkan pending timer sebelum reconnect dan melakukan fallback refresh ringan bila gangguan berulang
+  - store menyimpan cursor `event_id` terbesar dari snapshot atau SSE
+  - reconnect SSE mengirim `last_event_id` agar backend bisa menutup gap pendek lewat replay ringan
+  - reconnect tidak lagi hanya menunggu event berikutnya; setelah reconnect/tab resume, store menjalankan reconciliation snapshot ringan agar badge/list tidak stale
+  - reconciliation periodik ringan saat tab visible dipakai untuk menutup gap akibat sleep/background atau buffer drop tanpa membuat sistem replay besar
   - preference update juga disiarkan antar tab via `BroadcastChannel` + fallback `storage` event agar toggle dan policy realtime tetap sinkron
   - saat `notifications_enabled=false` atau `in_app_enabled=false`, store notifikasi memutus SSE realtime agar browser tidak mempertahankan stream yang tidak lagi dipakai
 

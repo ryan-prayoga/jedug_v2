@@ -4,7 +4,9 @@
 package sse
 
 import (
+	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 )
@@ -14,6 +16,7 @@ import (
 type Hub struct {
 	mu      sync.RWMutex
 	clients map[string]map[string]chan string // followerID → connID → ch
+	dropped atomic.Uint64
 }
 
 // NewHub creates an empty Hub.
@@ -59,6 +62,38 @@ func (h *Hub) Push(followerID, msg string) {
 		select {
 		case ch <- msg:
 		default:
+			h.dropped.Add(1)
 		}
 	}
+}
+
+func (h *Hub) ConnectionCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	total := 0
+	for _, conns := range h.clients {
+		total += len(conns)
+	}
+	return total
+}
+
+func (h *Hub) FollowerCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients)
+}
+
+func (h *Hub) DroppedCount() uint64 {
+	return h.dropped.Load()
+}
+
+// FormatEvent renders a single SSE frame with optional event id.
+func FormatEvent(eventName string, payload []byte, eventID string) string {
+	frame := ""
+	if eventID != "" {
+		frame += fmt.Sprintf("id: %s\n", eventID)
+	}
+	frame += fmt.Sprintf("event: %s\ndata: %s\n\n", eventName, payload)
+	return frame
 }

@@ -29,6 +29,7 @@ Aturan validasi:
    - `object_key` yang fixed dari server
    - upload target berdasarkan driver aktif
    - `upload_token` bertanda tangan server untuk satu file report (`device_id + object_key + mime_type + size_bytes + expiry`)
+   - row pending di `report_upload_tickets` untuk lifecycle cleanup dan anti-abuse
 3. Frontend upload binary:
    - local mode -> `POST /api/v1/uploads/file/{object_key}` dengan header `X-Upload-Token`
    - r2 mode -> `PUT` ke presigned URL R2
@@ -83,9 +84,21 @@ Tujuannya:
 - object key + extension harus cocok dengan mime type
 - body upload kosong ditolak
 - upload ticket expiry pendek (default 10 menit)
+- presign baru ditolak jika device sudah punya terlalu banyak upload pending yang belum pernah dipakai report
 - caller tidak bisa menentukan `object_key` sendiri
 - local upload tanpa `X-Upload-Token` ditolak
+- local upload binary dilimit keras `10/15m` per-IP
 - media hanya bisa dipakai sekali lintas `submission_media`
+
+## Orphan Upload Cleanup
+
+- Source of truth cleanup adalah tabel `report_upload_tickets`, bukan scan heuristik dari `submission_media`.
+- Saat presign berhasil, backend membuat row pending untuk `object_key` tersebut.
+- Saat submit report sukses, row pending itu dihapus dalam transaction yang sama dengan persist `submission_media`.
+- Maintenance runner menghapus orphan upload jika dua syarat terpenuhi:
+  - usia ticket melewati `UPLOAD_ORPHAN_RETENTION_SEC`
+  - row masih tersisa di `report_upload_tickets`, artinya object tidak pernah dikonsumsi report
+- Cleanup menghapus object storage lebih dulu, lalu menghapus row ticket. Media yang sudah ter-link ke report tidak ikut tersentuh karena row pending-nya sudah hilang saat submit sukses.
 
 ## Current Implementation
 
@@ -95,7 +108,7 @@ Tujuannya:
 ## Known Mismatch
 
 - Konvensi object key saat ini fixed untuk prefix `issues/`; jika nanti multi-entity media dibutuhkan, perlu revisi kontrak dan migrasi.
-- SQL schema source belum berada di repo, sehingga governance media fields (`width`, `height`, `metadata`) perlu verifikasi manual lintas environment.
+- Pending upload registry (`report_upload_tickets`) sengaja hanya menampung media yang belum ter-link ke report; ini bukan arsip historis upload penuh.
 
 ## Read This Next
 

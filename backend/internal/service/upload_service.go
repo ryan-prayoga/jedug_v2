@@ -26,9 +26,14 @@ var (
 	ErrUploadObjectMissing         = errors.New("uploaded object is missing")
 	ErrUploadedObjectMismatch      = errors.New("uploaded object does not match ticket")
 	ErrUploadDeviceBootstrapNeeded = errors.New("device bootstrap is required")
+	ErrUploadPendingLimitReached   = errors.New("too many pending uploads for device")
 )
 
-const defaultUploadTicketTTL = 10 * time.Minute
+const (
+	defaultUploadTicketTTL     = 10 * time.Minute
+	defaultUploadPendingWindow = 30 * time.Minute
+	defaultUploadPendingLimit  = 4
+)
 
 type UploadService interface {
 	CreateReportUpload(ctx context.Context, req CreateReportUploadRequest) (*CreateReportUploadResult, error)
@@ -64,17 +69,22 @@ type ReportMediaProof struct {
 }
 
 type UploadServiceConfig struct {
-	Secret []byte
-	TTL    time.Duration
+	Secret        []byte
+	TTL           time.Duration
+	PendingWindow time.Duration
+	PendingLimit  int
 }
 
 type uploadService struct {
-	deviceRepo repository.DeviceRepository
-	reportRepo repository.ReportRepository
-	storage    *storage.Service
-	secret     []byte
-	ttl        time.Duration
-	now        func() time.Time
+	deviceRepo       repository.DeviceRepository
+	reportRepo       repository.ReportRepository
+	uploadTicketRepo repository.ReportUploadTicketRepository
+	storage          *storage.Service
+	secret           []byte
+	ttl              time.Duration
+	pendingWindow    time.Duration
+	pendingLimit     int
+	now              func() time.Time
 }
 
 type uploadTicketClaims struct {
@@ -91,6 +101,7 @@ type uploadTicketClaims struct {
 func NewUploadService(
 	deviceRepo repository.DeviceRepository,
 	reportRepo repository.ReportRepository,
+	uploadTicketRepo repository.ReportUploadTicketRepository,
 	store *storage.Service,
 	cfg UploadServiceConfig,
 ) UploadService {
@@ -98,14 +109,25 @@ func NewUploadService(
 	if ttl <= 0 {
 		ttl = defaultUploadTicketTTL
 	}
+	pendingWindow := cfg.PendingWindow
+	if pendingWindow <= 0 {
+		pendingWindow = defaultUploadPendingWindow
+	}
+	pendingLimit := cfg.PendingLimit
+	if pendingLimit <= 0 {
+		pendingLimit = defaultUploadPendingLimit
+	}
 
 	return &uploadService{
-		deviceRepo: deviceRepo,
-		reportRepo: reportRepo,
-		storage:    store,
-		secret:     append([]byte(nil), cfg.Secret...),
-		ttl:        ttl,
-		now:        time.Now,
+		deviceRepo:       deviceRepo,
+		reportRepo:       reportRepo,
+		uploadTicketRepo: uploadTicketRepo,
+		storage:          store,
+		secret:           append([]byte(nil), cfg.Secret...),
+		ttl:              ttl,
+		pendingWindow:    pendingWindow,
+		pendingLimit:     pendingLimit,
+		now:              time.Now,
 	}
 }
 
@@ -116,6 +138,15 @@ func (s *uploadService) CreateReportUpload(ctx context.Context, req CreateReport
 	}
 	if device.IsBanned {
 		return nil, ErrDeviceBanned
+	}
+	if s.uploadTicketRepo != nil {
+		pendingCount, err := s.uploadTicketRepo.CountPendingByDeviceSince(ctx, device.ID, s.now().Add(-s.pendingWindow))
+		if err != nil {
+			return nil, err
+		}
+		if pendingCount >= s.pendingLimit {
+			return nil, ErrUploadPendingLimitReached
+		}
 	}
 
 	presign, err := s.storage.CreatePresign(ctx, storage.UploadRequest{
@@ -130,6 +161,18 @@ func (s *uploadService) CreateReportUpload(ctx context.Context, req CreateReport
 	uploadToken, expiresAt, err := s.signTicket(device.ID, presign.ObjectKey, req.ContentType, req.SizeBytes)
 	if err != nil {
 		return nil, err
+	}
+	if s.uploadTicketRepo != nil {
+		if err := s.uploadTicketRepo.CreateOrReplace(ctx, repository.CreateReportUploadTicketInput{
+			ObjectKey:   presign.ObjectKey,
+			DeviceID:    device.ID,
+			ContentType: storage.NormalizeContentType(req.ContentType),
+			SizeBytes:   req.SizeBytes,
+			UploadMode:  presign.UploadMode,
+			ExpiresAt:   expiresAt,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return &CreateReportUploadResult{
@@ -152,6 +195,9 @@ func (s *uploadService) ValidateLocalUpload(ctx context.Context, uploadToken, ob
 		return err
 	}
 	if err := s.validateClaims(claims, uuid.Nil, objectKey, contentType, sizeBytes); err != nil {
+		return err
+	}
+	if err := s.validateTicketRecord(ctx, claims, uuid.Nil, objectKey, contentType, sizeBytes); err != nil {
 		return err
 	}
 	used, err := s.reportRepo.HasSubmissionMediaObjectKey(ctx, objectKey)
@@ -177,6 +223,9 @@ func (s *uploadService) ValidateReportMedia(ctx context.Context, deviceID uuid.U
 			return err
 		}
 		if err := s.validateClaims(claims, deviceID, item.ObjectKey, item.MimeType, item.SizeBytes); err != nil {
+			return err
+		}
+		if err := s.validateTicketRecord(ctx, claims, deviceID, item.ObjectKey, item.MimeType, item.SizeBytes); err != nil {
 			return err
 		}
 
@@ -311,6 +360,45 @@ func (s *uploadService) validateClaims(
 	}
 	if err := storage.ValidateSubmittedMedia(objectKey, contentType, sizeBytes); err != nil {
 		return fmt.Errorf("%w: %v", ErrUploadTokenInvalid, err)
+	}
+	return nil
+}
+
+func (s *uploadService) validateTicketRecord(
+	ctx context.Context,
+	claims *uploadTicketClaims,
+	deviceID uuid.UUID,
+	objectKey, contentType string,
+	sizeBytes int,
+) error {
+	if s.uploadTicketRepo == nil {
+		return nil
+	}
+
+	ticket, err := s.uploadTicketRepo.FindByObjectKey(ctx, storage.NormalizeObjectKey(objectKey))
+	if err != nil {
+		return err
+	}
+	if ticket == nil {
+		return ErrUploadTokenInvalid
+	}
+	if ticket.ExpiresAt.Unix() <= s.now().Unix() {
+		return ErrUploadTokenExpired
+	}
+	if claims != nil && ticket.DeviceID.String() != claims.DeviceID {
+		return ErrUploadOwnershipMismatch
+	}
+	if deviceID != uuid.Nil && ticket.DeviceID != deviceID {
+		return ErrUploadOwnershipMismatch
+	}
+	if ticket.ObjectKey != storage.NormalizeObjectKey(objectKey) {
+		return ErrUploadTokenInvalid
+	}
+	if ticket.ContentType != storage.NormalizeContentType(contentType) {
+		return ErrUploadTokenInvalid
+	}
+	if ticket.SizeBytes != sizeBytes {
+		return ErrUploadTokenInvalid
 	}
 	return nil
 }

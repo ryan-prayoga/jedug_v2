@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { getAdminToken, clearAdminToken } from '$lib/utils/storage';
-	import { adminMe } from '$lib/api/admin';
+	import { adminLogout, adminMe } from '$lib/api/admin';
 
 	let { children } = $props();
 
@@ -11,35 +10,36 @@
 
 	const isLoginPage = $derived($page.url.pathname === '/admin/login');
 
-	afterNavigate(async ({ from }) => {
+	afterNavigate(({ from }) => {
+		void syncAdminSession(from?.url.pathname);
+	});
+
+	async function syncAdminSession(fromPathname?: string) {
 		if (isLoginPage) {
 			ready = true;
 			return;
 		}
 
 		// Skip re-check when navigating within admin (already authenticated)
-		if (ready && from?.url.pathname !== '/admin/login') return;
+		if (ready && fromPathname !== '/admin/login') return;
 
 		ready = false;
-
-		const token = getAdminToken();
-		if (!token) {
-			goto('/admin/login');
-			return;
-		}
 
 		try {
 			const res = await adminMe();
 			username = res.data?.username ?? '';
 			ready = true;
 		} catch {
-			clearAdminToken();
 			goto('/admin/login');
 		}
-	});
+	}
 
-	function handleLogout() {
-		clearAdminToken();
+	async function handleLogout() {
+		try {
+			await adminLogout();
+		} catch {
+			// Session may already be expired; navigation still needs to happen.
+		}
 		goto('/admin/login');
 	}
 </script>

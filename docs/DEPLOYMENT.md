@@ -19,6 +19,11 @@ Di workflow saat ini:
 4. pastikan PM2 tersedia di sesi non-interactive:
 
 - jika `pm2` belum ada di PATH, workflow akan install user-local via `npm install -g pm2 --prefix ~/.local`
+- workflow juga memastikan modul `pm2-logrotate` terpasang dan dikonfigurasi:
+  - `max_size=10M`
+  - `retain=7`
+  - `compress=true`
+  - rotate harian
 
 5. jalankan preflight sebelum menyentuh runtime:
 
@@ -28,7 +33,7 @@ Di workflow saat ini:
   - `cd backend && go run ./cmd/preflight`
   - `cd backend && ./scripts/verify_schema_governance.sh`
 - frontend:
-  - pastikan `PUBLIC_API_BASE_URL` tersedia
+  - pastikan `PUBLIC_APP_BASE_URL` dan `PUBLIC_API_BASE_URL` tersedia
 
 6. deploy backend dari `/home/ubuntu/projects/jedug_v2/backend`:
 
@@ -48,13 +53,20 @@ Di workflow saat ini:
 - `5000` (backend)
 - `5001` (frontend)
 
-10. verifikasi healthcheck HTTP nyata:
+10. verifikasi runtime lokal:
 
 - backend: `GET http://127.0.0.1:5000/api/v1/health`
 - frontend: `GET http://127.0.0.1:5001/health`
 
-11. `pm2 save`
-12. jika `gas build` atau runtime verification gagal setelah runtime tersentuh, workflow otomatis rollback ke `PREVIOUS_REF`, rebuild backend+frontend, lalu memverifikasi health lagi
+11. verifikasi smoke test publik via ingress/domain:
+
+- frontend: `GET ${PUBLIC_APP_BASE_URL}/health`
+- backend health: `GET ${PUBLIC_API_BASE_URL}/api/v1/health`
+- sample API publik: `GET ${PUBLIC_API_BASE_URL}/api/v1/issues`
+- jalur SSE: `GET ${PUBLIC_API_BASE_URL}/api/v1/notifications/stream` dan **harus** mengembalikan auth error `401/403`, bukan `404/502`
+
+12. `pm2 save`
+13. jika `gas build`, verifikasi runtime lokal, atau smoke test publik gagal setelah runtime tersentuh, workflow otomatis rollback ke `PREVIOUS_REF`, rebuild backend+frontend, lalu mengulang verifikasi lokal + publik
 
 Semua step wajib fail-fast (`set -Eeuo pipefail`) dengan pesan error jelas agar kegagalan terlihat langsung di log GitHub Actions.
 
@@ -83,44 +95,57 @@ Alasan tidak menambah flag strategy/install-deps tambahan pada frontend:
 - menghindari coupling ke opsi spesifik yang belum terbukti konsisten lintas versi `gas`.
 - menjaga command tetap minimal, eksplisit, dan stabil.
 
-## Healthcheck Final Yang Dipakai
+## Verifikasi Deploy Final Yang Dipakai
 
-### Backend
+### Layer 1 — Runtime Lokal
 
-- Endpoint: `GET /api/v1/health`
+- backend: `GET http://127.0.0.1:5000/api/v1/health`
+- frontend: `GET http://127.0.0.1:5001/health`
 - Meaning:
-  - process Fiber benar-benar menerima HTTP request
-  - koneksi DB aktif (`pgxpool.Ping`)
+  - proses PM2 tidak hanya `online`, tetapi benar-benar menerima HTTP
+  - port backend/frontend tidak hanya bind, tetapi route readiness lokal benar-benar hidup
+  - backend local health tetap membuktikan DB + snapshot operasional minimum
+  - frontend local health tetap membuktikan server SvelteKit adapter-node siap dan bisa reach backend yang dikonfigurasi
 
-### Frontend
+### Layer 2 — Ingress Publik
 
-- Endpoint: `GET /health`
+- frontend health: `GET ${PUBLIC_APP_BASE_URL}/health`
+- backend health: `GET ${PUBLIC_API_BASE_URL}/api/v1/health`
+- sample API publik: `GET ${PUBLIC_API_BASE_URL}/api/v1/issues`
+- SSE path smoke: `GET ${PUBLIC_API_BASE_URL}/api/v1/notifications/stream`
 - Meaning:
-  - server SvelteKit adapter-node benar-benar serving HTTP
-  - `PUBLIC_API_BASE_URL` tersedia
-  - frontend bisa menjangkau backend health endpoint yang dikonfigurasi
+  - domain/proxy/reverse proxy benar-benar bisa dilalui dari jalur yang sama dengan user publik
+  - frontend dan API tidak hanya sehat dari localhost, tetapi reachable lewat origin publik yang dipakai browser
+  - route SSE publik minimal terbukti sampai ke backend route yang benar karena mengembalikan auth error terstruktur, bukan proxy/path failure
 
 ### Kenapa kombinasi ini dipilih
 
 - `pm2 online` saja tidak cukup karena proses bisa hidup tetapi belum ready.
 - `port LISTEN` saja tidak cukup karena socket bisa bind walau app salah config.
-- HTTP probe backend menangkap failure runtime + DB reachability.
-- HTTP probe frontend menangkap failure runtime + API base mismatch.
+- health lokal menangkap failure runtime/process.
+- smoke test publik menangkap false-green akibat ingress, reverse proxy, domain, atau path routing yang rusak.
+- route SSE publik sengaja tidak mencoba membuat stream auth penuh di deploy workflow agar check tetap stabil; yang diverifikasi adalah reachability path `/api/v1/notifications/stream` lewat proxy.
 
 ## Nginx
 
-Konfigurasi Nginx tidak disimpan di repo.
+Template Nginx minimum sekarang disimpan di repo:
+
+- `deploy/nginx/jedug.conf.example`
 
 Konsekuensi:
 
-- reverse proxy rules harus divalidasi manual di server
-- perubahan domain/SSL/routing tidak ter-track lewat git repo aplikasi
+- runtime file di server tetap perlu di-apply manual sesuai environment
+- perubahan domain/SSL/routing penting sekarang punya acuan versioned di repo, tidak lagi sepenuhnya only-on-server
 
 ## Nginx — SSE Configuration
 
 Endpoint `GET /api/v1/notifications/stream` memerlukan konfigurasi nginx khusus agar proxy buffering tidak memblokir SSE frames.
 
-Tambahkan blok `location` berikut **di dalam** blok `server` nginx, sebelum atau menggantikan blok `/api/` yang lebih umum:
+Source of truth repo:
+
+- `deploy/nginx/jedug.conf.example`
+
+Jika server memakai file nginx yang berbeda, minimal sinkronkan blok SSE berikut **di dalam** blok `server`, sebelum atau menggantikan blok `/api/` yang lebih umum:
 
 ```nginx
 # SSE: realtime notification stream
@@ -151,6 +176,8 @@ location /api/v1/notifications/stream {
 > **Catatan**: Header `X-Accel-Buffering: no` juga di-set di response handler Go sebagai
 > safeguard tambahan, tapi konfigurasi nginx di atas tetap wajib.
 
+Realtime notification sekarang juga membawa `last_event_id` di query string saat reconnect untuk replay ringan. Konfigurasi nginx di atas tetap cukup; tidak ada kebutuhan broker atau endpoint streaming tambahan.
+
 ## Browser Push Readiness
 
 Browser push memerlukan syarat runtime tambahan:
@@ -171,7 +198,8 @@ Browser push memerlukan syarat runtime tambahan:
 
 Workflow CI/CD saat ini (`deploy.yml`) sudah cukup untuk deploy code. Nginx config **tidak perlu diubah di CI/CD** karena:
 
-- Nginx config tidak disimpan di repo ini.
+- workflow deploy tidak otomatis menulis file nginx aktif di server.
+- repo hanya menyimpan template/acuan minimum, bukan memaksa overwrite file runtime server.
 - `nginx -s reload` dilakukan sekali manual setelah config baru diapply.
 - Perubahan SSE hanya memerlukan restart backend (`gas build` yang sudah ada sudah cukup).
 
@@ -188,6 +216,7 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
 ### Backend env kritikal
 
 - `DATABASE_URL` (required)
+- `ADMIN_USERNAME` (required, jangan mengandalkan nilai default)
 - `ADMIN_PASSWORD` (required)
 - `APP_PORT`, `CORS_ALLOW_ORIGINS`
 - `DUPLICATE_RADIUS_M` (optional, default `30`, satuan meter)
@@ -201,6 +230,8 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
 - upload hardening:
   - `UPLOAD_TOKEN_SECRET` (optional, default fallback ke `FOLLOWER_TOKEN_SECRET`, minimal 32 karakter jika diisi)
   - `UPLOAD_TICKET_TTL_SEC` (optional, default `600`)
+  - `UPLOAD_PENDING_WINDOW_SEC` (optional, default `1800`)
+  - `UPLOAD_PENDING_LIMIT` (optional, default `4`)
 - R2 vars saat mode R2 aktif:
   - `R2_ACCESS_KEY_ID`
   - `R2_SECRET_ACCESS_KEY`
@@ -217,6 +248,18 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
   - `FOLLOWER_TOKEN_SECRET` (required, minimal 32 karakter random)
   - `FOLLOWER_TOKEN_TTL_SEC` (optional, default `43200`)
   - `FOLLOWER_STREAM_TOKEN_TTL_SEC` (optional, default `600`)
+- ops / retention:
+  - `MAINTENANCE_ENABLED` (optional, default `true`)
+  - `MAINTENANCE_INTERVAL_SEC` (optional, default `21600`)
+  - `NOTIFICATIONS_RETENTION_DAYS` (optional, default `90`)
+  - `PUSH_SUBSCRIPTIONS_STALE_DAYS` (optional, default `180`)
+  - `PUSH_SUBSCRIPTIONS_DISABLED_RETENTION_DAYS` (optional, default `30`)
+  - `PUSH_DELIVERY_DELIVERED_RETENTION_DAYS` (optional, default `14`)
+  - `PUSH_DELIVERY_FAILED_RETENTION_DAYS` (optional, default `30`)
+  - `UPLOAD_ORPHAN_RETENTION_SEC` (optional, default `43200`)
+- catatan admin cookie auth:
+  - jika frontend admin dan backend API berjalan beda origin saat development, `CORS_ALLOW_ORIGINS` harus berupa daftar origin eksplisit; wildcard `*` tidak cukup untuk request `credentials: include`
+  - di production via reverse proxy origin yang sama, cookie admin tetap dikirim tanpa storage client-side
 
 ### Database bootstrap / upgrade
 
@@ -230,11 +273,15 @@ Jika ingin otomasi reload nginx post-deploy, tambahkan step berikut di akhir job
 
 ### Frontend env
 
+- `PUBLIC_APP_BASE_URL`
 - `PUBLIC_API_BASE_URL`
 
 Tidak ada env frontend tambahan untuk VAPID key karena frontend mengambil `vapid_public_key` dari backend lewat `GET /api/v1/push/status`. Frontend juga tidak menyimpan secret follower; ia hanya menyimpan `follower_token` non-SSE dan `stream_token` SSE hasil `POST /api/v1/followers/auth`.
 
-Workflow deploy sekarang memperlakukan `PUBLIC_API_BASE_URL` sebagai env wajib untuk readiness frontend.
+Workflow deploy sekarang memperlakukan dua env frontend/public sebagai wajib untuk readiness:
+
+- `PUBLIC_APP_BASE_URL`
+- `PUBLIC_API_BASE_URL`
 
 ## Restart / Rollout Checklist
 
@@ -248,7 +295,17 @@ Workflow deploy sekarang memperlakukan `PUBLIC_API_BASE_URL` sebagai env wajib u
 - verifikasi endpoint health setelah deploy:
   - `GET http://127.0.0.1:5000/api/v1/health`
   - `GET http://127.0.0.1:5001/health`
+- verifikasi smoke test publik setelah deploy:
+  - `curl -fsS ${PUBLIC_APP_BASE_URL}/health`
+  - `curl -fsS ${PUBLIC_API_BASE_URL}/api/v1/health`
+  - `curl -fsS ${PUBLIC_API_BASE_URL}/api/v1/issues`
+  - `curl -sS -o /tmp/jedug-sse-smoke.out -w '%{http_code}' ${PUBLIC_API_BASE_URL}/api/v1/notifications/stream`
+    - expected `401` atau `403`, bukan `404/502`
+- verifikasi maintenance manual bila perlu:
+  - `cd backend && go run ./cmd/maintenance`
+  - cek log `[OPS] maintenance completed ...`
 - verifikasi UI publik + admin login setelah build frontend
+- verifikasi `POST /api/v1/admin/logout` benar-benar mengeluarkan sesi lama sebelum menganggap deploy berhasil
 - verifikasi browser push:
   - buka JEDUG via origin HTTPS
   - follow issue
@@ -266,9 +323,11 @@ Rollback minimum yang sekarang diotomasi workflow:
    - `git reset --hard "$PREVIOUS_REF"`
    - rerun `gas build` backend
    - rerun `gas build` frontend
-   - ulangi verifikasi PM2 + port + HTTP health
+   - ulangi verifikasi PM2 + port + HTTP health lokal
+   - ulangi smoke test publik via domain/proxy
    - `pm2 save`
 3. jika rollback juga gagal, workflow fail keras dan butuh intervensi manual di VPS
+4. jika rollback sukses secara lokal tetapi smoke test publik tetap gagal, anggap masalah ada di ingress/domain/Nginx/runtime config server, bukan sekadar binary app baru
 
 Recovery manual minimum bila workflow sudah gagal:
 
@@ -280,26 +339,32 @@ Recovery manual minimum bila workflow sudah gagal:
 6. cek:
    - `curl -fsS http://127.0.0.1:5000/api/v1/health`
    - `curl -fsS http://127.0.0.1:5001/health`
+   - `curl -fsS ${PUBLIC_APP_BASE_URL}/health`
+   - `curl -fsS ${PUBLIC_API_BASE_URL}/api/v1/health`
+   - `curl -fsS ${PUBLIC_API_BASE_URL}/api/v1/issues`
+   - `curl -sS -o /tmp/jedug-sse-smoke.out -w '%{http_code}' ${PUBLIC_API_BASE_URL}/api/v1/notifications/stream`
 7. `pm2 save`
 
 ## Current Implementation
 
 - Deploy single workflow langsung ke VPS.
 - Rollout backend/frontend dilakukan dalam satu job dengan command `gas build` non-interactive.
-- Runtime diverifikasi langsung di server lewat PM2 status, port LISTEN, dan HTTP healthcheck backend/frontend.
+- Deploy sekarang membedakan dua lapis verifikasi:
+  - runtime lokal di server
+  - smoke test publik via ingress/domain
+- PM2 log runtime sekarang diputar otomatis via `pm2-logrotate`; tetap pantau disk VPS, tetapi log tidak lagi tumbuh tanpa batas secara default.
 - Workflow menjalankan preflight env/schema sebelum rollout dan punya rollback minimum ke commit sebelumnya jika rollout gagal di tengah jalan.
 
 ## Intended Direction
 
-- simpan PM2 ecosystem + template Nginx di repo
-- tambahkan smoke-test post-deploy (health + sample API call)
+- simpan PM2 ecosystem runtime juga di repo
 - minimalkan `git reset --hard` untuk mengurangi risiko overwrite file runtime tak terduga (saat sudah ada deployment strategy yang lebih aman)
 
 ## Known Mismatch
 
 - dokumentasi deployment infra masih tersebar antara workflow dan konfigurasi server manual.
 - konfigurasi endpoint reverse geocoder production (provider + policy quota) perlu dipastikan sesuai SLA operasional.
-- konfigurasi PM2/Nginx runtime masih belum versioned dalam repo.
+- file runtime nginx di server masih manual walau template minimumnya sekarang sudah versioned di repo.
 - rollback masih in-place pada working tree yang sama; ini pragmatis untuk VPS saat ini, tetapi belum sekuat release-directory atomic deploy.
 
 ## Read This Next

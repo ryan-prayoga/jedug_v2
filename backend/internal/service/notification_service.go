@@ -11,6 +11,7 @@ import (
 
 type NotificationService interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error)
+	GetByFollowerIDSinceEventID(ctx context.Context, followerID uuid.UUID, afterEventID int64, limit int) ([]*domain.Notification, error)
 	MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (*time.Time, bool, error)
 	Delete(ctx context.Context, notificationID, followerID uuid.UUID) (bool, error)
 }
@@ -25,6 +26,10 @@ func NewNotificationService(repo repository.NotificationRepository) Notification
 
 func (s *notificationService) GetByFollowerID(ctx context.Context, followerID uuid.UUID, limit int) ([]*domain.Notification, error) {
 	return s.repo.GetByFollowerID(ctx, followerID, limit)
+}
+
+func (s *notificationService) GetByFollowerIDSinceEventID(ctx context.Context, followerID uuid.UUID, afterEventID int64, limit int) ([]*domain.Notification, error) {
+	return s.repo.GetByFollowerIDSinceEventID(ctx, followerID, afterEventID, limit)
 }
 
 func (s *notificationService) MarkAsRead(ctx context.Context, notificationID, followerID uuid.UUID) (*time.Time, bool, error) {

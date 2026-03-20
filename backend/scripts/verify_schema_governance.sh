@@ -63,6 +63,7 @@ WITH required(name) AS (
         ('issues'),
         ('issue_submissions'),
         ('submission_media'),
+        ('report_upload_tickets'),
         ('issue_reactions'),
         ('issue_flags'),
         ('submission_flags'),
@@ -71,6 +72,7 @@ WITH required(name) AS (
         ('issue_followers'),
         ('notifications'),
         ('push_subscriptions'),
+        ('push_delivery_jobs'),
         ('follower_auth_bindings'),
         ('notification_preferences'),
         ('nearby_alert_subscriptions'),
@@ -91,7 +93,10 @@ WITH required(table_name, column_name, expected_type) AS (
         ('submission_media', 'height', 'integer'),
         ('issue_events', 'id', 'bigint'),
         ('notifications', 'event_id', 'bigint'),
-        ('notification_preferences', 'notify_on_nearby_issue_created', 'boolean')
+        ('notification_preferences', 'notify_on_nearby_issue_created', 'boolean'),
+        ('push_delivery_jobs', 'event_id', 'bigint'),
+        ('push_delivery_jobs', 'attempt_count', 'integer'),
+        ('report_upload_tickets', 'expires_at', 'timestamp with time zone')
 )
 SELECT r.table_name || '.' || r.column_name || ' expected=' || r.expected_type || ' actual=' || COALESCE(c.data_type, '<missing>')
 FROM required r
@@ -118,7 +123,15 @@ WITH missing_named_objects AS (
             ('idx_issue_followers_issue_id'),
             ('idx_issue_followers_follower_id'),
             ('idx_notifications_follower_created_at'),
+            ('idx_notifications_created_at'),
+            ('idx_report_upload_tickets_device_issued_at'),
+            ('idx_report_upload_tickets_issued_at'),
             ('idx_push_subscriptions_active_follower_id'),
+            ('idx_push_subscriptions_disabled_at'),
+            ('idx_push_subscriptions_active_updated_at'),
+            ('idx_push_delivery_jobs_ready'),
+            ('idx_push_delivery_jobs_delivered_at'),
+            ('idx_push_delivery_jobs_failed_at'),
             ('idx_nearby_alert_subscriptions_geog')
     ) AS required(name)
     WHERE to_regclass('public.' || name) IS NULL

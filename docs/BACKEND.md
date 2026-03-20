@@ -34,6 +34,26 @@
   - `postgis` untuk `GEOGRAPHY/GEOMETRY`, spatial index, `ST_*`
   - `pgcrypto` untuk `gen_random_uuid()` yang dipakai insert notifikasi/push/nearby alert
 
+## Health + Ops Minimum
+
+- `GET /api/v1/health` sekarang tidak hanya `db ping`, tetapi juga mengembalikan snapshot ringan:
+  - `uptime_sec`
+  - SSE runtime (`sse_followers`, `sse_connections`, `sse_dropped_total`)
+  - push queue (`push_ready`, `push_failed_last_24h`)
+  - debt retention (`notifications_over_retention`, `stale_push_subscriptions`, `disabled_push_subscriptions`, `upload_orphans_over_retention`)
+  - estimasi row growth (`issue_events`, `notifications`, `push_subscriptions`, `push_delivery_jobs`, `report_upload_tickets`) dari `pg_stat_user_tables`
+- backend menjalankan maintenance runner in-process dengan advisory lock DB agar hanya satu runner aktif per cluster DB:
+  - interval default `6 jam`
+  - bisa dijalankan manual via `cd backend && go run ./cmd/maintenance`
+- retention yang berjalan otomatis:
+  - hapus `notifications` lebih tua dari `90 hari`
+  - soft-disable `push_subscriptions` aktif yang tidak tersentuh `180 hari`
+  - hapus `push_subscriptions` disabled lebih tua dari `30 hari`
+  - hapus `push_delivery_jobs.delivered` lebih tua dari `14 hari`
+  - hapus `push_delivery_jobs.failed` lebih tua dari `30 hari`
+  - hapus orphan upload object + ticket yang belum pernah dipakai report setelah `UPLOAD_ORPHAN_RETENTION_SEC` (default `12 jam`)
+- `issue_events` sengaja belum di-prune otomatis; tabel ini masih diperlakukan sebagai histori timeline publik dan saat ini hanya di-observe pertumbuhannya lewat health snapshot.
+
 ## Route Penting
 
 ### Public API
@@ -69,7 +89,8 @@
 ### Admin API
 
 - `POST /api/v1/admin/login`
-- `GET /api/v1/admin/me` (Bearer token)
+- `POST /api/v1/admin/logout`
+- `GET /api/v1/admin/me` (HttpOnly session cookie; Bearer fallback masih diterima untuk kompatibilitas)
 - `GET /api/v1/admin/issues`
 - `GET /api/v1/admin/issues/:id`
 - `POST /api/v1/admin/issues/:id/hide`
@@ -77,6 +98,21 @@
 - `POST /api/v1/admin/issues/:id/fix`
 - `POST /api/v1/admin/issues/:id/reject`
 - `POST /api/v1/admin/devices/:id/ban`
+
+### Admin Auth + Moderation Surface
+
+- login admin tetap memakai env credential (`ADMIN_USERNAME`, `ADMIN_PASSWORD`), tetapi transport session kini berupa cookie `jedug_admin_session`:
+  - `HttpOnly`
+  - `SameSite=Strict`
+  - `Path=/api/v1/admin`
+  - `Secure` saat `APP_ENV=production`
+- login route dilindungi dua lapis:
+  - hard rate limit `10/15m` per-IP di router
+  - lockout in-memory per fingerprint ringan `ip|username` setelah `5` gagal dalam window `15 menit`, lockout `30 menit`
+- login failure tetap generic (`username atau password salah`) agar tidak membuka oracle username/password
+- login sukses merotasi session lama untuk username yang sama; hanya satu session aktif per admin username
+- `POST /api/v1/admin/logout` me-revoke session server-side dan menghapus cookie
+- seluruh route `/api/v1/admin/*` sekarang mengirim header `Cache-Control: no-store`
 
 ## Flow Service/Repository Penting
 
@@ -95,7 +131,9 @@
 - Upload hardening sebelum submit:
   - `POST /api/v1/uploads/presign` sekarang wajib `anon_token` yang valid.
   - backend menerbitkan `upload_token` bertanda tangan server untuk satu `object_key`, `mime_type`, `size_bytes`, dan `device_id` tertentu dengan TTL pendek (`UPLOAD_TICKET_TTL_SEC`, default 10 menit).
+  - setiap presign juga mencatat row pending di `report_upload_tickets`; satu device hanya boleh punya jumlah upload belum dipakai yang terbatas dalam window pendek (`UPLOAD_PENDING_LIMIT`, default `4` dalam `UPLOAD_PENDING_WINDOW_SEC`, default `1800` detik).
   - local upload ke `POST /api/v1/uploads/file/{object_key}` sekarang wajib header `X-Upload-Token`; upload tanpa proof ini ditolak.
+  - local upload sekarang juga dilindungi limiter keras `10/15m` per-IP agar binary upload tidak bisa di-churn bebas.
   - R2 tetap memakai presigned `PUT`, tetapi ownership tetap diverifikasi saat `/reports` lewat `upload_token` yang sama.
 - Handler validasi payload report + media.
 - Service `ReportService` enforce:
@@ -107,8 +145,10 @@
   - payload reuse dengan `client_request_id` yang sama tetapi fingerprint request berbeda ditolak `409 IDEMPOTENCY_CONFLICT`
   - setiap `media[]` wajib membawa `upload_token`
   - `upload_token` harus cocok dengan `device_id`, `object_key`, `mime_type`, dan `size_bytes` dari media yang disubmit
+  - `report_upload_tickets` untuk `object_key` tersebut harus masih ada dan cocok; ticket yang sudah dipruning/tidak dikenal ditolak
   - object storage diverifikasi benar-benar memiliki file untuk `object_key` tersebut sebelum report diterima
   - `object_key` yang sudah pernah masuk `submission_media` ditolak agar media tidak bisa dipakai ulang lintas report
+  - submit report yang sukses menghapus row pending `report_upload_tickets` di transaction yang sama, sehingga cleanup orphan hanya menyentuh media yang memang belum pernah ter-link ke report
   - normalisasi lokasi sekali per laporan:
     - lookup region internal (`regions`) sebagai sumber utama label wilayah
     - reverse geocoding ringan untuk melengkapi `road_name` jika kosong
@@ -207,7 +247,7 @@
   - `GET /api/v1/notifications?limit=50` dengan header `X-Follower-Token` + `X-Device-Token`
   - `PATCH /api/v1/notifications/:id/read` dengan header `X-Follower-Token` + `X-Device-Token`
   - `DELETE /api/v1/notifications/:id` dengan header `X-Follower-Token` + `X-Device-Token`
-  - `GET /api/v1/notifications/stream?stream_token=...` — **SSE stream** (text/event-stream)
+  - `GET /api/v1/notifications/stream?stream_token=...&last_event_id=...` — **SSE stream** (text/event-stream) dengan replay ringan sejak `event_id` terakhir yang diketahui client
 - Endpoint preferensi notifikasi publik:
   - `GET /api/v1/notification-preferences` dengan header `X-Follower-Token` + `X-Device-Token`
   - `PATCH /api/v1/notification-preferences`
@@ -268,14 +308,20 @@
   - endpoint stream hanya menerima `stream_token` purpose `notification_stream`; token non-SSE tidak valid di jalur ini.
   - `DispatchNotificationsForEvent` kini memakai `RETURNING` untuk mendapat follower IDs yang baru di-insert, lalu memanggil `sse.Default.Push(followerID, msg)` untuk setiap row.
   - Setiap SSE connection di-buffer (channel 16 slot, non-blocking drop).
+  - drop akibat buffer penuh kini dihitung kumulatif (`sse_dropped_total`) agar loss tidak lagi sepenuhnya diam-diam.
   - Koneksi di-cleanup otomatis saat client disconnect (Flush error) via `defer done()`.
   - Ping/heartbeat dikirim setiap 30 detik untuk menjaga koneksi dan mendeteksi putus.
-  - Format event: `event: notification\ndata: {id,issue_id,event_id,type,title,message,created_at}\n\n`
+  - Format event sekarang menyertakan `id: <event_id>` di frame SSE, lalu payload `event: notification\ndata: {id,issue_id,event_id,type,title,message,created_at}\n\n`
+  - saat client reconnect dengan `last_event_id`, backend me-replay notification follower dengan `event_id > last_event_id` (limit ringan, urut ascending) sebelum stream live lanjut normal
+  - handler SSE sekarang menulis log `stream_open` / `stream_close` dengan follower, replay count, durasi, dan close reason untuk diagnosis runtime.
 - **Web Push notifier** (`internal/push/notifier.go`):
   - browser push tetap additive di atas tabel `notifications` + SSE.
-  - dispatcher mengumpulkan row notifikasi baru lalu mengantrekan batch ke worker in-process; request submit/moderation tidak lagi menunggu seluruh delivery selesai.
+  - dispatcher mengumpulkan row notifikasi baru lalu mengantrekan batch ke tabel outbox `push_delivery_jobs`; request submit/moderation tetap cepat karena tidak menunggu delivery ke provider.
+  - worker in-process meng-claim job dari DB dengan `FOR UPDATE SKIP LOCKED`, sehingga restart/crash tidak menghilangkan batch yang belum selesai.
   - payload push minimal: `title`, `body`, `issue_id`, `url`, `type`.
   - `url` dibentuk dari `WEB_PUSH_SITE_URL + /issues/{issue_id}` agar klik notifikasi selalu menuju issue publik yang benar.
+  - retry ringan dibatasi `5` attempt dengan backoff bertahap (`30s -> 2m -> 5m -> 15m`) dan status job dicatat lewat `attempt_count`, `next_attempt_at`, `delivered_at`, `failed_at`, `last_error`.
+  - queue pressure tidak lagi hilang diam-diam saat channel in-memory penuh; kegagalan enqueue/delivery sekarang bisa diaudit langsung dari tabel outbox.
   - response `404/410` dari push service dianggap subscription invalid/expired dan row ditandai `disabled_at`.
   - subscribe memvalidasi endpoint Web Push hanya untuk host/path provider yang dikenal (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `push.services.mozilla.com`, `web.push.apple.com`), wajib `https`, tanpa credential, dan kunci `p256dh/auth` harus valid.
 - Event dibuat otomatis saat:
@@ -308,9 +354,31 @@
   - jika env Web Push hanya terisi sebagian, startup gagal cepat untuk mencegah half-config di production.
   - `UPLOAD_TOKEN_SECRET` dipakai untuk menandatangani `upload_token`; jika kosong backend fallback ke `FOLLOWER_TOKEN_SECRET`.
   - `UPLOAD_TICKET_TTL_SEC` mengatur TTL upload ticket (default `600` detik).
+  - `UPLOAD_PENDING_WINDOW_SEC` default `1800` detik untuk menghitung backlog upload belum dipakai per device.
+  - `UPLOAD_PENDING_LIMIT` default `4`; jika terlampaui, presign baru ditolak `429`.
   - `FOLLOWER_TOKEN_SECRET` wajib ada dan minimal 32 karakter; backend memakai secret ini untuk menandatangani `follower_token`.
   - `FOLLOWER_TOKEN_TTL_SEC` default sekarang `43200` detik (12 jam) untuk token non-SSE.
   - `FOLLOWER_STREAM_TOKEN_TTL_SEC` default `600` detik (10 menit) untuk token SSE/query string.
+  - env ops/retention:
+    - `MAINTENANCE_ENABLED` default `true`
+    - `MAINTENANCE_INTERVAL_SEC` default `21600`
+    - `NOTIFICATIONS_RETENTION_DAYS` default `90`
+    - `PUSH_SUBSCRIPTIONS_STALE_DAYS` default `180`
+    - `PUSH_SUBSCRIPTIONS_DISABLED_RETENTION_DAYS` default `30`
+    - `PUSH_DELIVERY_DELIVERED_RETENTION_DAYS` default `14`
+    - `PUSH_DELIVERY_FAILED_RETENTION_DAYS` default `30`
+    - `UPLOAD_ORPHAN_RETENTION_SEC` default `43200` (12 jam)
+
+### Log Signals Minimum
+
+- request/runtime log tetap lewat middleware Fiber + PM2 logs.
+- tag log yang sekarang cukup penting untuk diagnosis:
+  - `[REPORT]` untuk parse/idempotency/internal failure submit report
+  - `[ANTISPAM]` untuk rate limit/cooldown/ban/low-trust
+  - `[ADMIN]` untuk login, moderation, ban, serta audit/event moderation yang gagal
+  - `[SSE]` untuk stream open/close dan alasan putus
+  - `[PUSH]` untuk enqueue/claim/send/retry/fail browser push
+  - `[OPS]` untuk hasil maintenance retention periodik
 
 ### Public Stats Dashboard (`GET /api/v1/stats`)
 
@@ -446,7 +514,8 @@
 - rate limiter per-IP:
   - bootstrap 10/min
   - consent 10/min
-  - presign 20/min
+  - presign 10/15m
+  - upload file 10/15m
   - report 5/min
   - issue flag 10/min
 

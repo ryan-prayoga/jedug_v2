@@ -13,8 +13,10 @@ Implementasi aktif:
 
 - login pakai env credential (`ADMIN_USERNAME`, `ADMIN_PASSWORD`)
 - endpoint: `POST /api/v1/admin/login`
-- session token disimpan in-memory di backend
-- endpoint protected memakai `Authorization: Bearer <token>`
+- endpoint logout: `POST /api/v1/admin/logout`
+- session disimpan in-memory di backend, tetapi browser menerima cookie `HttpOnly` pada path `/api/v1/admin`
+- login route dilimit per-IP dan juga mengunci fingerprint ringan `ip|username` setelah kegagalan berulang
+- endpoint protected membaca cookie session admin; bearer header lama hanya fallback kompatibilitas
 
 ## Moderation Actions
 

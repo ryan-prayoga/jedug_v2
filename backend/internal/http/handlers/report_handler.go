@@ -49,14 +49,16 @@ type submitReportBody struct {
 }
 
 func (h *ReportHandler) Submit(c *fiber.Ctx) error {
+	rid := requestID(c)
+
 	var body submitReportBody
 	if err := c.BodyParser(&body); err != nil {
-		log.Printf("[REPORT] parse_failed ip=%s error=%v", c.IP(), err)
+		log.Printf("[REPORT] parse_failed rid=%s ip=%s error=%v", rid, c.IP(), err)
 		return response.ErrorWithCode(c, fiber.StatusBadRequest, "INVALID_PAYLOAD", "invalid request body")
 	}
 
 	if err := validateReportBody(&body); err != nil {
-		log.Printf("[ANTISPAM] validation_failed ip=%s reason=%s", c.IP(), err.Error())
+		log.Printf("[ANTISPAM] validation_failed rid=%s ip=%s reason=%s", rid, c.IP(), err.Error())
 		return response.ErrorWithCode(c, fiber.StatusBadRequest, classifyValidationError(err), err.Error())
 	}
 
@@ -97,14 +99,15 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 			return response.ErrorWithCode(c, fiber.StatusBadRequest, "INVALID_PAYLOAD", "client_request_id must be a valid uuid")
 		}
 		if errors.Is(err, service.ErrIdempotencyConflict) {
+			log.Printf("[REPORT] idempotency_conflict rid=%s ip=%s", rid, c.IP())
 			return response.ErrorWithCode(c, fiber.StatusConflict, "IDEMPOTENCY_CONFLICT", "client_request_id sudah dipakai untuk payload laporan yang berbeda")
 		}
 		if errors.Is(err, service.ErrDeviceBanned) {
-			log.Printf("[ANTISPAM] banned_submit ip=%s", c.IP())
+			log.Printf("[ANTISPAM] banned_submit rid=%s ip=%s", rid, c.IP())
 			return response.ErrorWithCode(c, fiber.StatusForbidden, "DEVICE_BANNED", "device is banned")
 		}
 		if errors.Is(err, service.ErrCooldown) {
-			log.Printf("[ANTISPAM] cooldown_submit ip=%s", c.IP())
+			log.Printf("[ANTISPAM] cooldown_submit rid=%s ip=%s", rid, c.IP())
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"success":     false,
 				"error_code":  "RATE_LIMITED",
@@ -113,7 +116,7 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 			})
 		}
 		if errors.Is(err, service.ErrLowTrustScore) {
-			log.Printf("[ANTISPAM] low_trust_submit ip=%s", c.IP())
+			log.Printf("[ANTISPAM] low_trust_submit rid=%s ip=%s", rid, c.IP())
 			return response.ErrorWithCode(c, fiber.StatusForbidden, "LOW_TRUST", "Akun tidak diizinkan mengirim laporan saat ini.")
 		}
 		if errors.Is(err, service.ErrMediaPersist) {
@@ -131,7 +134,7 @@ func (h *ReportHandler) Submit(c *fiber.Ctx) error {
 		if errors.Is(err, service.ErrUploadObjectMissing) || errors.Is(err, service.ErrUploadedObjectMismatch) {
 			return response.ErrorWithCode(c, fiber.StatusBadRequest, "MEDIA_NOT_READY", "uploaded media is missing or does not match the issued upload ticket")
 		}
-		log.Printf("[REPORT] submit_internal_error ip=%s error=%v", c.IP(), err)
+		log.Printf("[REPORT] submit_internal_error rid=%s ip=%s error=%v", rid, c.IP(), err)
 		return response.ErrorWithCode(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "failed to submit report")
 	}
 
