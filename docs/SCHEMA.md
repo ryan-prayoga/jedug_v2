@@ -23,6 +23,7 @@ Dokumen ini disusun dari:
   - `backend/migrations/202603200002_create_push_delivery_jobs.sql`
   - `backend/migrations/202603200003_add_retention_indexes.sql`
   - `backend/migrations/202603200004_create_report_upload_tickets.sql`
+  - `backend/migrations/202603200005_persist_submission_admin_location.sql`
 - Helper operasional:
   - `backend/scripts/bootstrap_db.sh`
   - `backend/scripts/verify_schema_governance.sh`
@@ -89,7 +90,7 @@ Dokumen ini disusun dari:
 - Kolom penting:
   - idempotency: `client_request_id`
   - replay safety: `request_fingerprint`, `created_issue`
-  - lokasi: `location`, `gps_accuracy_m`, `captured_at`, `reported_at`
+  - lokasi: `location`, `region_id`, `district_name`, `regency_name`, `province_name`, `gps_accuracy_m`, `captured_at`, `reported_at`
   - konten: `severity`, `has_casualty`, `casualty_count`, `note`
   - moderasi: `status`, `moderation_note`, `moderated_by`, `moderated_at`
 - Business meaning: bukti mentah yang membentuk/menambah issue.
@@ -99,6 +100,7 @@ Dokumen ini disusun dari:
   - submission bisa `pending` meski issue sudah tampil publik (karena issue adalah agregat).
   - `created_issue=true` menyimpan hasil submit asli agar replay request yang sama bisa mengembalikan `is_new_issue` secara konsisten walau issue tersebut sudah punya submission tambahan setelahnya.
   - `request_fingerprint` dipakai backend untuk menolak reuse `client_request_id` yang payload materialnya berbeda.
+  - `district_name` / `regency_name` / `province_name` menyimpan label administratif terbaik yang diketahui saat submit; query issue publik memakainya sebagai fallback ketika `region_id` internal tidak tersedia atau tidak cukup kaya.
 
 ### `submission_media`
 

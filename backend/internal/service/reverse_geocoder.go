@@ -14,9 +14,12 @@ import (
 )
 
 type ReverseGeocodeResult struct {
-	RoadName   *string
-	RegionName *string
-	CityName   *string
+	RoadName     *string
+	RegionName   *string
+	CityName     *string
+	DistrictName *string
+	RegencyName  *string
+	ProvinceName *string
 }
 
 type ReverseGeocoder interface {
@@ -119,6 +122,9 @@ func (g *httpReverseGeocoder) ReverseLookup(ctx context.Context, longitude, lati
 		result.RoadName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.RoadName))
 		result.RegionName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.RegionName))
 		result.CityName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.CityName))
+		result.DistrictName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.DistrictName))
+		result.RegencyName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.RegencyName))
+		result.ProvinceName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.ProvinceName))
 	}
 
 	if result == nil && len(lookupErrs) > 0 {
@@ -186,6 +192,7 @@ func (g *httpReverseGeocoder) lookupNominatim(
 			County        string `json:"county"`
 			Regency       string `json:"regency"`
 			StateDistrict string `json:"state_district"`
+			State         string `json:"state"`
 			Municipality  string `json:"municipality"`
 		} `json:"address"`
 	}
@@ -215,10 +222,34 @@ func (g *httpReverseGeocoder) lookupNominatim(
 			payload.Address.County,
 			payload.Address.StateDistrict,
 			payload.Address.Municipality,
+			payload.Address.State,
+		),
+		DistrictName: firstNonEmptyStringPtr(
+			payload.Address.Suburb,
+			payload.Address.Neighbourhood,
+			payload.Address.Village,
+			payload.Address.District,
+			payload.Address.CityDistrict,
+		),
+		RegencyName: firstNonEmptyStringPtr(
+			payload.Address.City,
+			payload.Address.Town,
+			payload.Address.Regency,
+			payload.Address.County,
+			payload.Address.StateDistrict,
+			payload.Address.Municipality,
+		),
+		ProvinceName: firstNonEmptyStringPtr(
+			payload.Address.State,
 		),
 	}
 
-	if result.RoadName == nil && result.RegionName == nil && result.CityName == nil {
+	if result.RoadName == nil &&
+		result.RegionName == nil &&
+		result.CityName == nil &&
+		result.DistrictName == nil &&
+		result.RegencyName == nil &&
+		result.ProvinceName == nil {
 		return nil, nil
 	}
 
@@ -275,8 +306,21 @@ func (g *httpReverseGeocoder) lookupBigDataCloud(
 			payload.City,
 			payload.PrincipalSubdivision,
 		),
+		DistrictName: firstNonEmptyStringPtr(
+			payload.Locality,
+		),
+		RegencyName: firstNonEmptyStringPtr(
+			payload.City,
+		),
+		ProvinceName: firstNonEmptyStringPtr(
+			payload.PrincipalSubdivision,
+		),
 	}
-	if result.RegionName == nil && result.CityName == nil {
+	if result.RegionName == nil &&
+		result.CityName == nil &&
+		result.DistrictName == nil &&
+		result.RegencyName == nil &&
+		result.ProvinceName == nil {
 		return nil, nil
 	}
 	return result, nil
@@ -291,9 +335,12 @@ func mergeReverseResults(primary, secondary *ReverseGeocodeResult) *ReverseGeoco
 	}
 
 	return &ReverseGeocodeResult{
-		RoadName:   firstNonEmptyStringPtr(ptrValueOrEmpty(primary.RoadName), ptrValueOrEmpty(secondary.RoadName)),
-		RegionName: firstNonEmptyStringPtr(ptrValueOrEmpty(primary.RegionName), ptrValueOrEmpty(secondary.RegionName)),
-		CityName:   firstNonEmptyStringPtr(ptrValueOrEmpty(primary.CityName), ptrValueOrEmpty(secondary.CityName)),
+		RoadName:     firstNonEmptyStringPtr(ptrValueOrEmpty(primary.RoadName), ptrValueOrEmpty(secondary.RoadName)),
+		RegionName:   firstNonEmptyStringPtr(ptrValueOrEmpty(primary.RegionName), ptrValueOrEmpty(secondary.RegionName)),
+		CityName:     firstNonEmptyStringPtr(ptrValueOrEmpty(primary.CityName), ptrValueOrEmpty(secondary.CityName)),
+		DistrictName: firstNonEmptyStringPtr(ptrValueOrEmpty(primary.DistrictName), ptrValueOrEmpty(secondary.DistrictName)),
+		RegencyName:  firstNonEmptyStringPtr(ptrValueOrEmpty(primary.RegencyName), ptrValueOrEmpty(secondary.RegencyName)),
+		ProvinceName: firstNonEmptyStringPtr(ptrValueOrEmpty(primary.ProvinceName), ptrValueOrEmpty(secondary.ProvinceName)),
 	}
 }
 

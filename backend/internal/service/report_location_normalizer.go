@@ -10,10 +10,13 @@ import (
 )
 
 type ReportLocationNormalization struct {
-	RegionID   *int64
-	RoadName   *string
-	RegionName *string
-	CityName   *string
+	RegionID     *int64
+	RoadName     *string
+	RegionName   *string
+	CityName     *string
+	DistrictName *string
+	RegencyName  *string
+	ProvinceName *string
 }
 
 type ReportLocationNormalizer interface {
@@ -50,6 +53,9 @@ func (n *reportLocationNormalizer) NormalizeForReport(
 			out.RegionID = &regionID
 			out.RegionName = nonEmptyPtr(region.RegionName)
 			out.CityName = pickCityName(region.ParentName, region.GrandparentName)
+			out.DistrictName = nonEmptyPtrFromPtr(region.DistrictName)
+			out.RegencyName = nonEmptyPtrFromPtr(region.RegencyName)
+			out.ProvinceName = nonEmptyPtrFromPtr(region.ProvinceName)
 		}
 	}
 
@@ -64,6 +70,15 @@ func (n *reportLocationNormalizer) NormalizeForReport(
 			}
 			if out.CityName == nil {
 				out.CityName = nonEmptyPtrFromPtr(reverse.CityName)
+			}
+			if out.DistrictName == nil {
+				out.DistrictName = nonEmptyPtrFromPtr(reverse.DistrictName)
+			}
+			if out.RegencyName == nil {
+				out.RegencyName = nonEmptyPtrFromPtr(reverse.RegencyName)
+			}
+			if out.ProvinceName == nil {
+				out.ProvinceName = nonEmptyPtrFromPtr(reverse.ProvinceName)
 			}
 		}
 	}

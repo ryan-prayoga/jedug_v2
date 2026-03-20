@@ -99,9 +99,12 @@ func TestLocationServiceResolveLabelFallsBackToReverseGeocode(t *testing.T) {
 		locationRepoFake{result: nil},
 		reverseGeocoderFake{
 			result: &ReverseGeocodeResult{
-				RoadName:   strPtr("Jl. KH. Mas Mansyur"),
-				RegionName: strPtr("Kebon Melati"),
-				CityName:   strPtr("Jakarta Pusat"),
+				RoadName:     strPtr("Jl. KH. Mas Mansyur"),
+				RegionName:   strPtr("Kebon Melati"),
+				CityName:     strPtr("Jakarta Pusat"),
+				DistrictName: strPtr("Kebon Melati"),
+				RegencyName:  strPtr("Jakarta Pusat"),
+				ProvinceName: strPtr("DKI Jakarta"),
 			},
 		},
 	)
@@ -121,6 +124,15 @@ func TestLocationServiceResolveLabelFallsBackToReverseGeocode(t *testing.T) {
 	}
 	if got.RegionName == nil || *got.RegionName != "Kebon Melati" {
 		t.Fatalf("unexpected region_name: %v", valueOf(got.RegionName))
+	}
+	if got.DistrictName == nil || *got.DistrictName != "Kebon Melati" {
+		t.Fatalf("unexpected district_name: %v", valueOf(got.DistrictName))
+	}
+	if got.RegencyName == nil || *got.RegencyName != "Jakarta Pusat" {
+		t.Fatalf("unexpected regency_name: %v", valueOf(got.RegencyName))
+	}
+	if got.ProvinceName == nil || *got.ProvinceName != "DKI Jakarta" {
+		t.Fatalf("unexpected province_name: %v", valueOf(got.ProvinceName))
 	}
 }
 

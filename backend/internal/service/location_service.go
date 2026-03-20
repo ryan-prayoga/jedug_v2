@@ -79,9 +79,9 @@ func (s *locationService) ResolveLabel(ctx context.Context, longitude, latitude 
 				RegionLevel:     &regionLevel,
 				ParentName:      reverse.CityName,
 				GrandparentName: nil,
-				DistrictName:    reverse.RegionName,
-				RegencyName:     reverse.CityName,
-				ProvinceName:    nil,
+				DistrictName:    firstAvailableLocationLabel(reverse.DistrictName, reverse.RegionName),
+				RegencyName:     firstAvailableLocationLabel(reverse.RegencyName, reverse.CityName),
+				ProvinceName:    reverse.ProvinceName,
 				Source:          "reverse_geocode",
 			}
 			return out, nil
