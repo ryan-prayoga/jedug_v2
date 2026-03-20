@@ -151,9 +151,11 @@
   - submit report yang sukses menghapus row pending `report_upload_tickets` di transaction yang sama, sehingga cleanup orphan hanya menyentuh media yang memang belum pernah ter-link ke report
   - normalisasi lokasi sekali per laporan:
     - lookup region internal (`regions`) sebagai sumber utama label wilayah
-    - reverse geocoding ringan untuk melengkapi `road_name` jika kosong
+    - reverse geocoding ringan ke Nominatim memakai `accept-language=id` + `User-Agent` eksplisit untuk melengkapi `road_name` jika kosong
+    - mapper Nominatim kini tidak lagi hanya membaca satu label pendek; backend juga mengambil `display_name`, `district/regency/province`, `postcode`, `country`, `country_code`, serta metadata klasifikasi lokasi (`category`, `type`, `addresstype`, `place_rank`) sebagai konteks internal
     - label administratif `district/regency/province` terbaik ikut dibawa dari hasil normalisasi submit agar issue detail tidak kehilangan field `Wilayah` saat `region_id` internal tidak terbentuk
     - jika nama jalan tidak ada tetapi label area/lokalitas manusiawi tersedia, `road_name` issue kini memakai label area itu lebih dulu, bukan langsung fallback koordinat
+    - jika label area terstruktur kosong tetapi `display_name` masih tersedia, backend memakai preview ringkas `display_name` sebelum jatuh ke koordinat
     - fallback `Kawasan sekitar lat,lng` jika label manusiawi tidak tersedia
   - reverse geocoding memakai timeout + cache in-memory agar ringan, dan gagal geocode tidak memblok submit report
 - Repository `ReportRepository` (transactional):
@@ -207,6 +209,15 @@
   - urut event terbaru di atas (`created_at DESC, id DESC`)
   - default/maximum `limit` dijaga di 100 untuk menjaga payload tetap ringan
   - support pagination lewat query `limit` + `offset`
+
+### Public Stats
+
+- `StatsRepository` memakai CTE lokasi yang sejalan dengan issue publik:
+  - admin labels dari submission terbaru yang tersedia dipakai lebih dulu
+  - fallback ke hierarchy `regions` atau spatial lookup hanya jika label submission kosong
+- efek praktis:
+  - top issue dan region leaderboard tidak lagi terlalu cepat jatuh ke nama region mentah/kurang manusiawi
+  - `accept-language=id` dari Nominatim lebih bermanfaat karena label administratif yang dihasilkan ikut mengalir ke statistik publik
 
 ### Follow Issue / Subscribe Update
 

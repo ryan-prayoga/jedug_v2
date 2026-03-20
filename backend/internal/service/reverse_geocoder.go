@@ -20,6 +20,14 @@ type ReverseGeocodeResult struct {
 	DistrictName *string
 	RegencyName  *string
 	ProvinceName *string
+	DisplayName  *string
+	Postcode     *string
+	CountryName  *string
+	CountryCode  *string
+	Category     *string
+	Type         *string
+	AddressType  *string
+	PlaceRank    *int
 }
 
 type ReverseGeocoder interface {
@@ -120,11 +128,18 @@ func (g *httpReverseGeocoder) ReverseLookup(ctx context.Context, longitude, lati
 	if result != nil {
 		// Keep consistent quality: normalize empty strings to nil.
 		result.RoadName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.RoadName))
-		result.RegionName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.RegionName))
-		result.CityName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.CityName))
-		result.DistrictName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.DistrictName))
-		result.RegencyName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.RegencyName))
-		result.ProvinceName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.ProvinceName))
+		result.RegionName = normalizePlaceNamePtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.RegionName)))
+		result.CityName = normalizePlaceNamePtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.CityName)))
+		result.DistrictName = normalizePlaceNamePtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.DistrictName)))
+		result.RegencyName = normalizePlaceNamePtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.RegencyName)))
+		result.ProvinceName = normalizePlaceNamePtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.ProvinceName)))
+		result.DisplayName = firstNonEmptyStringPtr(ptrValueOrEmpty(result.DisplayName))
+		result.Postcode = firstNonEmptyStringPtr(ptrValueOrEmpty(result.Postcode))
+		result.CountryName = normalizePlaceNamePtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.CountryName)))
+		result.CountryCode = upperStringPtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.CountryCode)))
+		result.Category = lowerStringPtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.Category)))
+		result.Type = lowerStringPtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.Type)))
+		result.AddressType = lowerStringPtr(firstNonEmptyStringPtr(ptrValueOrEmpty(result.AddressType)))
 	}
 
 	if result == nil && len(lookupErrs) > 0 {
@@ -153,6 +168,7 @@ func (g *httpReverseGeocoder) lookupNominatim(
 	query := endpoint.Query()
 	query.Set("format", "jsonv2")
 	query.Set("addressdetails", "1")
+	query.Set("accept-language", "id")
 	query.Set("zoom", "18")
 	query.Set("lat", strconv.FormatFloat(latitude, 'f', 6, 64))
 	query.Set("lon", strconv.FormatFloat(longitude, 'f', 6, 64))
@@ -177,22 +193,33 @@ func (g *httpReverseGeocoder) lookupNominatim(
 	}
 
 	var payload struct {
-		Address struct {
+		DisplayName string `json:"display_name"`
+		Category    string `json:"category"`
+		Type        string `json:"type"`
+		AddressType string `json:"addresstype"`
+		PlaceRank   any    `json:"place_rank"`
+		Address     struct {
 			Road          string `json:"road"`
 			Pedestrian    string `json:"pedestrian"`
 			Residential   string `json:"residential"`
 			Street        string `json:"street"`
+			Quarter       string `json:"quarter"`
 			Suburb        string `json:"suburb"`
 			Neighbourhood string `json:"neighbourhood"`
 			Village       string `json:"village"`
+			Hamlet        string `json:"hamlet"`
 			District      string `json:"district"`
 			CityDistrict  string `json:"city_district"`
+			Region        string `json:"region"`
 			City          string `json:"city"`
 			Town          string `json:"town"`
 			County        string `json:"county"`
 			Regency       string `json:"regency"`
 			StateDistrict string `json:"state_district"`
 			State         string `json:"state"`
+			Postcode      string `json:"postcode"`
+			Country       string `json:"country"`
+			CountryCode   string `json:"country_code"`
 			Municipality  string `json:"municipality"`
 		} `json:"address"`
 	}
@@ -209,11 +236,13 @@ func (g *httpReverseGeocoder) lookupNominatim(
 			payload.Address.Street,
 		),
 		RegionName: firstNonEmptyStringPtr(
-			payload.Address.Suburb,
 			payload.Address.Neighbourhood,
+			payload.Address.Suburb,
 			payload.Address.Village,
+			payload.Address.Hamlet,
 			payload.Address.District,
 			payload.Address.CityDistrict,
+			payload.Address.Quarter,
 		),
 		CityName: firstNonEmptyStringPtr(
 			payload.Address.City,
@@ -225,11 +254,13 @@ func (g *httpReverseGeocoder) lookupNominatim(
 			payload.Address.State,
 		),
 		DistrictName: firstNonEmptyStringPtr(
-			payload.Address.Suburb,
 			payload.Address.Neighbourhood,
+			payload.Address.Suburb,
 			payload.Address.Village,
+			payload.Address.Hamlet,
 			payload.Address.District,
 			payload.Address.CityDistrict,
+			payload.Address.Quarter,
 		),
 		RegencyName: firstNonEmptyStringPtr(
 			payload.Address.City,
@@ -241,15 +272,39 @@ func (g *httpReverseGeocoder) lookupNominatim(
 		),
 		ProvinceName: firstNonEmptyStringPtr(
 			payload.Address.State,
+			payload.Address.Region,
+		),
+		DisplayName: firstNonEmptyStringPtr(
+			payload.DisplayName,
+		),
+		Postcode: firstNonEmptyStringPtr(
+			payload.Address.Postcode,
+		),
+		CountryName: firstNonEmptyStringPtr(
+			payload.Address.Country,
+		),
+		CountryCode: firstNonEmptyStringPtr(
+			payload.Address.CountryCode,
+		),
+		Category: firstNonEmptyStringPtr(
+			payload.Category,
+		),
+		Type: firstNonEmptyStringPtr(
+			payload.Type,
+		),
+		AddressType: firstNonEmptyStringPtr(
+			payload.AddressType,
 		),
 	}
+	result.PlaceRank = parseOptionalInt(payload.PlaceRank)
 
 	if result.RoadName == nil &&
 		result.RegionName == nil &&
 		result.CityName == nil &&
 		result.DistrictName == nil &&
 		result.RegencyName == nil &&
-		result.ProvinceName == nil {
+		result.ProvinceName == nil &&
+		result.DisplayName == nil {
 		return nil, nil
 	}
 
@@ -341,6 +396,14 @@ func mergeReverseResults(primary, secondary *ReverseGeocodeResult) *ReverseGeoco
 		DistrictName: firstNonEmptyStringPtr(ptrValueOrEmpty(primary.DistrictName), ptrValueOrEmpty(secondary.DistrictName)),
 		RegencyName:  firstNonEmptyStringPtr(ptrValueOrEmpty(primary.RegencyName), ptrValueOrEmpty(secondary.RegencyName)),
 		ProvinceName: firstNonEmptyStringPtr(ptrValueOrEmpty(primary.ProvinceName), ptrValueOrEmpty(secondary.ProvinceName)),
+		DisplayName:  firstNonEmptyStringPtr(ptrValueOrEmpty(primary.DisplayName), ptrValueOrEmpty(secondary.DisplayName)),
+		Postcode:     firstNonEmptyStringPtr(ptrValueOrEmpty(primary.Postcode), ptrValueOrEmpty(secondary.Postcode)),
+		CountryName:  firstNonEmptyStringPtr(ptrValueOrEmpty(primary.CountryName), ptrValueOrEmpty(secondary.CountryName)),
+		CountryCode:  firstNonEmptyStringPtr(ptrValueOrEmpty(primary.CountryCode), ptrValueOrEmpty(secondary.CountryCode)),
+		Category:     firstNonEmptyStringPtr(ptrValueOrEmpty(primary.Category), ptrValueOrEmpty(secondary.Category)),
+		Type:         firstNonEmptyStringPtr(ptrValueOrEmpty(primary.Type), ptrValueOrEmpty(secondary.Type)),
+		AddressType:  firstNonEmptyStringPtr(ptrValueOrEmpty(primary.AddressType), ptrValueOrEmpty(secondary.AddressType)),
+		PlaceRank:    firstNonNilInt(primary.PlaceRank, secondary.PlaceRank),
 	}
 }
 
@@ -364,4 +427,101 @@ func ptrValueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func normalizePlaceNamePtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := normalizeIndonesianPlaceName(*value)
+	if strings.TrimSpace(normalized) == "" {
+		return nil
+	}
+	return &normalized
+}
+
+func normalizeIndonesianPlaceName(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+
+	switch strings.ToLower(trimmed) {
+	case "central jakarta":
+		return "Jakarta Pusat"
+	case "south jakarta":
+		return "Jakarta Selatan"
+	case "west jakarta":
+		return "Jakarta Barat"
+	case "east jakarta":
+		return "Jakarta Timur"
+	case "north jakarta":
+		return "Jakarta Utara"
+	case "special capital region of jakarta", "jakarta special capital region":
+		return "Daerah Khusus Ibukota Jakarta"
+	case "east java":
+		return "Jawa Timur"
+	case "central java":
+		return "Jawa Tengah"
+	case "west java":
+		return "Jawa Barat"
+	case "indonesia":
+		return "Indonesia"
+	default:
+		return trimmed
+	}
+}
+
+func upperStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := strings.ToUpper(strings.TrimSpace(*value))
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
+}
+
+func lowerStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := strings.ToLower(strings.TrimSpace(*value))
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
+}
+
+func parseOptionalInt(value any) *int {
+	switch v := value.(type) {
+	case nil:
+		return nil
+	case float64:
+		out := int(v)
+		return &out
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return nil
+		}
+		parsed, err := strconv.Atoi(trimmed)
+		if err != nil {
+			return nil
+		}
+		return &parsed
+	default:
+		return nil
+	}
+}
+
+func firstNonNilInt(values ...*int) *int {
+	for _, value := range values {
+		if value != nil {
+			out := *value
+			return &out
+		}
+	}
+	return nil
 }

@@ -71,6 +71,9 @@ func (s *locationService) ResolveLabel(ctx context.Context, longitude, latitude 
 			log.Printf("[LOCATION_LABEL] resolve_reverse_error lat=%.6f lon=%.6f err=%v", latitude, longitude, reverseErr)
 		} else if reverse != nil {
 			label := buildHumanLabelFromPtrs(reverse.RoadName, reverse.RegionName, reverse.CityName)
+			if label == nil {
+				label = displayNamePreview(reverse.DisplayName)
+			}
 			regionLevel := "fallback_reverse_geocode"
 			out := &LocationLabelResult{
 				Label:           label,
@@ -142,4 +145,27 @@ func buildHumanLabelFromPtrs(primary, parent, grandparent *string) *string {
 		primaryValue = *primary
 	}
 	return buildHumanLabel(primaryValue, parent, grandparent)
+}
+
+func displayNamePreview(displayName *string) *string {
+	if displayName == nil {
+		return nil
+	}
+	parts := strings.Split(*displayName, ",")
+	cleaned := make([]string, 0, 3)
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		cleaned = append(cleaned, trimmed)
+		if len(cleaned) == 3 {
+			break
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	label := strings.Join(cleaned, ", ")
+	return &label
 }

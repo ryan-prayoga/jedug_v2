@@ -1574,6 +1574,22 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - issue lama yang historisnya tidak punya `region_id` dan belum pernah menyimpan label administratif tetap tidak bisa diperkaya mundur tanpa proses backfill/geocode ulang; patch ini menutup jalur submit baru dan issue lama yang mendapat submission baru.
 
+## 2026-03-20 - Perluas Pemanfaatan Response Nominatim
+
+- Scope:
+  - memperkaya mapper reverse geocode Nominatim agar JEDUG memakai `accept-language=id` secara konsisten, membaca field administratif dan klasifikasi lokasi lebih lengkap, lalu mengalirkannya ke normalisasi lokasi dan statistik publik.
+- Dampak area:
+  - `backend/internal/service/reverse_geocoder.go`
+  - `backend/internal/service/location_service.go`
+  - `backend/internal/service/report_location_normalizer.go`
+  - `backend/internal/repository/stats_repository.go`
+  - `backend/internal/service/reverse_geocoder_test.go`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - metadata klasifikasi lokasi Nominatim (`category/type/addresstype/place_rank`) sudah diparse, tetapi belum dipromosikan ke field publik baru karena `road_type` existing masih sempit dan bersemantik jaringan jalan, bukan OSM place type umum.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:
