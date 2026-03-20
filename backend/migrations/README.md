@@ -11,6 +11,7 @@ Aturan:
 Fresh bootstrap:
 
 - gunakan `backend/scripts/bootstrap_db.sh fresh`
+- mode ini destruktif: schema `public` dihapus total lalu dibuat ulang sebelum baseline + migration repo dijalankan
 
 Upgrade DB lama:
 

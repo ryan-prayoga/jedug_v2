@@ -6,7 +6,7 @@ Backend API JEDUG dibangun dengan Go + Fiber.
 
 ```bash
 cp .env.example .env
-make db-bootstrap
+make db-fresh
 make run
 ```
 
@@ -17,7 +17,9 @@ make db-upgrade
 make db-verify-schema
 ```
 
-`make db-bootstrap`, `make db-upgrade`, dan `make db-verify-schema` akan otomatis membaca `backend/.env` bila `DATABASE_URL` belum diexport di shell. `export DATABASE_URL=...` tetap bisa dipakai untuk override sementara.
+`make db-fresh`, `make db-bootstrap`, `make db-upgrade`, dan `make db-verify-schema` akan otomatis membaca `backend/.env` bila `DATABASE_URL` belum diexport di shell. `export DATABASE_URL=...` tetap bisa dipakai untuk override sementara.
+
+`make db-fresh` dan `make db-bootstrap` sama-sama menjalankan reset destruktif untuk database target: schema `public` akan di-drop, dibuat ulang, lalu di-bootstrap dari baseline + migration repo.
 
 ## Dokumentasi Utama
 

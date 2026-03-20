@@ -14,6 +14,7 @@ Gunakan artefak berikut sebagai source of truth schema di repo:
 Current implementation:
 
 - baseline SQL sudah dicatat penuh di repo dan tidak lagi bergantung pada file di luar workspace.
+- mode `fresh` pada `backend/scripts/bootstrap_db.sh` sekarang mereset schema `public` lebih dulu (`DROP SCHEMA public CASCADE` -> create ulang schema) sebelum baseline + migration dijalankan, sehingga bootstrap benar-benar dimulai dari database kosong.
 - migration chain additive tetap tersedia agar environment lama bisa dikejar ke schema yang diharapkan code saat ini.
 
 Intended direction:

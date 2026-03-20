@@ -25,8 +25,13 @@
 
 - Fresh DB:
   - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh fresh`
+  - mode `fresh` bersifat destruktif: script akan `DROP SCHEMA public CASCADE`, membuat ulang schema `public`, lalu apply baseline + migration repo. Semua tabel dan data existing di database target akan terhapus.
 - Upgrade DB lama:
   - `cd backend && DATABASE_URL=... ./scripts/bootstrap_db.sh upgrade`
+- Shortcut `make`:
+  - `cd backend && make db-fresh`
+  - `cd backend && make db-bootstrap`
+  - keduanya menjalankan mode `fresh` yang sama; `db-fresh` disediakan sebagai nama yang lebih eksplisit.
 - Verifikasi governance schema:
   - `cd backend && DATABASE_URL=... ./scripts/verify_schema_governance.sh`
 - Jika `DATABASE_URL` belum ada di shell, kedua script DB di atas akan otomatis mencoba load `backend/.env`.
