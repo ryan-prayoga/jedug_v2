@@ -125,6 +125,10 @@
   - `IssueGallery.svelte`
   - `ShareActions.svelte`
 - Layout desktop issue detail memakai container lebar sendiri (`app-main-wide`) tanpa mengubah flow route publik lain.
+- Presenter lokasi issue publik sekarang memakai prioritas yang lebih manusiawi:
+  - `road_name` bila benar-benar nama jalan/area
+  - fallback ke `district_name/regency_name/province_name` bila `road_name` lama hanya berisi copy koordinat sintetis
+  - fallback koordinat hanya dipakai jika semua label manusiawi kosong
 - State wajib tersedia:
   - loading (retry fetch)
   - not found
@@ -341,7 +345,7 @@
 - Copy filter dan heading summary kini menegaskan bahwa ringkasan, status, time stats, leaderboard, dan top issue memakai scope aktif yang sama; snapshot global hanya ditampilkan sebagai pembanding kecil saat scope tidak global.
 - Region leaderboard tidak lagi memakai identity/key dari `district_name`; frontend merender `regions[].region_id` + `regions[].region_name`, lalu menampilkan konteks parent administratif (`regency/province`) bila ada.
 - Top issue card sekarang menampilkan:
-  - judul issue (`road_name` bila ada)
+  - judul issue (`road_name`, lalu fallback area/wilayah manusiawi bila `road_name` lama hanya berupa label koordinat sintetis)
   - lokasi administratif ringkas dari `district_name`, `regency_name`, `province_name`
   - metrik ringkas (`laporan`, `korban`, `umur issue`)
 - Halaman tetap memakai komponen state umum:
@@ -381,6 +385,7 @@ Di `/lapor`:
 
 - payload juga mengirim `actor_follower_id` (identity follower anonim dari browser) untuk mencegah self-notify pada event yang dipicu user itu sendiri.
 - backend melakukan normalisasi lokasi saat submit (region internal + reverse geocode road fallback).
+- frontend tidak mengirim field label lokasi terpisah saat submit; backend tetap authoritative. Label UX di `/lapor` dipakai untuk preview, lalu backend mengulang normalisasi dari koordinat yang sama agar issue publik konsisten.
 - UI tetap menampilkan ini sebagai label UX, bukan input wajib user.
 
 Hardening UX submit report:

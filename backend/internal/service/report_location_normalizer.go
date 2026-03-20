@@ -68,6 +68,13 @@ func (n *reportLocationNormalizer) NormalizeForReport(
 		}
 	}
 
+	if out.RoadName == nil {
+		out.RoadName = firstAvailableLocationLabel(
+			out.RegionName,
+			out.CityName,
+		)
+	}
+
 	if out.RegionName == nil {
 		fallback := fallbackCoordinateLabel(latitude, longitude)
 		out.RegionName = &fallback
@@ -103,6 +110,15 @@ func nonEmptyPtrFromPtr(value *string) *string {
 		return nil
 	}
 	return nonEmptyPtr(*value)
+}
+
+func firstAvailableLocationLabel(values ...*string) *string {
+	for _, value := range values {
+		if normalized := nonEmptyPtrFromPtr(value); normalized != nil {
+			return normalized
+		}
+	}
+	return nil
 }
 
 func fallbackCoordinateLabel(latitude, longitude float64) string {

@@ -1,5 +1,9 @@
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 import type { ApiResponse, IssueDetail, MediaItem } from '$lib/api/types';
+import {
+	getIssueLocationLabel,
+	getIssueRegionOrCoordinates
+} from '$lib/utils/issue-detail';
 import { ImageResponse } from '@vercel/og';
 import { html } from 'satori-html';
 import type { RequestHandler } from './$types';
@@ -40,8 +44,8 @@ function normalizeText(value: string | null | undefined, fallback = '-'): string
 }
 
 function getLocationText(issue: IssueDetail): string {
-	const roadName = normalizeText(issue.road_name, '');
-	const regionName = normalizeText(issue.region_name, '');
+	const roadName = normalizeText(getIssueLocationLabel(issue), '');
+	const regionName = normalizeText(getIssueRegionOrCoordinates(issue), '');
 
 	if (roadName && regionName && roadName !== regionName) {
 		return `${roadName} - ${regionName}`;

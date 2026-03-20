@@ -1510,6 +1510,30 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - `pm2-logrotate` tetap perlu dipasang manual sekali di VPS; workflow deploy tidak lagi menegakkan konfigurasi modul tersebut.
 
+## 2026-03-20 - Sinkronisasi Label Lokasi Report ke Issue Publik
+
+- Scope:
+  - menutup gap ketika preview lokasi di `/lapor` sudah manusiawi tetapi issue publik/detail masih jatuh ke fallback koordinat atau wilayah kosong.
+- Dampak area:
+  - `backend/internal/service/report_location_normalizer.go`
+  - `backend/internal/service/report_service.go`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/repository/issue_repository.go`
+  - `backend/internal/domain/issue.go`
+  - `frontend/src/lib/api/types.ts`
+  - `frontend/src/lib/utils/issue-detail.ts`
+  - `frontend/src/routes/issues/[id]/+page.svelte`
+  - `frontend/src/routes/api/og/issues/[id]/+server.ts`
+  - `frontend/src/lib/components/IssueCard.svelte`
+  - `frontend/src/lib/components/IssueBottomSheet.svelte`
+  - `frontend/src/routes/stats/+page.svelte`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/FRONTEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - `road_type` masih tetap kosong bila geocoder/schema tidak menyediakan sumber yang tepercaya; patch ini hanya memperbaiki sinkronisasi label lokasi manusiawi, bukan klasifikasi tipe jalan.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

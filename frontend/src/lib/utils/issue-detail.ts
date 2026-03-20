@@ -53,6 +53,19 @@ const VERIFICATION_TONES: Record<string, Tone> = {
 
 const SEVERITY_LABELS = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
 const SEVERITY_COLORS = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
+const syntheticCoordinateLabelPattern = /^Kawasan sekitar\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/iu;
+
+type IssueLocationLike = Pick<
+	IssueDetail,
+	| 'road_name'
+	| 'road_type'
+	| 'region_name'
+	| 'district_name'
+	| 'regency_name'
+	| 'province_name'
+	| 'latitude'
+	| 'longitude'
+>;
 
 export function getSeverityLabel(value: number): string {
 	return SEVERITY_LABELS[value] || `Level ${value}`;
@@ -90,31 +103,63 @@ export function getPrimaryMedia(media: MediaItem[]): MediaItem | null {
 	return media.find((item) => item.is_primary) || media[0];
 }
 
-export function getIssueLocationLabel(issue: IssueDetail): string {
-	const parts: string[] = [];
+function normalizeLocationText(value: string | null | undefined): string | null {
+	if (!value) return null;
+	const normalized = value.replace(/\s+/g, ' ').trim();
+	if (!normalized) return null;
+	return normalized;
+}
 
-	if (issue.road_name) {
-		parts.push(issue.road_name);
+export function isSyntheticCoordinateLocationLabel(value: string | null | undefined): boolean {
+	const normalized = normalizeLocationText(value);
+	if (!normalized) return false;
+	return syntheticCoordinateLabelPattern.test(normalized);
+}
+
+export function joinLocationParts(parts: Array<string | null | undefined>): string | null {
+	const unique = new Set<string>();
+	for (const part of parts) {
+		const normalized = normalizeLocationText(part);
+		if (normalized) unique.add(normalized);
+	}
+	if (unique.size === 0) return null;
+	return Array.from(unique).join(', ');
+}
+
+export function getIssueRoadOrAreaLabel(issue: IssueLocationLike): string | null {
+	const roadName = normalizeLocationText(issue.road_name);
+	if (roadName && !isSyntheticCoordinateLocationLabel(roadName)) {
+		return roadName;
 	}
 
-	if (issue.region_name && issue.region_name !== issue.road_name) {
-		parts.push(issue.region_name);
-	}
+	return (
+		normalizeLocationText(issue.district_name) ||
+		normalizeLocationText(issue.region_name) ||
+		normalizeLocationText(issue.regency_name) ||
+		normalizeLocationText(issue.province_name)
+	);
+}
 
-	if (parts.length > 0) {
-		return parts.join(', ');
-	}
+export function getIssueRegionLabel(issue: IssueLocationLike): string | null {
+	return (
+		joinLocationParts([issue.district_name, issue.regency_name, issue.province_name]) ||
+		normalizeLocationText(issue.region_name)
+	);
+}
 
-	if (issue.road_type) {
-		return issue.road_type;
+export function getIssueLocationLabel(issue: IssueLocationLike): string {
+	const locationLabel = getIssueRoadOrAreaLabel(issue);
+	if (locationLabel) {
+		return locationLabel;
 	}
 
 	return formatCoordinates(issue.latitude, issue.longitude, 5);
 }
 
-export function getIssueRegionOrCoordinates(issue: IssueDetail): string {
-	if (issue.region_name) {
-		return issue.region_name;
+export function getIssueRegionOrCoordinates(issue: IssueLocationLike): string {
+	const regionLabel = getIssueRegionLabel(issue);
+	if (regionLabel) {
+		return regionLabel;
 	}
 
 	return `Koordinat ${formatCoordinates(issue.latitude, issue.longitude, 5)}`;

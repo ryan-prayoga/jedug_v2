@@ -28,7 +28,9 @@
 		buildIssueDetailSeo,
 		formatCoordinates,
 		getIssueLocationLabel,
+		getIssueRoadOrAreaLabel,
 		getIssuePrimaryMedia,
+		getIssueRegionLabel,
 		getIssueRegionOrCoordinates,
 		getIssueSnapshot,
 		getPrimaryMedia,
@@ -76,6 +78,8 @@
 
 	const locationLabel = $derived(issue ? getIssueLocationLabel(issue) : '-');
 	const locationContext = $derived(issue ? getIssueRegionOrCoordinates(issue) : '-');
+	const roadOrAreaLabel = $derived(issue ? getIssueRoadOrAreaLabel(issue) : null);
+	const regionLabel = $derived(issue ? getIssueRegionLabel(issue) : null);
 	const coordinatesLabel = $derived(
 		issue ? formatCoordinates(issue.latitude, issue.longitude, 5) : '-'
 	);
@@ -712,8 +716,8 @@
 
 					<dl class="detail-list">
 						<div class="detail-row">
-							<dt>Nama jalan</dt>
-							<dd>{issue.road_name || 'Belum tersedia'}</dd>
+							<dt>Nama jalan / area</dt>
+							<dd>{roadOrAreaLabel || 'Belum tersedia'}</dd>
 						</div>
 						<div class="detail-row">
 							<dt>Tipe jalan</dt>
@@ -721,7 +725,7 @@
 						</div>
 						<div class="detail-row">
 							<dt>Wilayah</dt>
-							<dd>{issue.region_name || 'Belum tersedia'}</dd>
+							<dd>{regionLabel || 'Belum tersedia'}</dd>
 						</div>
 						<div class="detail-row">
 							<dt>Koordinat</dt>

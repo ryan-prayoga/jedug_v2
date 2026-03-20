@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Issue } from '$lib/api/types';
 	import { relativeTime } from '$lib/utils/date';
+	import { getIssueRoadOrAreaLabel } from '$lib/utils/issue-detail';
 
 	let {
 		issue,
@@ -194,8 +195,8 @@
 
 				<!-- Location -->
 				<div class="location">
-					{#if issue.road_name}
-						<span class="road-name">{issue.road_name}</span>
+					{#if getIssueRoadOrAreaLabel(issue)}
+						<span class="road-name">{getIssueRoadOrAreaLabel(issue)}</span>
 					{:else}
 						<span class="coords">{issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}</span>
 					{/if}

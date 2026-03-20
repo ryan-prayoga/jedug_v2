@@ -20,6 +20,9 @@ type Issue struct {
 	RegionName         *string   `json:"region_name,omitempty"`
 	RoadName           *string   `json:"road_name,omitempty"`
 	RoadType           *string   `json:"road_type,omitempty"`
+	DistrictName       *string   `json:"district_name,omitempty"`
+	RegencyName        *string   `json:"regency_name,omitempty"`
+	ProvinceName       *string   `json:"province_name,omitempty"`
 	SubmissionCount    int       `json:"submission_count"`
 	PhotoCount         int       `json:"photo_count"`
 	CasualtyCount      int       `json:"casualty_count"`

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { relativeTime } from '$lib/utils/date';
+	import { getIssueRoadOrAreaLabel } from '$lib/utils/issue-detail';
 	import type { Issue } from '$lib/api/types';
 
 	let { issue }: { issue: Issue } = $props();
@@ -35,8 +36,8 @@
 		</div>
 
 		<div class="card-location">
-			{#if issue.road_name}
-				<strong>{issue.road_name}</strong>
+			{#if getIssueRoadOrAreaLabel(issue)}
+				<strong>{getIssueRoadOrAreaLabel(issue)}</strong>
 			{:else}
 				<span class="coords">{issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}</span>
 			{/if}

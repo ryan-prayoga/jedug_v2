@@ -88,6 +88,9 @@ export interface Issue {
   region_name: string | null;
   road_name: string | null;
   road_type: string | null;
+  district_name: string | null;
+  regency_name: string | null;
+  province_name: string | null;
   submission_count: number;
   photo_count: number;
   casualty_count: number;
