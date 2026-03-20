@@ -152,6 +152,7 @@
   - normalisasi lokasi sekali per laporan:
     - lookup region internal (`regions`) sebagai sumber utama label wilayah
     - reverse geocoding ringan untuk melengkapi `road_name` jika kosong
+    - jika nama jalan tidak ada tetapi label area/lokalitas manusiawi tersedia, `road_name` issue kini memakai label area itu lebih dulu, bukan langsung fallback koordinat
     - fallback `Kawasan sekitar lat,lng` jika label manusiawi tidak tersedia
   - reverse geocoding memakai timeout + cache in-memory agar ringan, dan gagal geocode tidak memblok submit report
 - Repository `ReportRepository` (transactional):
@@ -159,7 +160,7 @@
   - re-check existing submission di dalam transaction; jika sudah ada:
     - fingerprint sama -> return result existing
     - fingerprint beda -> reject conflict
-  - resolve region internal terbaik (prioritas district, fallback smallest covering region)
+  - `region_id` issue/submission baru kini lebih dulu memakai hasil lookup lokasi yang sudah dinormalisasi saat submit; jika kosong baru fallback ke resolver region internal repository
   - prioritas level wilayah kini juga mengenali alias Indonesia (`provinsi`, `kabupaten`, `kota`, `kecamatan`) agar `region_id` issue/submission baru tidak jatuh ke level yang terlalu bawah hanya karena label level berbeda
   - duplicate detection issue aktif publik (`open|verified|in_progress`, `is_hidden=false`) dalam radius configurable (default 30m)
   - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
@@ -185,7 +186,8 @@
   - filter `is_hidden = false`
   - exclude status `rejected`, `merged`
   - optional `status`, `severity >=`, `bbox`
-  - enrich lokasi dengan `region_name` (join `regions`) untuk kebutuhan UI publik
+  - enrich lokasi publik bukan lagi hanya `join regions` langsung; query kini menurunkan `district_name`, `regency_name`, `province_name` dari `issues.region_id`, `issue_submissions.region_id` terbaru, atau spatial fallback dari `public_location`
+  - `region_name` publik kini berisi label administratif manusiawi (`district/regency/province`) bila tersedia
 - `IssueRepository.FindByID`:
   - hanya mengembalikan issue publik (`is_hidden = false`)
   - exclude status `rejected`, `merged` agar deep-link publik konsisten dengan list/map
@@ -197,6 +199,7 @@
   - recent submissions membawa `casualty_count` dan `public_note` additive agar UI tidak perlu menampilkan note mentah
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
+  - response additive publik kini juga membawa `district_name`, `regency_name`, dan `province_name` untuk presenter/UI yang perlu fallback lokasi lebih manusiawi
 - `ListTimeline`:
   - endpoint `GET /api/v1/issues/:id/timeline`
   - urut event terbaru di atas (`created_at DESC, id DESC`)

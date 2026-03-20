@@ -196,6 +196,7 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		ClientRequestID:    clientRequestID,
 		DeviceID:           device.ID,
 		ActorFollowerID:    actorFollowerID,
+		PreferredRegionID:  locationInfo.RegionID,
 		Longitude:          req.Longitude,
 		Latitude:           req.Latitude,
 		GPSAccuracyM:       req.GPSAccuracyM,

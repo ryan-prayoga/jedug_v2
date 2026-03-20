@@ -53,6 +53,7 @@ type SubmitInput struct {
 	ClientRequestID    uuid.UUID
 	DeviceID           uuid.UUID
 	ActorFollowerID    *uuid.UUID
+	PreferredRegionID  *int64
 	Longitude          float64
 	Latitude           float64
 	GPSAccuracyM       *float64
@@ -132,11 +133,15 @@ func (r *reportRepository) SubmitReport(ctx context.Context, input SubmitInput) 
 		return existing, nil
 	}
 
-	regionID, err := resolveBestRegionID(ctx, tx, input.Longitude, input.Latitude)
-	if err != nil {
-		log.Printf("[REPORT] resolve_region_failed device=%s lon=%.6f lat=%.6f error=%v",
-			input.DeviceID, input.Longitude, input.Latitude, err)
-		return nil, fmt.Errorf("resolve region: %w", err)
+	regionID := input.PreferredRegionID
+	if regionID == nil {
+		resolvedRegionID, resolveErr := resolveBestRegionID(ctx, tx, input.Longitude, input.Latitude)
+		if resolveErr != nil {
+			log.Printf("[REPORT] resolve_region_failed device=%s lon=%.6f lat=%.6f error=%v",
+				input.DeviceID, input.Longitude, input.Latitude, resolveErr)
+			return nil, fmt.Errorf("resolve region: %w", resolveErr)
+		}
+		regionID = resolvedRegionID
 	}
 	candidate, err := findDuplicateCandidate(ctx, tx, input.Longitude, input.Latitude, r.duplicateRadiusM)
 	if err != nil {

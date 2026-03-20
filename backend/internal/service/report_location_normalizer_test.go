@@ -87,3 +87,32 @@ func TestReportLocationNormalizerFallbackLabel(t *testing.T) {
 		t.Fatalf("unexpected region fallback: got %q want %q", *got.RegionName, want)
 	}
 }
+
+func TestReportLocationNormalizerUsesHumanAreaWhenRoadMissing(t *testing.T) {
+	normalizer := NewReportLocationNormalizer(
+		&locationRepoStub{
+			label: &repository.LocationLabel{
+				RegionID:    77,
+				RegionName:  "Blimbing Gede",
+				RegionLevel: "village",
+				ParentName:  strPtr("Bojonegoro"),
+			},
+		},
+		reverseGeocoderStub{
+			result: &ReverseGeocodeResult{
+				RoadName:   nil,
+				RegionName: strPtr("Blimbing Gede"),
+				CityName:   strPtr("Bojonegoro"),
+			},
+		},
+	)
+
+	got := normalizer.NormalizeForReport(context.Background(), 111.55412, -7.25378)
+
+	if got.RoadName == nil || *got.RoadName != "Blimbing Gede" {
+		t.Fatalf("expected human area fallback for road name, got %+v", got.RoadName)
+	}
+	if got.RegionName == nil || *got.RegionName != "Blimbing Gede" {
+		t.Fatalf("expected internal region name to stay available, got %+v", got.RegionName)
+	}
+}

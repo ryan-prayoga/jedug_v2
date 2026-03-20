@@ -369,7 +369,15 @@
 	}
 
 	function getIssueName(item: PublicTopIssue): string {
-		if (item.road_name && item.road_name.trim() !== '') return item.road_name;
+		if (
+			item.road_name &&
+			item.road_name.trim() !== '' &&
+			!/^Kawasan sekitar\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/iu.test(item.road_name.trim())
+		) {
+			return item.road_name;
+		}
+		const adminFallback = joinLocationParts([item.district_name, item.regency_name, item.province_name]);
+		if (adminFallback !== '') return adminFallback;
 		if (item.region_name && item.region_name.trim() !== '') return item.region_name;
 		return 'Issue tanpa nama jalan';
 	}
