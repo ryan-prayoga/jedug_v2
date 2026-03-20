@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { MediaItem } from '$lib/api/types';
+	import { CameraIcon, GalleryIcon } from '$lib/icons';
 
 	let {
 		media,
@@ -32,27 +33,33 @@
 	});
 </script>
 
-<section class="gallery-card" aria-label="Galeri issue">
-	<div class="section-header">
-		<div>
-			<h2>Galeri Foto</h2>
-			<p>{helperText}</p>
+<section class="jedug-card p-5" aria-label="Galeri issue">
+	<div class="flex items-start justify-between gap-4">
+		<div class="flex min-w-0 items-start gap-3">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+				<GalleryIcon class="size-6" />
+			</div>
+			<div class="min-w-0">
+				<h2 class="text-lg font-bold text-slate-950">Galeri Foto</h2>
+				<p class="mt-1 text-sm leading-6 text-slate-500">{helperText}</p>
+			</div>
 		</div>
-		<span class="section-count">{totalPhotoCount}</span>
+		<span class="badge-tint h-10 min-w-10 justify-center px-3">{totalPhotoCount}</span>
 	</div>
 
 	{#if media.length > 0}
-		<div class="gallery-grid">
+		<div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
 			{#each media as item (item.id)}
 				<button
 					type="button"
-					class="gallery-item"
+					class="group overflow-hidden rounded-[22px] border border-slate-200 bg-slate-100 text-left shadow-[0_10px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300"
 					onclick={() => onSelectMedia(item.id)}
 					aria-label={`Buka foto issue di ${locationLabel}`}
 				>
 					<img
 						src={item.public_url}
 						alt={`Foto issue jalan rusak di ${locationLabel}`}
+						class="h-36 w-full object-cover transition duration-300 group-hover:scale-[1.03] md:h-44"
 						loading="lazy"
 						decoding="async"
 						onerror={() => onMediaError(item.id)}
@@ -61,110 +68,21 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="gallery-empty">
+		<div class="mt-5 rounded-[24px] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-8 text-center">
+			<div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+				<CameraIcon class="size-6" />
+			</div>
 			{#if totalPhotoCount > 0}
-				<strong>Foto tidak berhasil dimuat</strong>
-				<p>Coba buka ulang halaman atau jaringan lain untuk melihat foto publik issue ini.</p>
+				<strong class="mt-4 block text-sm font-bold text-slate-900">Foto tidak berhasil dimuat</strong>
+				<p class="mt-2 text-sm leading-6 text-slate-500">
+					Coba buka ulang halaman atau jaringan lain untuk melihat foto publik issue ini.
+				</p>
 			{:else}
-				<strong>Galeri masih kosong</strong>
-				<p>Belum ada foto tambahan yang layak tampil untuk issue ini.</p>
+				<strong class="mt-4 block text-sm font-bold text-slate-900">Galeri masih kosong</strong>
+				<p class="mt-2 text-sm leading-6 text-slate-500">
+					Belum ada foto tambahan yang layak tampil untuk issue ini.
+				</p>
 			{/if}
 		</div>
 	{/if}
 </section>
-
-<style>
-	.gallery-card {
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-	}
-
-	.section-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 12px;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 18px;
-		color: #0f172a;
-	}
-
-	p {
-		margin-top: 4px;
-		font-size: 13px;
-		line-height: 1.5;
-		color: #64748b;
-	}
-
-	.section-count {
-		min-width: 40px;
-		height: 40px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 999px;
-		background: #fff1f2;
-		color: #e5484d;
-		font-size: 14px;
-		font-weight: 700;
-	}
-
-	.gallery-grid {
-		margin-top: 16px;
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 8px;
-	}
-
-	.gallery-item {
-		display: block;
-		padding: 0;
-		border: 1px solid #e2e8f0;
-		border-radius: 12px;
-		overflow: hidden;
-		background: #f8fafc;
-		cursor: zoom-in;
-	}
-
-	.gallery-item img {
-		display: block;
-		width: 100%;
-		height: 140px;
-		object-fit: cover;
-	}
-
-	.gallery-empty {
-		margin-top: 16px;
-		padding: 18px;
-		border-radius: 12px;
-		border: 1px dashed #cbd5e1;
-		background: #f8fafc;
-		text-align: center;
-	}
-
-	.gallery-empty strong {
-		display: block;
-		font-size: 15px;
-		color: #0f172a;
-	}
-
-	.gallery-empty p {
-		margin-top: 6px;
-	}
-
-	@media (min-width: 768px) {
-		.gallery-grid {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-
-		.gallery-item img {
-			height: 168px;
-		}
-	}
-</style>

@@ -25,6 +25,70 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-03-20 - Tailwind CSS + Iconify Frontend Polish
+
+- Scope:
+  - merapikan frontend publik + admin ke design system yang konsisten tanpa mengubah flow fitur inti yang sudah jalan.
+
+### Frontend / UI Foundation
+
+1. Frontend sekarang memakai Tailwind CSS v4 via plugin Vite (`@tailwindcss/vite`) dan source of truth visual global ada di `frontend/src/app.css`.
+2. Ditambahkan adapter icon tunggal `frontend/src/lib/icons.ts` dengan family Iconify Solar `line-duotone`.
+3. Font UI digeser ke `Plus Jakarta Sans` lewat `frontend/src/app.html`.
+4. Primitive visual reusable baru/distandarkan:
+   - shell/layout: `app-shell`, `app-main`, `app-main-wide`, `app-main-full`
+   - surface: `jedug-card`, `jedug-card-soft`, `jedug-panel`, `admin-card`
+   - form/button/badge/state classes di `app.css`
+
+### Public Pages
+
+5. Header publik, landing, form lapor, notification center, map bottom sheet, issue cards, gallery, share actions, dan state components direfresh ke visual yang lebih modern dan konsisten.
+6. Route `/issues` sekarang punya shell Tailwind penuh:
+   - hero summary card
+   - segmented toggle marker/heatmap
+   - polished side panel list
+   - floating CTA report
+7. Route `/issues/[id]` sekarang punya wrapper page-level baru:
+   - follow card yang lebih jelas
+   - timeline activity yang lebih polished
+   - aside share/lokasi yang lebih rapi
+   - preview lightbox yang konsisten
+8. Route `/stats` sekarang card-based penuh:
+   - hero statistik
+   - filter wilayah polished
+   - metric grid
+   - status breakdown
+   - time stats
+   - leaderboard
+   - top issue cards
+
+### Admin
+
+9. Route `/admin/login` dipoles ulang dan sekarang punya:
+   - `Ingat saya`
+   - show/hide password
+   - helper keamanan yang menegaskan cookie session tetap server-side
+10. Implementasi `Ingat saya` saat ini sengaja aman:
+    - hanya menyimpan username admin di localStorage
+    - tidak menyimpan password
+    - tidak mengubah TTL session backend
+11. Shell admin, daftar issue admin, dan detail moderasi admin direfresh agar lebih operasional-friendly dan konsisten dengan design system baru.
+
+### Verification / Docs
+
+12. Verifikasi yang sudah dijalankan:
+    - `npm run check`
+    - `npm run build`
+    - smoke test browser untuk `/`, `/lapor`, `/issues`, `/stats`, `/admin/login`, `/issues/test-issue`
+13. Catatan smoke test lokal:
+    - error console yang terlihat berasal dari backend lokal/CORS (`localhost:5000`) dan bootstrap device/admin session, bukan dari compile frontend.
+14. Diperbarui:
+    - `docs/FRONTEND.md`
+    - `design-docs/design-system.md`
+    - `design-docs/component-spec.md`
+    - `design-docs/guide.md`
+    - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-20 - Admin Issue Detail Hard-Refresh Loading Fix
 
 - Scope:

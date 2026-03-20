@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getPublicStats, getPublicStatsRegionOptions } from '$lib/api/stats';
 	import { resolveLocationLabel } from '$lib/api/location';
+	import { getPublicStats, getPublicStatsRegionOptions } from '$lib/api/stats';
 	import type {
 		LocationLabelData,
 		PublicStats,
-		PublicStatsRegion,
 		PublicStatsProvinceOption,
+		PublicStatsRegion,
 		PublicStatsRegionOption,
 		PublicStatsRegionOptionsData,
 		PublicTopIssue
@@ -14,6 +14,20 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import LoadingState from '$lib/components/LoadingState.svelte';
+	import {
+		CameraIcon,
+		ChartIcon,
+		CheckCircleIcon,
+		ClockIcon,
+		DangerIcon,
+		DocumentIcon,
+		LocationIcon,
+		RankingIcon,
+		RefreshIcon,
+		RouteIcon,
+		TargetIcon,
+		WidgetIcon
+	} from '$lib/icons';
 	import { formatDate } from '$lib/utils/date';
 	import { getLocation } from '$lib/utils/geolocation';
 
@@ -63,6 +77,99 @@
 	const activeScopeLabel = $derived.by(() => {
 		const selectedScope = joinLocationParts([selectedRegency?.name, selectedProvince?.name]);
 		return stats?.active_scope.label || stats?.filters.scope_label || selectedScope || 'Semua wilayah publik';
+	});
+
+	const summaryCards = $derived.by(() => {
+		if (!stats) return [];
+
+		return [
+			{
+				label: 'Total Issue',
+				value: formatNumber(stats.summary.total_issues),
+				copy: 'Issue publik pada scope aktif',
+				icon: WidgetIcon
+			},
+			{
+				label: 'Issue Minggu Ini',
+				value: formatNumber(stats.summary.total_issues_this_week),
+				copy: 'Issue baru pekan berjalan',
+				icon: ChartIcon
+			},
+			{
+				label: 'Total Korban',
+				value: formatNumber(stats.summary.total_casualties),
+				copy: 'Korban yang pernah tercatat',
+				icon: DangerIcon
+			},
+			{
+				label: 'Total Foto',
+				value: formatNumber(stats.summary.total_photos),
+				copy: 'Media publik di scope ini',
+				icon: CameraIcon
+			},
+			{
+				label: 'Total Laporan',
+				value: formatNumber(stats.summary.total_reports),
+				copy: 'Akumulasi submission warga',
+				icon: DocumentIcon
+			}
+		];
+	});
+
+	const statusCards = $derived.by(() => {
+		if (!stats) return [];
+
+		return [
+			{
+				label: 'Issue Open',
+				value: stats.status.open,
+				percent: getStatusPercent(stats.status.open),
+				copy: 'Masih perlu perhatian atau tindak lanjut',
+				icon: TargetIcon,
+				barClass: 'bg-brand-500'
+			},
+			{
+				label: 'Issue Fixed',
+				value: stats.status.fixed,
+				percent: getStatusPercent(stats.status.fixed),
+				copy: 'Sudah ditandai selesai di sistem',
+				icon: CheckCircleIcon,
+				barClass: 'bg-emerald-500'
+			},
+			{
+				label: 'Issue Archived',
+				value: stats.status.archived,
+				percent: getStatusPercent(stats.status.archived),
+				copy: 'Diarsipkan dari alur aktif publik',
+				icon: DocumentIcon,
+				barClass: 'bg-slate-500'
+			}
+		];
+	});
+
+	const timeCards = $derived.by(() => {
+		if (!stats) return [];
+
+		return [
+			{
+				label: 'Rata-rata umur issue',
+				value: `${formatDecimal(stats.time.average_issue_age_days)} hari`,
+				copy: 'Rata-rata umur seluruh issue pada scope aktif',
+				icon: ClockIcon,
+				href: null
+			},
+			{
+				label: 'Issue open tertua',
+				value: `${formatNumber(stats.time.oldest_open_issue_age_days)} hari`,
+				copy: stats.time.oldest_open_first_seen_at
+					? `Pertama tercatat ${formatDate(stats.time.oldest_open_first_seen_at)}`
+					: 'Tanggal pertama terlihat belum tersedia',
+				icon: RefreshIcon,
+				href: stats.time.oldest_open_issue_id
+					? `/issues/${stats.time.oldest_open_issue_id}`
+					: null
+			}
+		];
 	});
 
 	onMount(() => {
@@ -467,52 +574,121 @@
 	/>
 </svelte:head>
 
-	<div class="stats-page">
-		<header class="stats-hero">
-		<p class="hero-kicker">Statistik Publik</p>
-		<h1>Dashboard Jalan Rusak</h1>
-		<p class="hero-description">
-			Ringkasan agregasi issue publik untuk civic storytelling yang cepat dipahami.
-		</p>
-			<div class="hero-meta">
-				{#if getGeneratedLabel(stats)}
-					<span>Update terakhir: {getGeneratedLabel(stats)}</span>
-				{/if}
-				<button
-					class="refresh-btn"
-					onclick={() => initPage()}
-					disabled={loading || refreshing}
-				>
-					{loading || refreshing ? 'Memuat...' : 'Muat Ulang'}
-				</button>
-			</div>
-		</header>
+<div class="public-stack pb-10">
+	<section class="jedug-card overflow-hidden">
+		<div class="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(229,72,77,0.14),transparent_32%),linear-gradient(180deg,#fff9f8_0%,#ffffff_100%)] p-5 md:p-6">
+			<div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+				<div class="max-w-[58ch]">
+					<span class="section-kicker">
+						<ChartIcon class="size-4" />
+						Statistik publik
+					</span>
+					<h1 class="mt-4 text-balance text-[clamp(2rem,4vw,3.2rem)] font-[800] tracking-[-0.05em] text-slate-950">
+						Dashboard jalan rusak yang lebih mudah dipindai.
+					</h1>
+					<p class="mt-3 text-sm leading-6 text-slate-600 sm:text-[15px]">
+						Ringkasan agregasi issue publik untuk civic storytelling yang cepat dipahami, dengan filter wilayah yang tetap aman dan ringan untuk dipakai warga.
+					</p>
+				</div>
 
-		{#if loading}
-			<LoadingState message="Memuat statistik publik..." />
+				<div class="flex flex-wrap gap-2 xl:justify-end">
+					<span class="badge-tint">
+						<RouteIcon class="size-4" />
+						{activeScopeLabel}
+					</span>
+					{#if getGeneratedLabel(stats)}
+						<span class="badge-muted">
+							<ClockIcon class="size-4" />
+							Update terakhir {getGeneratedLabel(stats)}
+						</span>
+					{/if}
+					<button
+						type="button"
+						class="btn-secondary"
+						onclick={() => initPage()}
+						disabled={loading || refreshing}
+					>
+						<RefreshIcon class={`size-[18px] ${loading || refreshing ? 'animate-spin' : ''}`} />
+						{loading || refreshing ? 'Memuat...' : 'Muat ulang'}
+					</button>
+				</div>
+			</div>
+
+			<div class="grid gap-3 sm:grid-cols-3">
+				<article class="rounded-[22px] border border-white/70 bg-white/88 px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
+					<div class="flex items-center gap-2 text-slate-500">
+						<LocationIcon class="size-[18px]" />
+						<span class="surface-label">Scope aktif</span>
+					</div>
+					<strong class="mt-2 block text-sm font-bold text-slate-950">{activeScopeLabel}</strong>
+					<p class="mt-1 text-xs leading-5 text-slate-500">
+						Leaderboard, top issue, dan seluruh metrik mengikuti wilayah yang sama.
+					</p>
+				</article>
+
+				<article class="rounded-[22px] border border-white/70 bg-white/88 px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
+					<div class="flex items-center gap-2 text-slate-500">
+						<TargetIcon class="size-[18px]" />
+						<span class="surface-label">Kecocokan lokasi</span>
+					</div>
+					<strong class="mt-2 block text-sm font-bold text-slate-950">
+						{applyingLocationDefault ? 'Mencocokkan lokasi...' : 'Bisa otomatis atau manual'}
+					</strong>
+					<p class="mt-1 text-xs leading-5 text-slate-500">
+						Statistik mencoba mengikuti lokasi kamu terlebih dulu, lalu tetap bisa diubah manual.
+					</p>
+				</article>
+
+				<article class="rounded-[22px] border border-white/70 bg-white/88 px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
+					<div class="flex items-center gap-2 text-slate-500">
+						<WidgetIcon class="size-[18px]" />
+						<span class="surface-label">Snapshot global</span>
+					</div>
+					<strong class="mt-2 block text-sm font-bold text-slate-950">
+						{stats ? `${formatNumber(stats.global.total_issues)} issue publik` : 'Menunggu data'}
+					</strong>
+					<p class="mt-1 text-xs leading-5 text-slate-500">
+						Ringkasan global tetap tersedia untuk menjaga konteks nasional saat scope dipersempit.
+					</p>
+				</article>
+			</div>
+		</div>
+	</section>
+
+	{#if loading}
+		<LoadingState message="Memuat statistik publik..." />
 	{:else if pageErrorMessage}
 		<ErrorState message={pageErrorMessage} onretry={() => initPage()} />
 	{:else if stats && isGlobalEmpty}
 		<EmptyState
-			icon="📊"
 			message="Belum ada statistik publik yang bisa ditampilkan."
 			ctaHref="/lapor"
 			ctaLabel="Kirim Laporan Pertama"
 		/>
 	{:else if stats}
-		<section class="section">
-			<div class="section-head">
-				<div>
-					<h2>Filter Wilayah</h2>
-					<p class="section-copy">Ringkasan, status, umur issue, leaderboard, dan top issue mengikuti wilayah aktif yang sama.</p>
+		<section class="jedug-card p-5 md:p-6">
+			<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+				<div class="max-w-[56ch]">
+					<span class="section-kicker">
+						<LocationIcon class="size-4" />
+						Filter wilayah
+					</span>
+					<h2 class="mt-4 text-2xl font-[800] tracking-[-0.04em] text-slate-950">Atur scope statistik aktif</h2>
+					<p class="mt-3 text-sm leading-6 text-slate-500">
+						Ringkasan, status, umur issue, leaderboard, dan top issue mengikuti wilayah aktif yang sama agar pembacaan tetap konsisten.
+					</p>
 				</div>
-				<span class="scope-pill">{activeScopeLabel}</span>
+				<span class="badge-tint self-start lg:self-auto">
+					<RouteIcon class="size-4" />
+					{activeScopeLabel}
+				</span>
 			</div>
 
-			<div class="region-filter-grid">
-				<label class="filter-field">
-					<span>Provinsi</span>
+			<div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+				<label class="input-shell">
+					<span class="input-label">Provinsi</span>
 					<select
+						class="select-field w-full"
 						bind:value={selectedProvinceID}
 						disabled={refreshing || optionsLoading || provinceOptions.length === 0}
 						onchange={handleProvinceChange}
@@ -530,9 +706,10 @@
 					</select>
 				</label>
 
-				<label class="filter-field">
-					<span>Kabupaten/Kota</span>
+				<label class="input-shell">
+					<span class="input-label">Kabupaten/Kota</span>
 					<select
+						class="select-field w-full"
 						bind:value={selectedRegencyID}
 						disabled={refreshing || !selectedProvinceID || regencyOptions.length === 0}
 						onchange={handleRegencyChange}
@@ -549,198 +726,232 @@
 						{/each}
 					</select>
 				</label>
-			</div>
 
-			<div class="filter-actions">
 				<button
-					class="location-btn"
+					type="button"
+					class="btn-secondary lg:min-w-[210px]"
 					onclick={() => applyLocationDefault({ forceFresh: true, manual: true })}
 					disabled={refreshing || optionsLoading || applyingLocationDefault || provinceOptions.length === 0}
 				>
+					<LocationIcon class={`size-[18px] ${applyingLocationDefault ? 'animate-pulse' : ''}`} />
 					{applyingLocationDefault ? 'Mencocokkan lokasi...' : 'Gunakan lokasi saya'}
 				</button>
+			</div>
+
+			<div class="mt-4 grid gap-3">
+				<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+					<div class="flex items-start gap-3">
+						<LocationIcon class="mt-0.5 size-5 shrink-0 text-brand-600" />
+						<p class="text-sm leading-6 text-slate-600">{locationHint}</p>
+					</div>
+				</div>
+
 				{#if optionsLoading}
-					<span class="filter-note">Memuat daftar wilayah statistik...</span>
+					<div class="notice-panel">Memuat daftar wilayah statistik...</div>
 				{:else if optionsErrorMessage}
-					<span class="filter-note">{optionsErrorMessage}</span>
+					<div class="notice-panel">{optionsErrorMessage}</div>
 				{:else if provinceOptions.length > 0}
-					<span class="filter-note">Kamu tetap bisa pilih manual jika lokasi browser tidak cocok persis.</span>
+					<div class="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+						Kamu tetap bisa pilih manual jika lokasi browser tidak cocok persis.
+					</div>
+				{/if}
+
+				{#if inlineErrorMessage}
+					<div class="error-panel">{inlineErrorMessage}</div>
+				{/if}
+				{#if isScopedEmpty}
+					<div class="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+						Belum ada issue publik di scope ini. Kamu masih bisa ganti wilayah dari filter di atas.
+					</div>
 				{/if}
 			</div>
-
-			<p class="filter-hint">{locationHint}</p>
-			{#if inlineErrorMessage}
-				<p class="filter-error">{inlineErrorMessage}</p>
-			{/if}
-			{#if isScopedEmpty}
-				<p class="section-empty">Belum ada issue publik di scope ini. Kamu masih bisa ganti wilayah dari filter di atas.</p>
-			{/if}
 		</section>
 
-		<section class="section">
-			<div class="section-head">
-				<div>
-					<h2>{stats.active_scope.kind === 'global' ? 'Ringkasan Publik' : 'Ringkasan Wilayah Aktif'}</h2>
-					<p class="section-copy">
-						{#if stats.active_scope.kind === 'global'}
-							Semua angka di section ini memakai seluruh issue publik yang tersedia.
-						{:else}
-							Mengikuti {stats.active_scope.label}. Snapshot global tetap {formatNumber(stats.global.total_issues)} issue publik di semua wilayah.
-						{/if}
-					</p>
-				</div>
-			</div>
-			<div class="stats-grid">
-				<article class="stat-card">
-					<span class="stat-label">Total Issue</span>
-					<strong class="stat-value">{formatNumber(stats.summary.total_issues)}</strong>
+		<section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+			{#each summaryCards as item}
+				{@const ItemIcon = item.icon}
+				<article class="metric-card">
+					<div class="flex items-center gap-2 text-slate-500">
+						<ItemIcon class="size-[18px]" />
+						<span class="metric-label">{item.label}</span>
+					</div>
+					<strong class="metric-value">{item.value}</strong>
+					<p class="metric-copy">{item.copy}</p>
 				</article>
-				<article class="stat-card">
-					<span class="stat-label">Issue Minggu Ini</span>
-					<strong class="stat-value">{formatNumber(stats.summary.total_issues_this_week)}</strong>
-				</article>
-				<article class="stat-card">
-					<span class="stat-label">Total Korban</span>
-					<strong class="stat-value">{formatNumber(stats.summary.total_casualties)}</strong>
-				</article>
-				<article class="stat-card">
-					<span class="stat-label">Total Foto Laporan</span>
-					<strong class="stat-value">{formatNumber(stats.summary.total_photos)}</strong>
-				</article>
-				<article class="stat-card">
-					<span class="stat-label">Total Laporan</span>
-					<strong class="stat-value">{formatNumber(stats.summary.total_reports)}</strong>
-				</article>
-			</div>
+			{/each}
 		</section>
 
-		<section class="section">
-			<div class="section-head">
-				<h2>Status Breakdown</h2>
-			</div>
-			<div class="status-list">
-				<article class="status-card">
-					<div class="status-row">
-						<div>
-							<p class="status-name">Issue Open</p>
-							<strong>{formatNumber(stats.status.open)}</strong>
+		<div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+			<div class="flex flex-col gap-5">
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-slate-100 text-slate-700">
+							<TargetIcon class="size-6" />
 						</div>
-						<span>{getStatusPercent(stats.status.open)}%</span>
-					</div>
-					<div class="status-bar">
-						<div class="status-fill open" style={`width:${getStatusPercent(stats.status.open)}%`}></div>
-					</div>
-				</article>
-				<article class="status-card">
-					<div class="status-row">
 						<div>
-							<p class="status-name">Issue Fixed</p>
-							<strong>{formatNumber(stats.status.fixed)}</strong>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Status breakdown</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Porsi issue open, fixed, dan archived pada scope aktif saat ini.
+							</p>
 						</div>
-						<span>{getStatusPercent(stats.status.fixed)}%</span>
 					</div>
-					<div class="status-bar">
-						<div class="status-fill fixed" style={`width:${getStatusPercent(stats.status.fixed)}%`}></div>
-					</div>
-				</article>
-				<article class="status-card">
-					<div class="status-row">
-						<div>
-							<p class="status-name">Issue Archived</p>
-							<strong>{formatNumber(stats.status.archived)}</strong>
-						</div>
-						<span>{getStatusPercent(stats.status.archived)}%</span>
-					</div>
-					<div class="status-bar">
-						<div
-							class="status-fill archived"
-							style={`width:${getStatusPercent(stats.status.archived)}%`}
-						></div>
-					</div>
-				</article>
-			</div>
-		</section>
 
-		<section class="section">
-			<div class="section-head">
-				<h2>Time Stats</h2>
-			</div>
-			<div class="time-grid">
-				<article class="stat-card">
-					<span class="stat-label">Rata-rata Umur Issue</span>
-					<strong class="stat-value">{formatDecimal(stats.time.average_issue_age_days)} hari</strong>
-				</article>
-				<article class="stat-card">
-					<span class="stat-label">Issue Tertua yang Masih Open</span>
-					<strong class="stat-value">{formatNumber(stats.time.oldest_open_issue_age_days)} hari</strong>
-					{#if stats.time.oldest_open_first_seen_at}
-						<p class="meta-text">Pertama tercatat {formatDate(stats.time.oldest_open_first_seen_at)}</p>
-					{/if}
-					{#if stats.time.oldest_open_issue_id}
-						<a class="detail-link" href={`/issues/${stats.time.oldest_open_issue_id}`}>Lihat issue tertua</a>
-					{/if}
-				</article>
-			</div>
-		</section>
-
-		<section class="section">
-			<div class="section-head">
-				<div>
-					<h2>Region Leaderboard</h2>
-					<p class="section-copy">Wilayah administratif dengan laporan terbanyak di scope yang sedang dipilih.</p>
-				</div>
-			</div>
-			{#if stats.regions.length === 0}
-				<p class="section-empty">Wilayah administratif belum tersedia untuk scope ini.</p>
-			{:else}
-				<div class="leaderboard-list">
-					{#each stats.regions as region, index (region.region_id)}
-						<article class="leaderboard-item">
-							<div class="leaderboard-rank">{index + 1}</div>
-							<div class="leaderboard-body">
-								<h3>{region.region_name}</h3>
-								{#if getRegionContext(region) !== ''}
-									<p class="leaderboard-context">
-										{getRegionLevelLabel(region.region_level)} · {getRegionContext(region)}
-									</p>
-								{/if}
-								<p>
-									{formatNumber(region.issue_count)} issue · {formatNumber(region.report_count)} laporan ·
-									{formatNumber(region.casualty_count)} korban
-								</p>
-							</div>
-						</article>
-					{/each}
-				</div>
-			{/if}
-		</section>
-
-		<section class="section">
-			<div class="section-head">
-				<div>
-					<h2>Top Issue</h2>
-					<p class="section-copy">Kartu issue ini otomatis mengikuti provinsi dan kabupaten/kota yang aktif.</p>
-				</div>
-			</div>
-			{#if stats.top_issues.length === 0}
-				<p class="section-empty">Belum ada issue unggulan untuk ditampilkan.</p>
-			{:else}
-				<div class="top-issue-list">
-					{#each stats.top_issues as item (item.category)}
-						<article class="top-issue-card">
-								<div class="top-issue-head">
-									<h3>{item.label}</h3>
-									<span class="metric-pill">{formatNumber(item.metric_value)} {item.metric_label}</span>
+					<div class="mt-5 grid gap-3">
+						{#each statusCards as item}
+							{@const ItemIcon = item.icon}
+							<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+								<div class="flex items-start justify-between gap-3">
+									<div class="flex items-center gap-3">
+										<div class="flex size-10 items-center justify-center rounded-[18px] bg-slate-100 text-slate-700">
+											<ItemIcon class="size-5" />
+										</div>
+										<div>
+											<p class="text-sm font-bold text-slate-900">{item.label}</p>
+											<p class="mt-1 text-xs leading-5 text-slate-500">{item.copy}</p>
+										</div>
+									</div>
+									<div class="text-right">
+										<strong class="text-lg font-[800] text-slate-950">{formatNumber(item.value)}</strong>
+										<p class="mt-1 text-xs font-semibold text-slate-500">{item.percent}%</p>
+									</div>
 								</div>
-								<p class="top-issue-name">{getIssueName(item)}</p>
-								<p class="top-issue-location">{getIssueLocation(item)}</p>
-								<p class="top-issue-meta">{getIssueContext(item)}</p>
-								<a class="detail-link" href={`/issues/${item.issue_id}`}>Lihat detail issue</a>
+								<div class="mt-4 h-2.5 rounded-full bg-slate-100">
+									<div class={`h-full rounded-full ${item.barClass}`} style={`width:${item.percent}%`}></div>
+								</div>
 							</article>
-					{/each}
-				</div>
-			{/if}
-		</section>
+						{/each}
+					</div>
+				</section>
+
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-brand-50 text-brand-600">
+							<RankingIcon class="size-6" />
+						</div>
+						<div>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Region leaderboard</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Wilayah administratif dengan laporan terbanyak di scope yang sedang dipilih.
+							</p>
+						</div>
+					</div>
+
+					{#if stats.regions.length === 0}
+						<div class="mt-5 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+							<EmptyState message="Wilayah administratif belum tersedia untuk scope ini." />
+						</div>
+					{:else}
+						<div class="mt-5 grid gap-3">
+							{#each stats.regions as region, index (region.region_id)}
+								<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+									<div class="flex items-start gap-3">
+										<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-sm font-bold text-brand-700">
+											{index + 1}
+										</div>
+										<div class="min-w-0 flex-1">
+											<h3 class="text-sm font-bold leading-6 text-slate-950">{region.region_name}</h3>
+											{#if getRegionContext(region) !== ''}
+												<p class="mt-1 text-xs leading-5 text-slate-500">
+													{getRegionLevelLabel(region.region_level)} · {getRegionContext(region)}
+												</p>
+											{/if}
+											<p class="mt-2 text-sm leading-6 text-slate-600">
+												{formatNumber(region.issue_count)} issue · {formatNumber(region.report_count)} laporan ·
+												{formatNumber(region.casualty_count)} korban
+											</p>
+										</div>
+									</div>
+								</article>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			</div>
+
+			<div class="flex flex-col gap-5">
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-sky-50 text-sky-600">
+							<ClockIcon class="size-6" />
+						</div>
+						<div>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Time stats</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Umur issue dan titik backlog paling tua pada scope aktif.
+							</p>
+						</div>
+					</div>
+
+					<div class="mt-5 grid gap-3">
+						{#each timeCards as item}
+							{@const ItemIcon = item.icon}
+							<article class="metric-card">
+								<div class="flex items-center gap-2 text-slate-500">
+									<ItemIcon class="size-[18px]" />
+									<span class="metric-label">{item.label}</span>
+								</div>
+								<strong class="mt-3 block text-xl font-[800] tracking-[-0.03em] text-slate-950">
+									{item.value}
+								</strong>
+								<p class="mt-2 text-sm leading-6 text-slate-500">{item.copy}</p>
+								{#if item.href}
+									<a
+										class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand-600 transition hover:text-brand-700"
+										href={item.href}
+									>
+										<RouteIcon class="size-[18px]" />
+										Lihat issue tertua
+									</a>
+								{/if}
+							</article>
+						{/each}
+					</div>
+				</section>
+
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-amber-50 text-amber-700">
+							<ChartIcon class="size-6" />
+						</div>
+						<div>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Top issue</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Kartu issue unggulan otomatis mengikuti provinsi dan kabupaten/kota yang aktif.
+							</p>
+						</div>
+					</div>
+
+					{#if stats.top_issues.length === 0}
+						<div class="mt-5 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+							<EmptyState message="Belum ada issue unggulan untuk ditampilkan." />
+						</div>
+					{:else}
+						<div class="mt-5 grid gap-3">
+							{#each stats.top_issues as item (item.category)}
+								<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+									<div class="flex items-start justify-between gap-3">
+										<h3 class="text-sm font-bold leading-6 text-slate-950">{item.label}</h3>
+										<span class="badge-tint">
+											{formatNumber(item.metric_value)} {item.metric_label}
+										</span>
+									</div>
+									<p class="mt-3 text-sm font-bold leading-6 text-slate-900">{getIssueName(item)}</p>
+									<p class="mt-1 text-sm leading-6 text-slate-500">{getIssueLocation(item)}</p>
+									<p class="mt-2 text-xs leading-5 text-slate-500">{getIssueContext(item)}</p>
+									<a
+										class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand-600 transition hover:text-brand-700"
+										href={`/issues/${item.issue_id}`}
+									>
+										<RouteIcon class="size-[18px]" />
+										Lihat detail issue
+									</a>
+								</article>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			</div>
+		</div>
 	{:else}
 		<ErrorState
 			message="Data statistik publik tidak tersedia saat ini."
@@ -748,437 +959,3 @@
 		/>
 	{/if}
 </div>
-
-<style>
-	.stats-page {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		padding: 16px 0 24px;
-	}
-
-	.stats-hero {
-		background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-		border: 1px solid #E2E8F0;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-	}
-
-	.hero-kicker {
-		display: inline-flex;
-		align-items: center;
-		padding: 4px 10px;
-		border-radius: 999px;
-		border: 1px solid #FECACA;
-		background: #FEF2F2;
-		color: #E5484D;
-		font-size: 11px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.6px;
-	}
-
-	.stats-hero h1 {
-		font-size: 24px;
-		line-height: 1.15;
-		margin: 12px 0 0;
-		color: #0F172A;
-	}
-
-	.hero-description {
-		font-size: 14px;
-		line-height: 1.55;
-		color: #64748B;
-		margin: 10px 0 0;
-	}
-
-	.hero-meta {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		margin-top: 14px;
-		font-size: 12px;
-		color: #64748B;
-	}
-
-	.refresh-btn {
-		flex-shrink: 0;
-		border: 1px solid #E2E8F0;
-		border-radius: 10px;
-		background: #FFFFFF;
-		color: #0F172A;
-		font-size: 12px;
-		font-weight: 600;
-		padding: 8px 12px;
-		cursor: pointer;
-	}
-
-	.refresh-btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-
-	.section {
-		background: #FFFFFF;
-		border: 1px solid #E2E8F0;
-		border-radius: 16px;
-		padding: 14px;
-		box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-	}
-
-	.section-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 10px;
-	}
-
-	.section-head h2 {
-		font-size: 15px;
-		font-weight: 700;
-		color: #0F172A;
-	}
-
-	.section-copy {
-		font-size: 12px;
-		color: #64748B;
-		line-height: 1.5;
-		margin-top: 3px;
-	}
-
-	.scope-pill {
-		flex-shrink: 0;
-		display: inline-flex;
-		align-items: center;
-		padding: 6px 10px;
-		border-radius: 999px;
-		background: #FEF2F2;
-		color: #E5484D;
-		font-size: 11px;
-		font-weight: 700;
-	}
-
-	.region-filter-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 10px;
-	}
-
-	.filter-field {
-		display: grid;
-		gap: 6px;
-	}
-
-	.filter-field span {
-		font-size: 12px;
-		font-weight: 600;
-		color: #475569;
-	}
-
-	.filter-field select {
-		width: 100%;
-		min-height: 44px;
-		border-radius: 12px;
-		border: 1px solid #CBD5E1;
-		background: #FFFFFF;
-		padding: 0 12px;
-		color: #0F172A;
-		font-size: 14px;
-	}
-
-	.filter-field select:disabled {
-		opacity: 0.6;
-		background: #F8FAFC;
-	}
-
-	.filter-hint {
-		margin-top: 10px;
-		font-size: 12px;
-		color: #64748B;
-		line-height: 1.5;
-	}
-
-	.filter-actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px 10px;
-		margin-top: 10px;
-	}
-
-	.location-btn {
-		border: 1px solid #FECACA;
-		border-radius: 999px;
-		background: #FEF2F2;
-		color: #B42318;
-		font-size: 12px;
-		font-weight: 700;
-		padding: 8px 12px;
-		cursor: pointer;
-	}
-
-	.location-btn:disabled {
-		opacity: 0.55;
-		cursor: not-allowed;
-	}
-
-	.filter-note {
-		font-size: 12px;
-		line-height: 1.5;
-		color: #64748B;
-	}
-
-	.filter-error {
-		margin-top: 8px;
-		font-size: 12px;
-		color: #B42318;
-	}
-
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 10px;
-	}
-
-	.time-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 10px;
-	}
-
-	.stat-card {
-		border: 1px solid #E2E8F0;
-		background: #F8FAFC;
-		border-radius: 12px;
-		padding: 12px;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.stat-label {
-		font-size: 12px;
-		color: #64748B;
-	}
-
-	.stat-value {
-		font-size: 20px;
-		line-height: 1.15;
-		color: #0F172A;
-		letter-spacing: -0.3px;
-	}
-
-	.meta-text {
-		font-size: 12px;
-		color: #64748B;
-		line-height: 1.45;
-	}
-
-	.status-list {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.status-card {
-		border: 1px solid #E2E8F0;
-		border-radius: 12px;
-		padding: 10px;
-		background: #FFFFFF;
-	}
-
-	.status-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-	}
-
-	.status-name {
-		font-size: 12px;
-		color: #64748B;
-		margin-bottom: 2px;
-	}
-
-	.status-row strong {
-		font-size: 16px;
-		color: #0F172A;
-	}
-
-	.status-row span {
-		font-size: 12px;
-		font-weight: 600;
-		color: #64748B;
-	}
-
-	.status-bar {
-		margin-top: 8px;
-		height: 7px;
-		background: #F1F5F9;
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.status-fill {
-		height: 100%;
-		border-radius: 999px;
-	}
-
-	.status-fill.open {
-		background: #2563EB;
-	}
-
-	.status-fill.fixed {
-		background: #16A34A;
-	}
-
-	.status-fill.archived {
-		background: #64748B;
-	}
-
-	.leaderboard-list {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.leaderboard-item {
-		display: flex;
-		align-items: flex-start;
-		gap: 10px;
-		padding: 10px 12px;
-		border: 1px solid #E2E8F0;
-		border-radius: 12px;
-		background: #FFFFFF;
-	}
-
-	.leaderboard-rank {
-		min-width: 26px;
-		height: 26px;
-		border-radius: 999px;
-		background: #FEF2F2;
-		color: #E5484D;
-		font-size: 12px;
-		font-weight: 700;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.leaderboard-body h3 {
-		font-size: 14px;
-		line-height: 1.4;
-		color: #0F172A;
-	}
-
-	.leaderboard-body p {
-		font-size: 12px;
-		color: #64748B;
-		margin-top: 3px;
-		line-height: 1.5;
-	}
-
-	.leaderboard-context {
-		color: #94A3B8;
-	}
-
-	.top-issue-list {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.top-issue-card {
-		border: 1px solid #E2E8F0;
-		border-radius: 12px;
-		padding: 12px;
-		background: #FFFFFF;
-	}
-
-	.top-issue-head {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 8px;
-	}
-
-	.top-issue-head h3 {
-		font-size: 13px;
-		line-height: 1.4;
-		color: #0F172A;
-	}
-
-	.metric-pill {
-		flex-shrink: 0;
-		display: inline-flex;
-		align-items: center;
-		padding: 5px 8px;
-		border-radius: 999px;
-		background: #FEF2F2;
-		color: #E5484D;
-		font-size: 11px;
-		font-weight: 700;
-	}
-
-	.top-issue-name {
-		font-size: 14px;
-		font-weight: 700;
-		line-height: 1.45;
-		color: #0F172A;
-		margin-top: 8px;
-	}
-
-	.top-issue-meta {
-		font-size: 12px;
-		color: #64748B;
-		line-height: 1.5;
-		margin-top: 3px;
-	}
-
-	.top-issue-location {
-		font-size: 12px;
-		color: #334155;
-		line-height: 1.5;
-		margin-top: 4px;
-	}
-
-	.section-empty {
-		font-size: 13px;
-		color: #64748B;
-	}
-
-	.detail-link {
-		display: inline-flex;
-		margin-top: 8px;
-		font-size: 12px;
-		font-weight: 700;
-		color: #E5484D;
-		text-decoration: none;
-	}
-
-	.detail-link:hover {
-		text-decoration: underline;
-	}
-
-	@media (min-width: 640px) {
-		.stats-grid {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-
-		.time-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-
-		.region-filter-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-
-	@media (min-width: 960px) {
-		.stats-page {
-			padding-top: 20px;
-		}
-	}
-</style>

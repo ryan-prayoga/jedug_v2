@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { adminListIssues } from '$lib/api/admin';
 	import type { AdminIssue } from '$lib/api/types';
+	import { ArrowLeftIcon, ArrowRightIcon, FilterIcon, MapIcon, SearchIcon } from '$lib/icons';
 	import { relativeTime } from '$lib/utils/date';
 
 	let issues = $state<AdminIssue[]>([]);
@@ -43,217 +44,161 @@
 		loadIssues();
 	}
 
-	function statusColor(status: string): string {
+	function statusTone(status: string): string {
 		switch (status) {
-			case 'open': return '#38a169';
-			case 'fixed': return '#3182ce';
-			case 'rejected': return '#e53e3e';
-			case 'archived': return '#718096';
-			default: return '#718096';
+			case 'open':
+				return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+			case 'fixed':
+				return 'border-blue-200 bg-blue-50 text-blue-700';
+			case 'rejected':
+				return 'border-rose-200 bg-rose-50 text-rose-700';
+			case 'archived':
+				return 'border-slate-200 bg-slate-100 text-slate-600';
+			default:
+				return 'border-slate-200 bg-slate-100 text-slate-600';
 		}
 	}
 
 	function severityLabel(s: number): string {
 		switch (s) {
-			case 1: return 'Ringan';
-			case 2: return 'Sedang';
-			case 3: return 'Berat';
-			case 4: return 'Parah';
-			case 5: return 'Kritis';
-			default: return String(s);
+			case 1:
+				return 'Ringan';
+			case 2:
+				return 'Sedang';
+			case 3:
+				return 'Berat';
+			case 4:
+				return 'Parah';
+			case 5:
+				return 'Kritis';
+			default:
+				return String(s);
 		}
 	}
 </script>
 
-<div class="page">
-	<div class="page-header">
-		<h1>Issues</h1>
-		<div class="filters">
-			<select bind:value={statusFilter} onchange={handleFilter}>
-				<option value="">Semua Status</option>
-				<option value="open">Open</option>
-				<option value="fixed">Fixed</option>
-				<option value="rejected">Rejected</option>
-				<option value="archived">Archived</option>
-			</select>
+<div class="space-y-5">
+	<section class="admin-card overflow-hidden">
+		<div class="grid gap-4 px-5 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+			<div class="space-y-3">
+				<span class="section-kicker">
+					<MapIcon class="size-4" />
+					Moderasi issue
+				</span>
+				<div>
+					<h1 class="text-3xl font-[800] tracking-[-0.05em] text-slate-950">Daftar issue publik</h1>
+					<p class="mt-2 max-w-[60ch] text-sm leading-6 text-slate-500">
+						Area ini dipoles untuk memindai status, severity, visibilitas, dan akses detail moderasi lebih cepat.
+					</p>
+				</div>
+			</div>
+
+			<div class="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+				<label class="input-shell min-w-[220px]">
+					<span class="input-label">Filter status</span>
+					<div class="relative">
+						<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
+							<FilterIcon class="size-5" />
+						</span>
+						<select class="select-field w-full pl-12" bind:value={statusFilter} onchange={handleFilter}>
+							<option value="">Semua status</option>
+							<option value="open">Open</option>
+							<option value="fixed">Fixed</option>
+							<option value="rejected">Rejected</option>
+							<option value="archived">Archived</option>
+						</select>
+					</div>
+				</label>
+			</div>
 		</div>
-	</div>
+	</section>
 
 	{#if loading}
-		<p class="info">Memuat...</p>
-	{:else if error}
-		<div class="error-msg">{error}</div>
-	{:else if issues.length === 0}
-		<p class="info">Tidak ada issue ditemukan.</p>
-	{:else}
-		<div class="table-wrap">
-			<table>
-				<thead>
-					<tr>
-						<th>Status</th>
-						<th>Severity</th>
-						<th>Lokasi</th>
-						<th>Laporan</th>
-						<th>Foto</th>
-						<th>Hidden</th>
-						<th>Terakhir</th>
-						<th></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each issues as issue (issue.id)}
-						<tr class:hidden-row={issue.is_hidden}>
-							<td>
-								<span class="badge" style="background:{statusColor(issue.status)}">
-									{issue.status}
-								</span>
-							</td>
-							<td>{severityLabel(issue.severity_current)}</td>
-							<td class="location">
-								{#if issue.road_name}
-									{issue.road_name}
-								{:else}
-									{issue.latitude.toFixed(5)}, {issue.longitude.toFixed(5)}
-								{/if}
-							</td>
-							<td>{issue.submission_count}</td>
-							<td>{issue.photo_count}</td>
-							<td>
-								{#if issue.is_hidden}
-									<span class="badge" style="background:#e53e3e">Ya</span>
-								{:else}
-									—
-								{/if}
-							</td>
-							<td class="date">{relativeTime(issue.last_seen_at)}</td>
-							<td>
-								<a href="/admin/issues/{issue.id}" class="detail-link">Detail →</a>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+		<div class="state-panel">
+			<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
+			<p class="mt-4 text-sm font-semibold text-slate-700">Memuat daftar issue...</p>
 		</div>
+	{:else if error}
+		<div class="error-panel">{error}</div>
+	{:else if issues.length === 0}
+		<div class="state-panel">
+			<div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+				<SearchIcon class="size-6" />
+			</div>
+			<p class="mt-4 text-sm font-semibold text-slate-700">Tidak ada issue ditemukan</p>
+			<p class="mt-1 text-xs leading-5 text-slate-500">Ubah filter atau kembali lagi saat ada issue baru.</p>
+		</div>
+	{:else}
+		<section class="admin-card overflow-hidden">
+			<div class="overflow-x-auto">
+				<table class="min-w-full text-left">
+					<thead class="bg-slate-50/90">
+						<tr class="border-b border-slate-200">
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Status</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Severity</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Lokasi</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Laporan</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Foto</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Visibility</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Terakhir</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Aksi</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each issues as issue (issue.id)}
+							<tr class={`border-b border-slate-100 align-top ${issue.is_hidden ? 'bg-rose-50/55' : ''}`}>
+								<td class="px-4 py-4">
+									<span class={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(issue.status)}`}>
+										{issue.status}
+									</span>
+								</td>
+								<td class="px-4 py-4 text-sm font-semibold text-slate-700">
+									{severityLabel(issue.severity_current)}
+								</td>
+								<td class="px-4 py-4">
+									<div class="max-w-[280px]">
+										<p class="truncate text-sm font-semibold text-slate-900">
+											{issue.road_name || `${issue.latitude.toFixed(5)}, ${issue.longitude.toFixed(5)}`}
+										</p>
+										<p class="mt-1 text-xs text-slate-500">
+											ID {issue.id.slice(0, 8)}...
+										</p>
+									</div>
+								</td>
+								<td class="px-4 py-4 text-sm text-slate-700">{issue.submission_count}</td>
+								<td class="px-4 py-4 text-sm text-slate-700">{issue.photo_count}</td>
+								<td class="px-4 py-4">
+									{#if issue.is_hidden}
+										<span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Hidden</span>
+									{:else}
+										<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">Public</span>
+									{/if}
+								</td>
+								<td class="px-4 py-4 text-sm text-slate-500">{relativeTime(issue.last_seen_at)}</td>
+								<td class="px-4 py-4">
+									<a href="/admin/issues/{issue.id}" class="btn-secondary min-h-10 px-4 py-2">
+										Buka detail
+									</a>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
 
-		<div class="pagination">
-			<button onclick={prevPage} disabled={offset === 0}>← Prev</button>
-			<span class="page-info">Halaman {Math.floor(offset / limit) + 1}</span>
-			<button onclick={nextPage} disabled={issues.length < limit}>Next →</button>
+		<div class="flex flex-col items-center justify-between gap-3 rounded-[24px] border border-white/80 bg-white/80 px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)] sm:flex-row">
+			<p class="text-sm text-slate-500">Halaman {Math.floor(offset / limit) + 1}</p>
+			<div class="flex gap-2">
+				<button class="btn-secondary min-h-10 px-4 py-2" onclick={prevPage} disabled={offset === 0}>
+					<ArrowLeftIcon class="size-[18px]" />
+					Prev
+				</button>
+				<button class="btn-secondary min-h-10 px-4 py-2" onclick={nextPage} disabled={issues.length < limit}>
+					Next
+					<ArrowRightIcon class="size-[18px]" />
+				</button>
+			</div>
 		</div>
 	{/if}
 </div>
-
-<style>
-	.page {
-		width: 100%;
-	}
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 20px;
-		flex-wrap: wrap;
-		gap: 12px;
-	}
-	h1 {
-		font-size: 1.4rem;
-		margin: 0;
-	}
-	select {
-		padding: 8px 12px;
-		border: 1px solid #e2e8f0;
-		border-radius: 6px;
-		font-size: 0.9rem;
-		background: #fff;
-	}
-	.table-wrap {
-		overflow-x: auto;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.9rem;
-	}
-	th {
-		text-align: left;
-		padding: 10px 12px;
-		border-bottom: 2px solid #e2e8f0;
-		color: #4a5568;
-		font-weight: 600;
-		font-size: 0.8rem;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-	td {
-		padding: 10px 12px;
-		border-bottom: 1px solid #edf2f7;
-		vertical-align: middle;
-	}
-	.hidden-row {
-		background: #fff5f5;
-	}
-	.location {
-		max-width: 200px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.date {
-		white-space: nowrap;
-		color: #718096;
-		font-size: 0.85rem;
-	}
-	.badge {
-		display: inline-block;
-		padding: 2px 8px;
-		border-radius: 4px;
-		color: #fff;
-		font-size: 0.75rem;
-		font-weight: 600;
-		text-transform: uppercase;
-	}
-	.detail-link {
-		color: #3182ce;
-		text-decoration: none;
-		font-size: 0.85rem;
-		white-space: nowrap;
-	}
-	.detail-link:hover {
-		text-decoration: underline;
-	}
-	.pagination {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		gap: 16px;
-		margin-top: 20px;
-	}
-	.pagination button {
-		padding: 8px 16px;
-		border: 1px solid #e2e8f0;
-		border-radius: 6px;
-		background: #fff;
-		cursor: pointer;
-		font-size: 0.85rem;
-	}
-	.pagination button:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-	.page-info {
-		color: #718096;
-		font-size: 0.85rem;
-	}
-	.info {
-		color: #718096;
-		text-align: center;
-		padding: 40px 0;
-	}
-	.error-msg {
-		background: #fff5f5;
-		border: 1px solid #fed7d7;
-		color: #c53030;
-		padding: 12px;
-		border-radius: 6px;
-	}
-</style>

@@ -1,7 +1,8 @@
 <script lang="ts">
+	import type { Issue } from '$lib/api/types';
+	import { CameraIcon, DangerIcon, DocumentIcon, LocationIcon } from '$lib/icons';
 	import { relativeTime } from '$lib/utils/date';
 	import { getIssueRoadOrAreaLabel } from '$lib/utils/issue-detail';
-	import type { Issue } from '$lib/api/types';
 
 	let { issue }: { issue: Issue } = $props();
 
@@ -10,109 +11,89 @@
 	const statusLabel: Record<string, string> = {
 		open: 'Terbuka',
 		fixed: 'Selesai',
+		archived: 'Diarsipkan',
 		closed: 'Selesai',
 		in_progress: 'Diproses'
 	};
-	const statusStyle: Record<string, string> = {
-		open: 'background: #EFF6FF; color: #2563EB',
-		fixed: 'background: #F1F5F9; color: #64748B',
-		closed: 'background: #F1F5F9; color: #64748B',
-		in_progress: 'background: #F0FDF4; color: #16A34A'
+	const statusTone: Record<string, string> = {
+		open: 'border-blue-200 bg-blue-50 text-blue-700',
+		fixed: 'border-slate-200 bg-slate-100 text-slate-600',
+		archived: 'border-slate-200 bg-slate-100 text-slate-600',
+		closed: 'border-slate-200 bg-slate-100 text-slate-600',
+		in_progress: 'border-emerald-200 bg-emerald-50 text-emerald-700'
 	};
 </script>
 
-<a href="/issues/{issue.id}" class="issue-card">
-	<div class="card-body">
-		<div class="card-header">
+<a
+	href="/issues/{issue.id}"
+	class="group jedug-card block overflow-hidden p-4 text-inherit transition hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(15,23,42,0.12)]"
+>
+	<div class="space-y-4">
+		<div class="flex flex-wrap items-center gap-2">
 			<span
-				class="severity-badge"
-				style="background: {severityColor[issue.severity_current] || '#94A3B8'}"
+				class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold text-white"
+				style={`background: ${severityColor[issue.severity_current] || '#94A3B8'}`}
 			>
 				{severityLabel[issue.severity_current] || `Level ${issue.severity_current}`}
 			</span>
-			<span class="status-badge" style="{statusStyle[issue.status] || statusStyle['open']}">
+			<span
+				class={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone[issue.status] || statusTone.open}`}
+			>
 				{statusLabel[issue.status] || issue.status}
 			</span>
 		</div>
 
-		<div class="card-location">
-			{#if getIssueRoadOrAreaLabel(issue)}
-				<strong>{getIssueRoadOrAreaLabel(issue)}</strong>
-			{:else}
-				<span class="coords">{issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}</span>
-			{/if}
-			{#if issue.road_type}
-				<span class="road-type">· {issue.road_type}</span>
-			{/if}
+		<div class="space-y-2">
+			<div class="flex items-start gap-3">
+				<div class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+					<LocationIcon class="size-5" />
+				</div>
+				<div class="min-w-0">
+					<p class="text-base font-bold leading-6 text-slate-950">
+						{getIssueRoadOrAreaLabel(issue) || `${issue.latitude.toFixed(4)}, ${issue.longitude.toFixed(4)}`}
+					</p>
+					{#if issue.road_type}
+						<p class="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+							{issue.road_type}
+						</p>
+					{/if}
+				</div>
+			</div>
+			<p class="text-sm leading-6 text-slate-500">
+				Update terakhir {relativeTime(issue.last_seen_at)}. Cocok untuk scan cepat dari daftar atau panel peta.
+			</p>
 		</div>
 
-		<div class="card-meta">
-			<span>📸 {issue.submission_count} laporan</span>
-			{#if issue.casualty_count > 0}
-				<span class="casualty">🚑 {issue.casualty_count} korban</span>
-			{/if}
-			<span>· {relativeTime(issue.last_seen_at)}</span>
+		<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+			<div class="rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
+				<div class="flex items-center gap-2 text-slate-500">
+					<DocumentIcon class="size-[18px]" />
+					<span class="text-[11px] font-bold uppercase tracking-[0.16em]">Laporan</span>
+				</div>
+				<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">{issue.submission_count}</p>
+			</div>
+			<div class="rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
+				<div class="flex items-center gap-2 text-slate-500">
+					<CameraIcon class="size-[18px]" />
+					<span class="text-[11px] font-bold uppercase tracking-[0.16em]">Foto</span>
+				</div>
+				<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">{issue.photo_count}</p>
+			</div>
+			<div
+				class={`rounded-[18px] border px-3 py-3 ${issue.casualty_count > 0 ? 'border-rose-200 bg-rose-50/70' : 'border-slate-200 bg-slate-50'}`}
+			>
+				<div class="flex items-center gap-2 text-slate-500">
+					<DangerIcon class="size-[18px]" />
+					<span class="text-[11px] font-bold uppercase tracking-[0.16em]">Korban</span>
+				</div>
+				<p class:text-rose-700={issue.casualty_count > 0} class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">
+					{issue.casualty_count}
+				</p>
+			</div>
+			<div class="rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
+				<div class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Status</div>
+				<p class="mt-2 text-sm font-semibold text-slate-800">{statusLabel[issue.status] || issue.status}</p>
+			</div>
 		</div>
 	</div>
 </a>
-
-<style>
-	.issue-card {
-		display: block;
-		text-decoration: none;
-		color: inherit;
-		background: #fff;
-		border: 1px solid #E2E8F0;
-		border-radius: 16px;
-		padding: 16px;
-		transition: box-shadow 0.15s;
-	}
-	.issue-card:hover {
-		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-	}
-	.card-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 8px;
-	}
-	.severity-badge {
-		font-size: 12px;
-		font-weight: 600;
-		color: #fff;
-		padding: 4px 12px;
-		border-radius: 999px;
-		line-height: 1;
-	}
-	.status-badge {
-		font-size: 12px;
-		font-weight: 500;
-		padding: 4px 12px;
-		border-radius: 999px;
-		line-height: 1;
-	}
-	.card-location {
-		margin-bottom: 8px;
-		font-size: 14px;
-		color: #0F172A;
-	}
-	.coords {
-		color: #64748B;
-		font-size: 13px;
-	}
-	.road-type {
-		color: #94A3B8;
-		font-size: 13px;
-	}
-	.card-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-		font-size: 12px;
-		color: #64748B;
-	}
-	.casualty {
-		color: #DC2626;
-		font-weight: 500;
-	}
-</style>

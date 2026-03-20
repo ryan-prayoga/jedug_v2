@@ -6,6 +6,7 @@ const ISSUE_FOLLOWER_TOKEN_EXP_KEY = "jedug_issue_follower_token_exp";
 const ISSUE_FOLLOWER_STREAM_TOKEN_KEY = "jedug_issue_follower_stream_token";
 const ISSUE_FOLLOWER_STREAM_TOKEN_EXP_KEY =
   "jedug_issue_follower_stream_token_exp";
+const ADMIN_REMEMBERED_USERNAME_KEY = "jedug_admin_remembered_username";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -132,6 +133,24 @@ export function resetAnonymousBrowserIdentity(): void {
   clearAnonToken();
   clearConsentGiven();
   clearIssueFollowerIdentity();
+}
+
+export function getRememberedAdminUsername(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const value = localStorage.getItem(ADMIN_REMEMBERED_USERNAME_KEY);
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function setRememberedAdminUsername(username: string): void {
+  localStorage.setItem(ADMIN_REMEMBERED_USERNAME_KEY, username.trim());
+}
+
+export function clearRememberedAdminUsername(): void {
+  localStorage.removeItem(ADMIN_REMEMBERED_USERNAME_KEY);
 }
 
 function generateBrowserUUID(): string {

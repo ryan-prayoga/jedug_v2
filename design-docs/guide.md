@@ -33,14 +33,17 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 ### Global (`+layout.svelte`)
 
-- Font family: Inter (Google Fonts)
-- Background: `#F8FAFC`, text: `#0F172A`, base size: `14px`
+- Font family: Plus Jakarta Sans (Google Fonts)
+- Styling runtime: Tailwind CSS v4 + theme tokens di `frontend/src/app.css`
+- Icon runtime: Iconify Solar `line-duotone`
+- Background: gradient/radial lembut di atas neutral `#F8FAFC`, text: `#0F172A`, base size: `14px`
 - Init toast styling diselaraskan
 
 ### AppHeader
 
 - Brand color `#E5484D`, sub-label "Pantau Jalan Rusak"
 - Nav link hover: `#FEF2F2` bg tint, padding `6px 12px`
+- Active state kini berupa nav pill yang jelas dan langsung sinkron dengan route
 - Sub-label hidden di viewport < 360px
 
 ### IssueMap (Marker + Heatmap)
@@ -106,10 +109,11 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 ### Peta & Daftar Laporan (`/issues`)
 
-- Map overlay 10px radius, side panel 360px
+- Route `/issues` sekarang memakai hero summary card di atas map agar user langsung paham mode aktif, jumlah laporan, dan aksi cepat.
+- Map shell card-based, side panel 360px desktop, overlay full-panel di mobile
 - Empty state map tidak memakai popup tengah; status area ditampilkan sebagai info badge di kiri atas
 - Toolbar, badges, filter semua ke design spec
-- Bottom CTA `#E5484D`, 48px min-height
+- Bottom CTA/floating CTA `#E5484D`, 48px min-height
 - Guard state transisi list ↔ map untuk menghindari false-empty/flicker saat map remount
 - Empty state map hanya tampil setelah fetch viewport valid, bukan saat map baru mount
 - Bottom sheet mobile mendukung swipe-down close dengan threshold + snap-back
@@ -132,6 +136,7 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 - Halaman harus mobile-first dan ringan (tanpa grafik berat) agar aman untuk perangkat low-end.
 - Hero section memakai brand red `#E5484D` sebagai accent untuk konteks civic storytelling.
+- Layout final bersifat card-based penuh, bukan blok teks datar.
 - Struktur konten tetap konsisten dan mudah di-scan:
   1. Filter wilayah administratif (`provinsi` + `kabupaten/kota`)
   2. Ringkasan scope aktif (card grid)
@@ -156,8 +161,9 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - loading
   - error + retry
   - empty data
+- Hero, filter, leaderboard, dan top issue harus tetap terbaca baik di mobile portrait maupun desktop lebar.
 - Spacing, border, radius, typography tetap mengikuti token utama:
-  - card radius 16/12px
+  - card radius 24/16px
   - border `#E2E8F0`
   - text primary `#0F172A`
   - text secondary `#64748B`
@@ -221,6 +227,8 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
   - metadata SEO/OG/Twitter canonical disiapkan dari SSR data route
   - OG image memakai generator dinamis `/api/og/issues/{id}` dengan komposisi teks issue + background foto (jika ada) atau gradient brand fallback
 - Desktop issue detail memakai container lebih lebar dari route publik biasa, dengan card action/share di kolom samping agar halaman terasa lebih lega tanpa mengubah flow `/issues` map-first.
+- Follow card harus terasa sebagai CTA yang penting namun tetap aman dan anonim-friendly.
+- Timeline vertikal sekarang boleh memakai icon Solar ringan untuk membantu scanability event.
 - Hierarki konten issue detail harus menjaga fokus:
   - judul issue = label lokasi paling manusiawi
   - hero/meta card = severity/status/verifikasi + konteks wilayah ringkas
@@ -258,6 +266,24 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 - Visual tetap mengikuti token:
   - severity colors (kuning-oranye-merah)
   - status/verification badge color-coded
+
+### Login Admin (`/admin/login`)
+
+- Harus terasa meyakinkan, bersih, dan tidak seperti halaman internal yang belum selesai.
+- Layout akhir boleh 2 kolom di desktop:
+  - kolom trust/security context
+  - kolom form login
+- Wajib menampilkan:
+  - checkbox `Ingat saya`
+  - toggle `show / hide password`
+  - helper text keamanan bahwa session tetap server-side
+- `Ingat saya` pada arsitektur saat ini hanya menyimpan username di browser.
+
+### Admin Moderation (`/admin/*`)
+
+- Area admin harus lebih polished dan professional-operational friendly tanpa mengubah flow moderasi inti.
+- Filter, list, detail, dan badge status harus memakai hierarchy visual yang lebih kuat daripada UI publik yang ringan.
+- Desktop adalah prioritas utama, tetapi layar sempit minimal tetap usable tanpa overflow yang brutal.
   - card white + border `#E2E8F0`, radius 16px
   - CTA primary `#E5484D`, min-height 48px
 

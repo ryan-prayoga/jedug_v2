@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { CameraIcon, DangerIcon, DocumentIcon, NotificationIcon } from '$lib/icons';
+
 	const numberFormatter = new Intl.NumberFormat('id-ID');
 
 	let {
@@ -12,79 +14,51 @@
 		casualtyCount: number;
 		reactionCount: number;
 	} = $props();
+
+	const items = $derived.by(() => [
+		{
+			label: 'Laporan',
+			value: submissionCount,
+			copy: 'Total laporan terkumpul',
+			icon: DocumentIcon,
+			alert: false
+		},
+		{
+			label: 'Foto',
+			value: photoCount,
+			copy: 'Media publik tersedia',
+			icon: CameraIcon,
+			alert: false
+		},
+		{
+			label: 'Korban',
+			value: casualtyCount,
+			copy: casualtyCount > 0 ? 'Laporan korban tercatat' : 'Belum ada korban tercatat',
+			icon: DangerIcon,
+			alert: casualtyCount > 0
+		},
+		{
+			label: 'Reaksi',
+			value: reactionCount,
+			copy: reactionCount > 0 ? 'Dukungan publik tercatat' : 'Belum ada reaksi publik',
+			icon: NotificationIcon,
+			alert: false
+		}
+	]);
 </script>
 
-<section class="issue-stats" aria-label="Statistik ringkas issue">
-	<article class="stat-card">
-		<span class="label">Laporan</span>
-		<strong>{numberFormatter.format(submissionCount)}</strong>
-		<small>Total laporan terkumpul</small>
-	</article>
-	<article class="stat-card">
-		<span class="label">Foto</span>
-		<strong>{numberFormatter.format(photoCount)}</strong>
-		<small>Media publik tersedia</small>
-	</article>
-	<article class="stat-card" class:alert={casualtyCount > 0}>
-		<span class="label">Korban</span>
-		<strong>{numberFormatter.format(casualtyCount)}</strong>
-		<small>{casualtyCount > 0 ? 'Laporan korban tercatat' : 'Belum ada korban tercatat'}</small>
-	</article>
-	<article class="stat-card">
-		<span class="label">Reaksi</span>
-		<strong>{numberFormatter.format(reactionCount)}</strong>
-		<small>{reactionCount > 0 ? 'Dukungan publik tercatat' : 'Belum ada reaksi publik'}</small>
-	</article>
+<section class="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Statistik ringkas issue">
+	{#each items as item}
+		{@const ItemIcon = item.icon}
+		<article class={`metric-card ${item.alert ? 'border-rose-200 bg-rose-50/70' : ''}`}>
+			<div class="flex items-center gap-2 text-slate-500">
+				<ItemIcon class="size-[18px]" />
+				<span class="metric-label">{item.label}</span>
+			</div>
+			<strong class:text-rose-700={item.alert} class="metric-value">
+				{numberFormatter.format(item.value)}
+			</strong>
+			<p class="metric-copy">{item.copy}</p>
+		</article>
+	{/each}
 </section>
-
-<style>
-	.issue-stats {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 10px;
-	}
-
-	.stat-card {
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 16px;
-		padding: 14px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-	}
-
-	.stat-card.alert {
-		border-color: #fecaca;
-		background: #fff7f7;
-	}
-
-	.label {
-		display: block;
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: #64748b;
-	}
-
-	strong {
-		display: block;
-		margin-top: 8px;
-		font-size: 18px;
-		line-height: 1.2;
-		color: #0f172a;
-	}
-
-	small {
-		display: block;
-		margin-top: 6px;
-		font-size: 12px;
-		line-height: 1.4;
-		color: #64748b;
-	}
-
-	@media (min-width: 768px) {
-		.issue-stats {
-			grid-template-columns: repeat(4, minmax(0, 1fr));
-		}
-	}
-</style>

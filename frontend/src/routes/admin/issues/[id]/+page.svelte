@@ -2,14 +2,24 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import {
+		adminBanDevice,
+		adminFixIssue,
 		adminGetIssue,
 		adminHideIssue,
-		adminUnhideIssue,
-		adminFixIssue,
 		adminRejectIssue,
-		adminBanDevice,
+		adminUnhideIssue
 	} from '$lib/api/admin';
 	import type { AdminIssueDetail } from '$lib/api/types';
+	import {
+		ArrowLeftIcon,
+		DangerIcon,
+		DocumentIcon,
+		EyeClosedIcon,
+		EyeIcon,
+		MapIcon,
+		ShieldCheckIcon,
+		TrashIcon
+	} from '$lib/icons';
 	import { formatDate, relativeTime } from '$lib/utils/date';
 
 	let detail = $state<AdminIssueDetail | null>(null);
@@ -68,7 +78,13 @@
 	}
 
 	function severityLabel(s: number): string {
-		const labels: Record<number, string> = { 1: 'Ringan', 2: 'Sedang', 3: 'Berat', 4: 'Parah', 5: 'Kritis' };
+		const labels: Record<number, string> = {
+			1: 'Ringan',
+			2: 'Sedang',
+			3: 'Berat',
+			4: 'Parah',
+			5: 'Kritis'
+		};
 		return labels[s] ?? String(s);
 	}
 
@@ -76,426 +92,273 @@
 		const labels: Record<string, string> = {
 			hide_issue: 'Sembunyikan',
 			unhide_issue: 'Tampilkan',
-			mark_fixed: 'Tandai Selesai',
+			mark_fixed: 'Tandai selesai',
 			reject_issue: 'Tolak',
-			ban_device: 'Ban Device',
+			ban_device: 'Ban device'
 		};
 		return labels[a] ?? a;
+	}
+
+	function statusTone(status: string): string {
+		switch (status) {
+			case 'open':
+				return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+			case 'fixed':
+				return 'border-blue-200 bg-blue-50 text-blue-700';
+			case 'rejected':
+				return 'border-rose-200 bg-rose-50 text-rose-700';
+			case 'archived':
+				return 'border-slate-200 bg-slate-100 text-slate-600';
+			default:
+				return 'border-slate-200 bg-slate-100 text-slate-600';
+		}
 	}
 </script>
 
 {#if loading}
-	<p class="info">Memuat...</p>
+	<div class="state-panel">
+		<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
+		<p class="mt-4 text-sm font-semibold text-slate-700">Memuat issue...</p>
+	</div>
 {:else if error}
-	<div class="error-msg">{error}</div>
+	<div class="error-panel">{error}</div>
 {:else if detail}
-	<div class="detail-page">
-		<!-- Header -->
-		<div class="back-row">
-			<a href="/admin/issues">← Kembali ke daftar</a>
+	<div class="space-y-5">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<a href="/admin/issues" class="btn-secondary min-h-10 px-4 py-2">
+				<ArrowLeftIcon class="size-[18px]" />
+				Kembali ke daftar
+			</a>
+			<span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+				Issue ID {detail.id}
+			</span>
 		</div>
 
-		<div class="issue-header">
-			<h1>
-				Issue
-				<span class="badge" style="background:{detail.status === 'open' ? '#38a169' : detail.status === 'fixed' ? '#3182ce' : detail.status === 'rejected' ? '#e53e3e' : '#718096'}">
-					{detail.status}
-				</span>
-				{#if detail.is_hidden}
-					<span class="badge" style="background:#e53e3e">HIDDEN</span>
-				{/if}
-			</h1>
-			<code class="issue-id">{detail.id}</code>
-		</div>
+		<section class="admin-card overflow-hidden">
+			<div class="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+				<div class="space-y-4">
+					<div class="flex flex-wrap items-center gap-2">
+						<span class={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(detail.status)}`}>
+							{detail.status}
+						</span>
+						{#if detail.is_hidden}
+							<span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+								Hidden
+							</span>
+						{/if}
+						<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+							Severity {severityLabel(detail.severity_current)}
+						</span>
+					</div>
 
-		<!-- Metadata Grid -->
-		<div class="meta-grid">
-			<div class="meta-item">
-				<span class="meta-label">Severity</span>
-				<span class="meta-value">{severityLabel(detail.severity_current)} (max: {severityLabel(detail.severity_max)})</span>
-			</div>
-			<div class="meta-item">
-				<span class="meta-label">Lokasi</span>
-				<span class="meta-value">
-					{#if detail.road_name}{detail.road_name}{:else}{detail.latitude.toFixed(6)}, {detail.longitude.toFixed(6)}{/if}
-				</span>
-			</div>
-			<div class="meta-item">
-				<span class="meta-label">Laporan</span>
-				<span class="meta-value">{detail.submission_count}</span>
-			</div>
-			<div class="meta-item">
-				<span class="meta-label">Foto</span>
-				<span class="meta-value">{detail.photo_count}</span>
-			</div>
-			<div class="meta-item">
-				<span class="meta-label">Korban</span>
-				<span class="meta-value">{detail.casualty_count}</span>
-			</div>
-			<div class="meta-item">
-				<span class="meta-label">Pertama Terlihat</span>
-				<span class="meta-value">{formatDate(detail.first_seen_at)}</span>
-			</div>
-			<div class="meta-item">
-				<span class="meta-label">Terakhir Terlihat</span>
-				<span class="meta-value">{relativeTime(detail.last_seen_at)}</span>
-			</div>
-		</div>
+					<div class="space-y-2">
+						<h1 class="text-3xl font-[800] tracking-[-0.05em] text-slate-950">
+							{detail.road_name || `${detail.latitude.toFixed(6)}, ${detail.longitude.toFixed(6)}`}
+						</h1>
+						<p class="text-sm leading-6 text-slate-500">
+							Issue ini menggabungkan laporan publik, media, dan jejak moderasi pada satu titik yang sama.
+						</p>
+					</div>
 
-		<!-- Media Gallery -->
-		{#if detail.media.length > 0}
-			<section class="section">
-				<h2>Foto ({detail.media.length})</h2>
-				<div class="gallery">
-					{#each detail.media as media}
-						<a href={media.public_url} target="_blank" rel="noopener noreferrer">
-							<img src={media.public_url} alt="Evidence" loading="lazy" />
-						</a>
-					{/each}
+					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+						<div class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<DocumentIcon class="size-[18px]" />
+								<span class="metric-label">Laporan</span>
+							</div>
+							<p class="metric-value">{detail.submission_count}</p>
+							<p class="metric-copy">Total submission masuk</p>
+						</div>
+						<div class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<MapIcon class="size-[18px]" />
+								<span class="metric-label">Foto</span>
+							</div>
+							<p class="metric-value">{detail.photo_count}</p>
+							<p class="metric-copy">Media bukti tersedia</p>
+						</div>
+						<div class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<DangerIcon class="size-[18px]" />
+								<span class="metric-label">Korban</span>
+							</div>
+							<p class="metric-value">{detail.casualty_count}</p>
+							<p class="metric-copy">Jumlah korban tercatat</p>
+						</div>
+						<div class="metric-card">
+							<div class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Terakhir</div>
+							<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">
+								{relativeTime(detail.last_seen_at)}
+							</p>
+							<p class="metric-copy">{formatDate(detail.last_seen_at)}</p>
+						</div>
+					</div>
 				</div>
-			</section>
-		{/if}
 
-		<!-- Moderation Actions -->
-		<section class="section">
-			<h2>Aksi Moderasi</h2>
+				<div class="jedug-panel space-y-4 p-4">
+					<div class="flex items-center gap-3">
+						<div class="flex size-10 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+							<ShieldCheckIcon class="size-5" />
+						</div>
+						<div>
+							<p class="text-sm font-bold text-slate-900">Aksi moderasi</p>
+							<p class="text-xs leading-5 text-slate-500">Pisahkan alasan operasional dan tindakan utama.</p>
+						</div>
+					</div>
 
-			{#if actionError}
-				<div class="error-msg" style="margin-bottom:12px">{actionError}</div>
-			{/if}
+					{#if actionError}
+						<div class="error-panel">{actionError}</div>
+					{/if}
 
-			<div class="reason-row">
-				<input
-					type="text"
-					placeholder="Alasan (opsional)"
-					bind:value={reasonInput}
-					disabled={!!actionLoading}
-				/>
-			</div>
+					<label class="input-shell">
+						<span class="input-label">Alasan moderasi</span>
+						<input
+							type="text"
+							class="input-field"
+							placeholder="Opsional, tapi disarankan"
+							bind:value={reasonInput}
+							disabled={!!actionLoading}
+						/>
+					</label>
 
-			<div class="actions-row">
-				{#if detail.is_hidden}
-					<button
-						class="action-btn unhide"
-						onclick={() => doAction('unhide', adminUnhideIssue)}
-						disabled={!!actionLoading}
-					>
-						{actionLoading === 'unhide' ? '...' : '👁 Tampilkan'}
-					</button>
-				{:else}
-					<button
-						class="action-btn hide"
-						onclick={() => doAction('hide', adminHideIssue)}
-						disabled={!!actionLoading}
-					>
-						{actionLoading === 'hide' ? '...' : '🙈 Sembunyikan'}
-					</button>
-				{/if}
+					<div class="grid gap-2">
+						{#if detail.is_hidden}
+							<button class="btn-secondary w-full justify-start" onclick={() => doAction('unhide', adminUnhideIssue)} disabled={!!actionLoading}>
+								<EyeIcon class="size-[18px]" />
+								{actionLoading === 'unhide' ? 'Memproses...' : 'Tampilkan kembali ke publik'}
+							</button>
+						{:else}
+							<button class="btn-danger w-full justify-start" onclick={() => doAction('hide', adminHideIssue)} disabled={!!actionLoading}>
+								<EyeClosedIcon class="size-[18px]" />
+								{actionLoading === 'hide' ? 'Memproses...' : 'Sembunyikan dari publik'}
+							</button>
+						{/if}
 
-				{#if detail.status === 'open'}
-					<button
-						class="action-btn fix"
-						onclick={() => doAction('fix', adminFixIssue)}
-						disabled={!!actionLoading}
-					>
-						{actionLoading === 'fix' ? '...' : '✅ Tandai Selesai'}
-					</button>
-					<button
-						class="action-btn reject"
-						onclick={() => doAction('reject', adminRejectIssue)}
-						disabled={!!actionLoading}
-					>
-						{actionLoading === 'reject' ? '...' : '❌ Tolak'}
-					</button>
-				{/if}
+						{#if detail.status === 'open'}
+							<button class="btn-primary w-full justify-start" onclick={() => doAction('fix', adminFixIssue)} disabled={!!actionLoading}>
+								<ShieldCheckIcon class="size-[18px]" />
+								{actionLoading === 'fix' ? 'Memproses...' : 'Tandai selesai'}
+							</button>
+							<button class="btn-secondary w-full justify-start border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" onclick={() => doAction('reject', adminRejectIssue)} disabled={!!actionLoading}>
+								<TrashIcon class="size-[18px]" />
+								{actionLoading === 'reject' ? 'Memproses...' : 'Tolak issue'}
+							</button>
+						{/if}
+					</div>
+				</div>
 			</div>
 		</section>
 
-		<!-- Submissions -->
-		{#if detail.submissions.length > 0}
-			<section class="section">
-				<h2>Submissions ({detail.submissions.length})</h2>
-				<div class="table-wrap">
-					<table>
-						<thead>
-							<tr>
-								<th>Device</th>
-								<th>Status</th>
-								<th>Severity</th>
-								<th>Korban</th>
-								<th>Note</th>
-								<th>Waktu</th>
-								<th></th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each detail.submissions as sub}
-								<tr class:banned-row={sub.device_is_banned}>
-									<td>
-										<code class="device-id">{sub.device_id.slice(0, 8)}</code>
-										{#if sub.device_is_banned}
-											<span class="badge" style="background:#e53e3e;font-size:0.65rem">BANNED</span>
-										{/if}
-									</td>
-									<td>{sub.status}</td>
-									<td>{severityLabel(sub.severity)}</td>
-									<td>{sub.has_casualty ? sub.has_casualty : '—'}</td>
-									<td class="note-cell">{sub.note ?? '—'}</td>
-									<td class="date">{relativeTime(sub.reported_at)}</td>
-									<td>
-										{#if !sub.device_is_banned}
-											<button
-												class="ban-btn"
-												onclick={() => handleBanDevice(sub.device_id)}
-												disabled={!!actionLoading}
-											>
-												Ban Device
-											</button>
-										{/if}
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			</section>
-		{/if}
-
-		<!-- Moderation Log -->
-		{#if detail.moderation_log.length > 0}
-			<section class="section">
-				<h2>Log Moderasi</h2>
-				<div class="log-list">
-					{#each detail.moderation_log as log}
-						<div class="log-item">
-							<span class="log-action">{actionTypeLabel(log.action_type)}</span>
-							<span class="log-by">oleh {log.admin_username ?? 'system'}</span>
-							{#if log.note}
-								<span class="log-note">— {log.note}</span>
-							{/if}
-							<span class="log-time">{formatDate(log.created_at)}</span>
+		<div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+			<div class="space-y-5">
+				<section class="admin-card p-5">
+					<h2 class="text-lg font-bold text-slate-950">Metadata issue</h2>
+					<div class="mt-4 grid gap-3 sm:grid-cols-2">
+						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Severity</p>
+							<p class="mt-2 text-sm font-semibold text-slate-900">
+								{severityLabel(detail.severity_current)} (max: {severityLabel(detail.severity_max)})
+							</p>
 						</div>
-					{/each}
-				</div>
-			</section>
-		{/if}
+						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Lokasi</p>
+							<p class="mt-2 text-sm font-semibold text-slate-900">
+								{detail.road_name || `${detail.latitude.toFixed(6)}, ${detail.longitude.toFixed(6)}`}
+							</p>
+						</div>
+						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Pertama terlihat</p>
+							<p class="mt-2 text-sm font-semibold text-slate-900">{formatDate(detail.first_seen_at)}</p>
+						</div>
+						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Terakhir terlihat</p>
+							<p class="mt-2 text-sm font-semibold text-slate-900">{relativeTime(detail.last_seen_at)}</p>
+						</div>
+					</div>
+				</section>
+
+				{#if detail.media.length > 0}
+					<section class="admin-card p-5">
+						<h2 class="text-lg font-bold text-slate-950">Foto bukti</h2>
+						<div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+							{#each detail.media as media}
+								<a href={media.public_url} target="_blank" rel="noopener noreferrer" class="overflow-hidden rounded-[22px] border border-slate-200 bg-slate-100 shadow-[0_10px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300">
+									<img src={media.public_url} alt="Evidence" class="h-48 w-full object-cover" loading="lazy" />
+								</a>
+							{/each}
+						</div>
+					</section>
+				{/if}
+
+				{#if detail.submissions.length > 0}
+					<section class="admin-card overflow-hidden">
+						<div class="px-5 py-5">
+							<h2 class="text-lg font-bold text-slate-950">Submission terkait</h2>
+						</div>
+						<div class="overflow-x-auto">
+							<table class="min-w-full text-left">
+								<thead class="bg-slate-50/90">
+									<tr class="border-b border-slate-200">
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Device</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Status</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Severity</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Korban</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Catatan</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Waktu</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Aksi</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each detail.submissions as sub}
+										<tr class={`border-b border-slate-100 align-top ${sub.device_is_banned ? 'bg-rose-50/60' : ''}`}>
+											<td class="px-4 py-4">
+												<div class="flex flex-wrap items-center gap-2">
+													<code class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{sub.device_id.slice(0, 8)}</code>
+													{#if sub.device_is_banned}
+														<span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Banned</span>
+													{/if}
+												</div>
+											</td>
+											<td class="px-4 py-4 text-sm text-slate-700">{sub.status}</td>
+											<td class="px-4 py-4 text-sm text-slate-700">{severityLabel(sub.severity)}</td>
+											<td class="px-4 py-4 text-sm text-slate-700">{sub.has_casualty ? 'Ya' : 'Tidak'}</td>
+											<td class="px-4 py-4 text-sm text-slate-500">{sub.note ?? '—'}</td>
+											<td class="px-4 py-4 text-sm text-slate-500">{relativeTime(sub.reported_at)}</td>
+											<td class="px-4 py-4">
+												{#if !sub.device_is_banned}
+													<button class="btn-danger min-h-10 px-4 py-2" onclick={() => handleBanDevice(sub.device_id)} disabled={!!actionLoading}>
+														Ban device
+													</button>
+												{/if}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</section>
+				{/if}
+			</div>
+
+			{#if detail.moderation_log.length > 0}
+				<section class="admin-card p-5">
+					<h2 class="text-lg font-bold text-slate-950">Log moderasi</h2>
+					<div class="mt-4 space-y-3">
+						{#each detail.moderation_log as log}
+							<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+								<p class="text-sm font-semibold text-slate-900">{actionTypeLabel(log.action_type)}</p>
+								<p class="mt-1 text-xs leading-5 text-slate-500">oleh {log.admin_username ?? 'system'}</p>
+								{#if log.note}
+									<p class="mt-2 text-sm leading-6 text-slate-600">{log.note}</p>
+								{/if}
+								<p class="mt-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+									{formatDate(log.created_at)}
+								</p>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+		</div>
 	</div>
 {/if}
-
-<style>
-	.detail-page {
-		width: 100%;
-	}
-	.back-row {
-		margin-bottom: 16px;
-	}
-	.back-row a {
-		color: #3182ce;
-		text-decoration: none;
-		font-size: 0.9rem;
-	}
-	.issue-header {
-		margin-bottom: 20px;
-	}
-	.issue-header h1 {
-		font-size: 1.3rem;
-		margin: 0 0 4px;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-	.issue-id {
-		font-size: 0.75rem;
-		color: #a0aec0;
-		word-break: break-all;
-	}
-	.badge {
-		display: inline-block;
-		padding: 2px 8px;
-		border-radius: 4px;
-		color: #fff;
-		font-size: 0.75rem;
-		font-weight: 600;
-		text-transform: uppercase;
-	}
-	.meta-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-		gap: 12px;
-		margin-bottom: 24px;
-	}
-	.meta-item {
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 8px;
-		padding: 12px;
-	}
-	.meta-label {
-		display: block;
-		font-size: 0.75rem;
-		color: #718096;
-		text-transform: uppercase;
-		font-weight: 600;
-		margin-bottom: 4px;
-	}
-	.meta-value {
-		font-size: 0.95rem;
-		font-weight: 500;
-	}
-	.section {
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 8px;
-		padding: 16px;
-		margin-bottom: 16px;
-	}
-	.section h2 {
-		font-size: 1rem;
-		margin: 0 0 12px;
-		color: #2d3748;
-	}
-	.gallery {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-	.gallery img {
-		width: 120px;
-		height: 120px;
-		object-fit: cover;
-		border-radius: 6px;
-		border: 1px solid #e2e8f0;
-	}
-	.reason-row {
-		margin-bottom: 12px;
-	}
-	.reason-row input {
-		width: 100%;
-		padding: 8px 12px;
-		border: 1px solid #e2e8f0;
-		border-radius: 6px;
-		font-size: 0.9rem;
-	}
-	.actions-row {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-	.action-btn {
-		padding: 8px 16px;
-		border: none;
-		border-radius: 6px;
-		cursor: pointer;
-		font-size: 0.85rem;
-		font-weight: 600;
-		color: #fff;
-	}
-	.action-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.action-btn.hide { background: #d69e2e; }
-	.action-btn.unhide { background: #38a169; }
-	.action-btn.fix { background: #3182ce; }
-	.action-btn.reject { background: #e53e3e; }
-	.table-wrap {
-		overflow-x: auto;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.85rem;
-	}
-	th {
-		text-align: left;
-		padding: 8px 10px;
-		border-bottom: 2px solid #e2e8f0;
-		color: #4a5568;
-		font-weight: 600;
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-	td {
-		padding: 8px 10px;
-		border-bottom: 1px solid #edf2f7;
-	}
-	.device-id {
-		font-size: 0.8rem;
-		color: #4a5568;
-	}
-	.banned-row {
-		background: #fff5f5;
-	}
-	.note-cell {
-		max-width: 160px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.date {
-		white-space: nowrap;
-		color: #718096;
-		font-size: 0.8rem;
-	}
-	.ban-btn {
-		padding: 4px 10px;
-		background: #e53e3e;
-		color: #fff;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 0.75rem;
-		white-space: nowrap;
-	}
-	.ban-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.log-list {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-	.log-item {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-		font-size: 0.85rem;
-		padding: 8px 0;
-		border-bottom: 1px solid #edf2f7;
-	}
-	.log-item:last-child {
-		border-bottom: none;
-	}
-	.log-action {
-		font-weight: 600;
-		color: #2d3748;
-	}
-	.log-by {
-		color: #718096;
-	}
-	.log-note {
-		color: #4a5568;
-		font-style: italic;
-	}
-	.log-time {
-		color: #a0aec0;
-		font-size: 0.8rem;
-		margin-left: auto;
-	}
-	.info {
-		color: #718096;
-		text-align: center;
-		padding: 40px 0;
-	}
-	.error-msg {
-		background: #fff5f5;
-		border: 1px solid #fed7d7;
-		color: #c53030;
-		padding: 12px;
-		border-radius: 6px;
-	}
-</style>

@@ -2,13 +2,15 @@
 	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { adminLogout, adminMe } from '$lib/api/admin';
+	import { LogoutIcon, ShieldCheckIcon, UserIcon } from '$lib/icons';
 
 	let { children } = $props();
 
 	let ready = $state(false);
 	let username = $state('');
 
-	const isLoginPage = $derived($page.url.pathname === '/admin/login');
+	const pathname = $derived($page.url.pathname);
+	const isLoginPage = $derived(pathname === '/admin/login');
 
 	afterNavigate(({ from }) => {
 		void syncAdminSession(from?.url?.pathname);
@@ -20,7 +22,6 @@
 			return;
 		}
 
-		// Skip re-check when navigating within admin (already authenticated)
 		if (ready && fromPathname !== '/admin/login') return;
 
 		ready = false;
@@ -51,104 +52,60 @@
 {#if isLoginPage}
 	{@render children()}
 {:else if ready}
-	<div class="admin-shell">
-		<header class="admin-header">
-			<div class="header-inner">
-				<a href="/admin" class="logo">JEDUG Admin</a>
-				<nav class="nav">
-					<a href="/admin/issues">Issues</a>
-				</nav>
-				<div class="user-area">
-					<span class="username">{username}</span>
-					<button class="logout-btn" onclick={handleLogout}>Logout</button>
+	<div class="admin-shell-bg">
+		<header class="border-b border-white/80 bg-white/85 backdrop-blur-xl">
+			<div class="admin-frame flex flex-col gap-4 py-4">
+				<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+					<div class="flex items-center gap-3">
+						<div class="flex size-12 items-center justify-center rounded-[20px] bg-brand-50 text-brand-600">
+							<ShieldCheckIcon class="size-6" />
+						</div>
+						<div>
+							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">Moderation workspace</p>
+							<a href="/admin" class="text-xl font-[800] tracking-[-0.04em] text-slate-950">JEDUG Admin</a>
+						</div>
+					</div>
+
+					<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+						<nav class="flex items-center gap-2 rounded-[22px] border border-white/70 bg-white/75 p-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+							<a
+								href="/admin/issues"
+								class:bg-brand-500={pathname.startsWith('/admin/issues')}
+								class:text-white={pathname.startsWith('/admin/issues')}
+								class="rounded-[16px] px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+							>
+								Issues
+							</a>
+						</nav>
+
+						<div class="flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/75 px-4 py-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+							<div class="flex size-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+								<UserIcon class="size-5" />
+							</div>
+							<div class="min-w-0">
+								<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Signed in</p>
+								<p class="truncate text-sm font-semibold text-slate-900">{username}</p>
+							</div>
+							<button class="btn-secondary min-h-10 px-4 py-2" onclick={handleLogout}>
+								<LogoutIcon class="size-[18px]" />
+								Logout
+							</button>
+						</div>
+					</div>
 				</div>
 			</div>
 		</header>
-		<main class="admin-main">
+		<main class="admin-frame py-6">
 			{@render children()}
 		</main>
 	</div>
 {:else}
-	<div class="loading">Memuat...</div>
+	<div class="admin-shell-bg">
+		<div class="admin-frame flex min-h-dvh items-center justify-center">
+			<div class="state-panel max-w-md">
+				<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
+				<p class="mt-4 text-sm font-semibold text-slate-700">Memuat sesi admin...</p>
+			</div>
+		</div>
+	</div>
 {/if}
-
-<style>
-	:global(.admin-shell *) {
-		box-sizing: border-box;
-	}
-	.admin-shell {
-		min-height: 100dvh;
-		background: #f7fafc;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-		color: #1a202c;
-	}
-	.admin-header {
-		background: #1a202c;
-		color: #fff;
-		padding: 0 16px;
-		position: sticky;
-		top: 0;
-		z-index: 100;
-	}
-	.header-inner {
-		max-width: 1200px;
-		margin: 0 auto;
-		display: flex;
-		align-items: center;
-		height: 56px;
-		gap: 24px;
-	}
-	.logo {
-		font-weight: 700;
-		font-size: 1.1rem;
-		color: #e53e3e;
-		text-decoration: none;
-	}
-	.nav {
-		flex: 1;
-		display: flex;
-		gap: 16px;
-	}
-	.nav a {
-		color: #cbd5e0;
-		text-decoration: none;
-		font-size: 0.9rem;
-	}
-	.nav a:hover {
-		color: #fff;
-	}
-	.user-area {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-	.username {
-		font-size: 0.85rem;
-		color: #a0aec0;
-	}
-	.logout-btn {
-		background: none;
-		border: 1px solid #4a5568;
-		color: #e2e8f0;
-		padding: 4px 12px;
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 0.8rem;
-	}
-	.logout-btn:hover {
-		border-color: #e53e3e;
-		color: #e53e3e;
-	}
-	.admin-main {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 24px 16px;
-	}
-	.loading {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		height: 100dvh;
-		color: #718096;
-	}
-</style>

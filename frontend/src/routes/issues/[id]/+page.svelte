@@ -20,18 +20,33 @@
 	import IssueStats from '$lib/components/IssueStats.svelte';
 	import LoadingState from '$lib/components/LoadingState.svelte';
 	import ShareActions from '$lib/components/ShareActions.svelte';
+	import {
+		AddCircleIcon,
+		ArrowLeftIcon,
+		CameraIcon,
+		CheckCircleIcon,
+		ClockIcon,
+		CloseCircleIcon,
+		DangerIcon,
+		DocumentIcon,
+		HistoryIcon,
+		InfoIcon,
+		LocationIcon,
+		NotificationIcon,
+		UsersGroupIcon
+	} from '$lib/icons';
 	import { formatDate, relativeTime, relativeTimeLabel } from '$lib/utils/date';
-		import { onIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
-		import { persistFollowerAuthFromIssueState } from '$lib/utils/follower-auth';
-		import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
+	import { persistFollowerAuthFromIssueState } from '$lib/utils/follower-auth';
+	import { onIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
+	import { getOrCreateIssueFollowerId } from '$lib/utils/storage';
 	import {
 		buildIssueDetailSeo,
 		formatCoordinates,
 		getIssueLocationLabel,
-		getIssueRoadOrAreaLabel,
 		getIssuePrimaryMedia,
 		getIssueRegionLabel,
 		getIssueRegionOrCoordinates,
+		getIssueRoadOrAreaLabel,
 		getIssueRoadTypeLabel,
 		getIssueSecondaryLocationLine,
 		getIssueSnapshot,
@@ -213,6 +228,37 @@
 		}
 	}
 
+	function getTimelineEventPresentation(event: IssueTimelineEvent) {
+		switch (event.type) {
+			case 'issue_created':
+				return {
+					icon: AddCircleIcon,
+					tone: 'border-brand-100 bg-brand-50 text-brand-600'
+				};
+			case 'photo_added':
+				return {
+					icon: CameraIcon,
+					tone: 'border-sky-100 bg-sky-50 text-sky-600'
+				};
+			case 'severity_changed':
+			case 'casualty_reported':
+				return {
+					icon: DangerIcon,
+					tone: 'border-amber-100 bg-amber-50 text-amber-700'
+				};
+			case 'status_updated':
+				return {
+					icon: CheckCircleIcon,
+					tone: 'border-emerald-100 bg-emerald-50 text-emerald-600'
+				};
+			default:
+				return {
+					icon: InfoIcon,
+					tone: 'border-slate-200 bg-slate-100 text-slate-600'
+				};
+		}
+	}
+
 	async function fetchTimeline(issueID: string, append: boolean) {
 		if (append) {
 			timelineLoadingMore = true;
@@ -295,11 +341,11 @@
 			const statusResult = await getIssueFollowStatus(issueID, currentFollowerID);
 			const statusData = statusResult.data;
 
-				if (statusData) {
-					persistFollowerAuthFromIssueState(statusData);
-					return {
-						following: statusData.following,
-						followersCount: statusData.followers_count,
+			if (statusData) {
+				persistFollowerAuthFromIssueState(statusData);
+				return {
+					following: statusData.following,
+					followersCount: statusData.followers_count,
 					errorMessage: null
 				};
 			}
@@ -334,11 +380,11 @@
 				? await unfollowIssue(issue.id, followerID)
 				: await followIssue(issue.id, followerID);
 
-				if (result.data) {
-					persistFollowerAuthFromIssueState(result.data);
-					isFollowing = result.data.following;
-					followersCount = result.data.followers_count;
-				}
+			if (result.data) {
+				persistFollowerAuthFromIssueState(result.data);
+				isFollowing = result.data.following;
+				followersCount = result.data.followers_count;
+			}
 		} catch {
 			followErrorMessage = isFollowing
 				? 'Belum bisa berhenti mengikuti. Coba lagi.'
@@ -594,30 +640,49 @@
 	<meta name="twitter:image:alt" content={seo.og_image_alt} />
 </svelte:head>
 
-<div class="issue-detail-page">
-	<a class="page-back" href="/issues">Kembali ke Peta</a>
+<div class="public-stack pb-10 pt-2">
+	<a
+		class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-950"
+		href="/issues"
+	>
+		<ArrowLeftIcon class="size-[18px]" />
+		Kembali ke peta
+	</a>
 
 	{#if loading}
 		<LoadingState message="Memuat detail issue..." />
 	{:else if notFound}
 		<EmptyState
-			icon="🛣️"
 			message="Issue tidak ditemukan atau tidak tersedia untuk publik."
 			ctaHref="/issues"
 			ctaLabel="Kembali ke Peta"
 		/>
 	{:else if errorMessage}
-		<div class="state-shell">
+		<div class="flex flex-col items-center gap-3">
 			<ErrorState message={errorMessage} onretry={retryFetchIssue} />
-			<a class="secondary-link" href="/issues">Lihat issue lain di peta</a>
+			<a
+				class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+				href="/issues"
+			>
+				<ArrowLeftIcon class="size-[18px]" />
+				Lihat issue lain di peta
+			</a>
 		</div>
 	{:else if issue}
-		{#if isRouteNavigating}
-			<div class="page-loading-indicator">Memuat halaman issue...</div>
-		{/if}
-		{#if notificationRefreshLoading || notificationRefreshMessage}
-			<div class="page-refresh-indicator" aria-live="polite">
-				{notificationRefreshLoading ? 'Memperbarui laporan...' : notificationRefreshMessage}
+		{#if isRouteNavigating || notificationRefreshLoading || notificationRefreshMessage}
+			<div class="sticky top-[78px] z-20 flex flex-wrap gap-2">
+				{#if isRouteNavigating}
+					<span class="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-[0_14px_28px_rgba(15,23,42,0.18)]">
+						<HistoryIcon class="size-4" />
+						Memuat halaman issue...
+					</span>
+				{/if}
+				{#if notificationRefreshLoading || notificationRefreshMessage}
+					<span class="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-4 py-2 text-xs font-bold text-amber-800 shadow-[0_14px_28px_rgba(15,23,42,0.12)]">
+						<NotificationIcon class="size-4" />
+						{notificationRefreshLoading ? 'Memperbarui laporan...' : notificationRefreshMessage}
+					</span>
+				{/if}
 			</div>
 		{/if}
 
@@ -645,50 +710,78 @@
 			reactionCount={issue.reaction_count}
 		/>
 
-		<section class="detail-card follow-card" aria-live="polite">
-			<div class="section-header">
-				<div>
-					<h2>Ikuti Perkembangan</h2>
-					<p>Simpan issue ini di browser anonim kamu untuk memantau update berikutnya.</p>
+		<section class="jedug-card p-5 md:p-6" aria-live="polite">
+			<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+				<div class="max-w-[54ch]">
+					<span class="section-kicker">
+						<UsersGroupIcon class="size-4" />
+						Ikuti perkembangan
+					</span>
+					<h2 class="mt-4 text-2xl font-[800] tracking-[-0.04em] text-slate-950">
+						Simpan issue ini di browser anonim kamu.
+					</h2>
+					<p class="mt-3 text-sm leading-6 text-slate-500">
+						Fitur follow tetap ringan dan tidak meminta login penuh. Satu browser atau device anonim dihitung sebagai satu pengikut untuk membantu notifikasi update issue.
+					</p>
 				</div>
-				<span>{followersCount}</span>
+				<div class="rounded-[24px] border border-brand-100 bg-brand-50 px-4 py-4 text-left lg:min-w-[240px]">
+					<span class="surface-label text-brand-500">Pengikut publik</span>
+					<strong class="mt-2 block text-3xl font-[800] tracking-[-0.04em] text-brand-700">
+						{followersCount}
+					</strong>
+					<p class="mt-2 text-xs leading-5 text-brand-700/80">{followerCountLabel}</p>
+				</div>
 			</div>
 
-			<p class="follow-count">
-				{#if followLoading && followersCount === 0}
-					Memuat jumlah pengikut...
-				{:else}
-					{followerCountLabel}
-				{/if}
-			</p>
+			<div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
+				<div class="rounded-[26px] border border-slate-200 bg-slate-50 px-4 py-4">
+					<p class="text-sm font-bold text-slate-900">
+						{#if followLoading && followersCount === 0}
+							Memuat status follow...
+						{:else if isFollowing}
+							Issue ini sudah tersimpan di browser ini.
+						{:else}
+							Ikuti issue ini untuk memantau perubahan berikutnya.
+						{/if}
+					</p>
+					<p class="mt-2 text-sm leading-6 text-slate-500">
+						{#if isFollowing}
+							Nanti status ini bisa menjadi dasar notifikasi browser untuk issue yang kamu anggap penting.
+						{:else}
+							Kamu bisa berhenti mengikuti kapan saja. Password atau identitas personal tidak dipakai untuk alur ini.
+						{/if}
+					</p>
 
-			<button
-				type="button"
-				class:is-following={isFollowing}
-				class="follow-button"
-				disabled={followLoading || followMutating || !followerID}
-				onclick={handleFollowToggle}
-			>
-				{followButtonLabel}
-			</button>
+					{#if followErrorMessage}
+						<div class="error-panel mt-4">{followErrorMessage}</div>
+					{/if}
+				</div>
 
-			<p class="follow-helper">
-				{#if isFollowing}
-					Issue ini sudah tersimpan di browser ini. Nanti bisa jadi dasar notifikasi update.
-				{:else}
-					Belum perlu login penuh. Satu browser/device anonim dihitung sebagai satu pengikut.
-				{/if}
-			</p>
-
-			{#if followErrorMessage}
-				<p class="follow-error">{followErrorMessage}</p>
-			{/if}
+				<div class="flex flex-col gap-3">
+					<button
+						type="button"
+						class={isFollowing
+							? 'btn-secondary w-full border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+							: 'btn-primary w-full'}
+						disabled={followLoading || followMutating || !followerID}
+						onclick={handleFollowToggle}
+					>
+						<NotificationIcon class="size-[18px]" />
+						{followButtonLabel}
+					</button>
+					<p class="text-xs leading-5 text-slate-500">
+						Status follow disimpan pada identitas anonim browser saat ini.
+					</p>
+				</div>
+			</div>
 
 			{#if isFollowing}
-				<BrowserPushCard
-					title="Aktifkan Notifikasi Browser"
-					lead="Kalau issue ini kamu ikuti, update terbaru juga bisa muncul di browser meski halaman JEDUG sedang tidak aktif."
-				/>
+				<div class="mt-5">
+					<BrowserPushCard
+						title="Aktifkan Notifikasi Browser"
+						lead="Kalau issue ini kamu ikuti, update terbaru juga bisa muncul di browser meski halaman JEDUG sedang tidak aktif."
+					/>
+				</div>
 			{/if}
 		</section>
 
@@ -700,100 +793,147 @@
 			onMediaError={markMediaFailed}
 		/>
 
-		<div class="detail-layout">
-			<div class="content-column">
-				<section class="detail-card">
-					<div class="section-header">
+		<div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+			<div class="flex flex-col gap-5">
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-brand-50 text-brand-600">
+							<DocumentIcon class="size-6" />
+						</div>
 						<div>
-							<h2>Ringkasan Publik</h2>
-							<p>Informasi lokasi inti yang aman dibagikan untuk pressure publik dan share link.</p>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Ringkasan publik</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Informasi lokasi inti yang aman dibagikan untuk pressure publik, share link, dan pemindaian cepat.
+							</p>
 						</div>
 					</div>
 
 					{#if publicNote}
-						<div class="public-note">
-							<span class="note-label">Catatan ringkas</span>
-							<p>{publicNote}</p>
+						<div class="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
+							<span class="surface-label">Catatan ringkas</span>
+							<p class="mt-2 text-sm leading-6 text-slate-700">{publicNote}</p>
 						</div>
 					{/if}
 
-					<dl class="detail-list">
-						<div class="detail-row">
-							<dt>Nama jalan / area</dt>
-							<dd>{roadOrAreaLabel || 'Belum tersedia'}</dd>
+					<dl class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+						<div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+							<dt class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Nama jalan / area</dt>
+							<dd class="mt-2 text-sm font-bold leading-6 text-slate-900">
+								{roadOrAreaLabel || 'Belum tersedia'}
+							</dd>
 						</div>
 						{#if roadTypeLabel}
-							<div class="detail-row">
-								<dt>Tipe jalan</dt>
-								<dd>{roadTypeLabel}</dd>
+							<div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+								<dt class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Tipe jalan</dt>
+								<dd class="mt-2 text-sm font-bold leading-6 text-slate-900">{roadTypeLabel}</dd>
 							</div>
 						{/if}
-						<div class="detail-row">
-							<dt>Wilayah</dt>
-							<dd>{regionLabel || 'Belum tersedia'}</dd>
+						<div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+							<dt class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Wilayah</dt>
+							<dd class="mt-2 text-sm font-bold leading-6 text-slate-900">
+								{regionLabel || 'Belum tersedia'}
+							</dd>
 						</div>
 					</dl>
 				</section>
 
-				<section class="detail-card">
-					<div class="section-header">
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-slate-100 text-slate-700">
+							<HistoryIcon class="size-6" />
+						</div>
 						<div>
-							<h2>Status & Jejak Waktu</h2>
-							<p>Ringkasan lifecycle publik issue ini tanpa mengulang informasi lokasi.</p>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Status & jejak waktu</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Ringkasan lifecycle publik issue ini tanpa mengulang informasi lokasi.
+							</p>
 						</div>
 					</div>
 
-					<div class="timeline-grid">
-						<article class="timeline-item">
-							<span class="timeline-label">Status</span>
-							<strong>{statusLabel}</strong>
-							<small>Diperbarui {relativeTime(issue.updated_at)}</small>
+					<div class="mt-5 grid gap-3 sm:grid-cols-2">
+						<article class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<CheckCircleIcon class="size-[18px]" />
+								<span class="metric-label">Status</span>
+							</div>
+							<strong class="mt-3 block text-lg font-[800] text-slate-950">{statusLabel}</strong>
+							<p class="mt-2 text-sm leading-6 text-slate-500">Diperbarui {relativeTime(issue.updated_at)}</p>
 						</article>
-						<article class="timeline-item">
-							<span class="timeline-label">Verifikasi</span>
-							<strong>{verificationLabel}</strong>
-							<small>{issueSnapshot}</small>
+
+						<article class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<InfoIcon class="size-[18px]" />
+								<span class="metric-label">Verifikasi</span>
+							</div>
+							<strong class="mt-3 block text-lg font-[800] text-slate-950">{verificationLabel}</strong>
+							<p class="mt-2 text-sm leading-6 text-slate-500">{issueSnapshot}</p>
 						</article>
-						<article class="timeline-item">
-							<span class="timeline-label">Pertama terlihat</span>
-							<strong>{formatDate(issue.first_seen_at)}</strong>
-							<small>Mulai tercatat di titik ini</small>
+
+						<article class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<ClockIcon class="size-[18px]" />
+								<span class="metric-label">Pertama terlihat</span>
+							</div>
+							<strong class="mt-3 block text-lg font-[800] text-slate-950">{formatDate(issue.first_seen_at)}</strong>
+							<p class="mt-2 text-sm leading-6 text-slate-500">Mulai tercatat di titik ini</p>
 						</article>
-						<article class="timeline-item">
-							<span class="timeline-label">Terakhir terlihat</span>
-							<strong>{relativeTimeLabel(issue.last_seen_at)}</strong>
-							<small>{formatDate(issue.last_seen_at)}</small>
+
+						<article class="metric-card">
+							<div class="flex items-center gap-2 text-slate-500">
+								<HistoryIcon class="size-[18px]" />
+								<span class="metric-label">Terakhir terlihat</span>
+							</div>
+							<strong class="mt-3 block text-lg font-[800] text-slate-950">{relativeTimeLabel(issue.last_seen_at)}</strong>
+							<p class="mt-2 text-sm leading-6 text-slate-500">{formatDate(issue.last_seen_at)}</p>
 						</article>
 					</div>
 				</section>
 
 				{#if issue.recent_submissions.length > 0}
-					<section class="detail-card">
-						<div class="section-header">
-							<div>
-								<h2>Aktivitas Laporan Terbaru</h2>
-								<p>Ringkasan aman dari laporan publik terbaru di titik yang sama.</p>
+					<section class="jedug-card p-5 md:p-6">
+						<div class="flex items-start justify-between gap-3">
+							<div class="flex items-start gap-3">
+								<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-sky-50 text-sky-600">
+									<CameraIcon class="size-6" />
+								</div>
+								<div>
+									<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Aktivitas laporan terbaru</h2>
+									<p class="mt-2 text-sm leading-6 text-slate-500">
+										Ringkasan aman dari laporan publik terbaru di titik yang sama.
+									</p>
+								</div>
 							</div>
-							<span>{issue.recent_submissions.length}</span>
+							<span class="badge-muted">{issue.recent_submissions.length}</span>
 						</div>
 
-						<div class="submission-list">
+						<div class="mt-5 grid gap-3">
 							{#each issue.recent_submissions as submission (submission.id)}
-								<article class="submission-item">
-									<div class="submission-head">
-										<strong>{getSeverityLabel(submission.severity)}</strong>
-										<span>{relativeTimeLabel(submission.reported_at)}</span>
+								<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+									<div class="flex flex-wrap items-start justify-between gap-3">
+										<div>
+											<span
+												class="inline-flex rounded-full px-3 py-1 text-xs font-bold text-white"
+												style={`background:${getSeverityColor(submission.severity)}`}
+											>
+												{getSeverityLabel(submission.severity)}
+											</span>
+											<p class="mt-3 text-sm font-semibold text-slate-900">
+												{relativeTimeLabel(submission.reported_at)}
+											</p>
+											<p class="mt-1 text-xs leading-5 text-slate-500">{formatDate(submission.reported_at)}</p>
+										</div>
+										{#if submission.has_casualty}
+											<span class="badge-tint bg-amber-50 text-amber-700">
+												<DangerIcon class="size-4" />
+												{submission.casualty_count > 0
+													? `${submission.casualty_count} korban`
+													: 'Ada korban'}
+											</span>
+										{/if}
 									</div>
-									<p class="submission-meta">{formatDate(submission.reported_at)}</p>
+
 									{#if getSubmissionPublicNote(submission)}
-										<p class="submission-note">{getSubmissionPublicNote(submission)}</p>
-									{/if}
-									{#if submission.has_casualty && submission.casualty_count > 0}
-										<p class="submission-flag">
-											Laporan ini mencatat {submission.casualty_count} korban.
-										</p>
-									{:else if submission.has_casualty}
-										<p class="submission-flag">Laporan ini mencatat korban.</p>
+										<p class="mt-4 text-sm leading-6 text-slate-600">{getSubmissionPublicNote(submission)}</p>
 									{/if}
 								</article>
 							{/each}
@@ -801,35 +941,57 @@
 					</section>
 				{/if}
 
-				<section class="detail-card">
-					<div class="section-header">
+				<section class="jedug-card p-5 md:p-6">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-slate-100 text-slate-700">
+							<HistoryIcon class="size-6" />
+						</div>
 						<div>
-							<h2>Riwayat Laporan</h2>
-							<p>Jejak perkembangan issue untuk transparansi publik.</p>
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Riwayat laporan</h2>
+							<p class="mt-2 text-sm leading-6 text-slate-500">
+								Jejak perkembangan issue untuk transparansi publik.
+							</p>
 						</div>
 					</div>
 
 					{#if timelineLoading}
-						<p class="timeline-state">Memuat riwayat laporan...</p>
+						<div class="mt-5">
+							<LoadingState message="Memuat riwayat laporan..." />
+						</div>
 					{:else if timelineError}
-						<div class="timeline-state timeline-state-error">
-							<p>{timelineError}</p>
-							<button type="button" class="timeline-button" onclick={() => issue && loadInitialTimeline(issue.id)}>
+						<div class="mt-5 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-4">
+							<p class="text-sm font-semibold text-rose-700">{timelineError}</p>
+							<button
+								type="button"
+								class="btn-secondary mt-4"
+								onclick={() => issue && loadInitialTimeline(issue.id)}
+							>
 								Coba lagi
 							</button>
 						</div>
 					{:else if timelineEvents.length === 0}
-						<p class="timeline-state">Belum ada riwayat event untuk issue ini.</p>
+						<div class="mt-5 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+							<EmptyState message="Belum ada riwayat event untuk issue ini." />
+						</div>
 					{:else}
-						<ol class="issue-timeline" aria-label="Riwayat laporan issue">
+						<ol class="mt-5 grid gap-5" aria-label="Riwayat laporan issue">
 							{#each timelineEvents as event, index (`${event.created_at}-${event.type}-${index}`)}
-								<li class="timeline-event">
-									<div class="timeline-dot" aria-hidden="true"></div>
-									<div class="timeline-content">
-										<p class="timeline-date">{formatDate(event.created_at)}</p>
-										<p class="timeline-title">{getTimelineEventTitle(event)}</p>
+								{@const presentation = getTimelineEventPresentation(event)}
+								{@const EventIcon = presentation.icon}
+								<li class="relative pl-14">
+									{#if index < timelineEvents.length - 1}
+										<span class="absolute left-5 top-11 bottom-[-22px] w-px bg-slate-200"></span>
+									{/if}
+									<span class={`absolute left-0 top-0 flex size-10 items-center justify-center rounded-[18px] border ${presentation.tone}`}>
+										<EventIcon class="size-5" />
+									</span>
+									<div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+										<p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+											{formatDate(event.created_at)}
+										</p>
+										<p class="mt-2 text-sm font-bold text-slate-950">{getTimelineEventTitle(event)}</p>
 										{#if getTimelineEventMeta(event)}
-											<p class="timeline-meta">{getTimelineEventMeta(event)}</p>
+											<p class="mt-2 text-sm leading-6 text-slate-500">{getTimelineEventMeta(event)}</p>
 										{/if}
 									</div>
 								</li>
@@ -839,10 +1001,11 @@
 						{#if timelineHasMore}
 							<button
 								type="button"
-								class="timeline-button"
+								class="btn-secondary mt-6 w-full sm:w-auto"
 								disabled={timelineLoadingMore}
 								onclick={loadMoreTimeline}
 							>
+								<HistoryIcon class="size-[18px]" />
 								{timelineLoadingMore ? 'Memuat...' : 'Muat event lebih lama'}
 							</button>
 						{/if}
@@ -850,24 +1013,43 @@
 				</section>
 			</div>
 
-			<div class="aside-column">
-				<div class="aside-stack">
-					<ShareActions
-						title={seo.title}
-						shareText={seo.share_text}
-						shareUrl={seo.canonical_url}
-						externalMapUrl={externalMapUrl}
-					/>
+			<div class="flex flex-col gap-5 xl:sticky xl:top-24 xl:self-start">
+				<ShareActions
+					title={seo.title}
+					shareText={seo.share_text}
+					shareUrl={seo.canonical_url}
+					externalMapUrl={externalMapUrl}
+				/>
 
-					<section class="detail-card compact-card">
-						<h2>Lokasi</h2>
-						<p class="compact-title">{locationLabel}</p>
-						{#if regionLabel && regionLabel !== locationLabel}
-							<p class="compact-text">{regionLabel}</p>
-						{/if}
-						<p class="compact-text muted">Koordinat {coordinatesLabel}</p>
-					</section>
-				</div>
+				<section class="jedug-card p-5">
+					<div class="flex items-start gap-3">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-brand-50 text-brand-600">
+							<LocationIcon class="size-6" />
+						</div>
+						<div>
+							<h2 class="text-lg font-bold text-slate-950">Lokasi</h2>
+							<p class="mt-1 text-sm leading-6 text-slate-500">
+								Ringkasan posisi publik untuk share, koordinat, dan orientasi area.
+							</p>
+						</div>
+					</div>
+
+					<div class="mt-5 space-y-3">
+						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+							<span class="surface-label">Label lokasi</span>
+							<p class="mt-2 text-sm font-bold leading-6 text-slate-950">{locationLabel}</p>
+							{#if regionLabel && regionLabel !== locationLabel}
+								<p class="mt-1 text-sm leading-6 text-slate-500">{regionLabel}</p>
+							{/if}
+						</div>
+
+						<div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
+							<span class="surface-label">Koordinat</span>
+							<p class="mt-2 text-sm font-bold leading-6 text-slate-950">{coordinatesLabel}</p>
+							<p class="mt-1 text-xs leading-5 text-slate-500">{locationContext}</p>
+						</div>
+					</div>
+				</section>
 			</div>
 		</div>
 	{/if}
@@ -876,513 +1058,30 @@
 {#if previewMedia}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="lightbox-overlay"
+		class="fixed inset-0 z-[120] bg-slate-950/82 p-4 backdrop-blur-sm"
 		role="button"
 		tabindex="0"
 		aria-label="Tutup preview foto issue"
 		onclick={handlePreviewOverlayClick}
 		onkeydown={handlePreviewOverlayKeydown}
 	>
-		<div class="lightbox-content">
-			<button type="button" class="lightbox-close" onclick={closePreview} aria-label="Tutup preview foto">
-				Tutup
-			</button>
-			<img
-				src={previewMedia.public_url}
-				alt={`Preview foto issue jalan rusak di ${locationLabel}`}
-				onerror={() => markMediaFailed(previewMedia.id)}
-			/>
+		<div class="mx-auto flex h-full max-w-5xl items-center justify-center">
+			<div class="relative w-full overflow-hidden rounded-[30px] border border-white/10 bg-slate-950 shadow-[0_30px_80px_rgba(15,23,42,0.4)]">
+				<button
+					type="button"
+					class="absolute right-4 top-4 z-10 inline-flex size-11 items-center justify-center rounded-[18px] border border-white/10 bg-slate-900/82 text-white backdrop-blur transition hover:bg-slate-800"
+					onclick={closePreview}
+					aria-label="Tutup preview foto"
+				>
+					<CloseCircleIcon class="size-5" />
+				</button>
+				<img
+					src={previewMedia.public_url}
+					alt={`Preview foto issue jalan rusak di ${locationLabel}`}
+					class="max-h-[85dvh] w-full object-contain bg-slate-950"
+					onerror={() => markMediaFailed(previewMedia.id)}
+				/>
+			</div>
 		</div>
 	</div>
 {/if}
-
-<style>
-	.issue-detail-page {
-		padding-top: 16px;
-		padding-bottom: 40px;
-		display: grid;
-		gap: 16px;
-	}
-
-	.page-back,
-	.secondary-link {
-		width: fit-content;
-		font-size: 13px;
-		font-weight: 700;
-		color: #e5484d;
-		text-decoration: none;
-	}
-
-	.page-back:hover,
-	.secondary-link:hover {
-		text-decoration: underline;
-	}
-
-	.state-shell {
-		display: grid;
-		justify-items: center;
-		gap: 12px;
-	}
-
-	.page-loading-indicator {
-		position: sticky;
-		top: 58px;
-		z-index: 12;
-		width: fit-content;
-		background: rgba(15, 23, 42, 0.92);
-		color: #fff;
-		font-size: 12px;
-		font-weight: 700;
-		padding: 8px 12px;
-		border-radius: 999px;
-	}
-
-	.page-refresh-indicator {
-		position: sticky;
-		top: 58px;
-		z-index: 11;
-		width: fit-content;
-		background: #fff7ed;
-		border: 1px solid #fdba74;
-		color: #9a3412;
-		font-size: 12px;
-		font-weight: 700;
-		padding: 8px 12px;
-		border-radius: 999px;
-	}
-
-	.detail-layout,
-	.content-column,
-	.aside-column,
-	.aside-stack {
-		display: grid;
-		gap: 16px;
-	}
-
-	.detail-card {
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-	}
-
-	.follow-card {
-		gap: 12px;
-	}
-
-	.follow-count {
-		margin: 16px 0 0;
-		font-size: 14px;
-		font-weight: 700;
-		color: #0f172a;
-	}
-
-	.follow-button {
-		margin-top: 14px;
-		width: 100%;
-		min-height: 48px;
-		border: 0;
-		border-radius: 12px;
-		background: #e5484d;
-		color: #fff;
-		font-size: 15px;
-		font-weight: 700;
-		cursor: pointer;
-		transition:
-			transform 0.16s ease,
-			box-shadow 0.16s ease,
-			opacity 0.16s ease,
-			background 0.16s ease;
-		box-shadow: 0 10px 24px rgba(229, 72, 77, 0.18);
-	}
-
-	.follow-button:hover:enabled {
-		transform: translateY(-1px);
-		box-shadow: 0 14px 28px rgba(229, 72, 77, 0.22);
-	}
-
-	.follow-button:active:enabled {
-		transform: scale(0.98);
-	}
-
-	.follow-button:disabled {
-		opacity: 0.6;
-		cursor: default;
-		box-shadow: none;
-	}
-
-	.follow-button.is-following {
-		background: #fff1f2;
-		color: #9f1239;
-		border: 1px solid #fecdd3;
-		box-shadow: none;
-	}
-
-	.follow-helper {
-		margin: 10px 0 0;
-		font-size: 13px;
-		line-height: 1.6;
-		color: #64748b;
-	}
-
-	.follow-error {
-		margin: 8px 0 0;
-		padding: 10px 12px;
-		border-radius: 12px;
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		font-size: 13px;
-		font-weight: 600;
-		color: #b91c1c;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 18px;
-		color: #0f172a;
-	}
-
-	.section-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 12px;
-	}
-
-	.section-header p {
-		margin-top: 4px;
-		font-size: 13px;
-		line-height: 1.5;
-		color: #64748b;
-	}
-
-	.section-header span {
-		min-width: 36px;
-		height: 36px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 999px;
-		background: #fff1f2;
-		color: #e5484d;
-		font-size: 13px;
-		font-weight: 700;
-	}
-
-	.public-note {
-		margin-top: 16px;
-		padding: 14px;
-		border-radius: 12px;
-		border: 1px solid #e2e8f0;
-		background: #f8fafc;
-	}
-
-	.note-label,
-	.timeline-label {
-		display: block;
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: #64748b;
-	}
-
-	.public-note p {
-		margin-top: 8px;
-		font-size: 14px;
-		line-height: 1.6;
-		color: #0f172a;
-	}
-
-	.detail-list {
-		display: grid;
-		gap: 10px;
-		margin-top: 16px;
-	}
-
-	.detail-row {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		padding-bottom: 10px;
-		border-bottom: 1px solid #f1f5f9;
-	}
-
-	.detail-row:last-child {
-		padding-bottom: 0;
-		border-bottom: none;
-	}
-
-	dt {
-		font-size: 12px;
-		font-weight: 700;
-		color: #64748b;
-	}
-
-	dd {
-		margin: 0;
-		font-size: 14px;
-		line-height: 1.5;
-		color: #0f172a;
-	}
-
-	.timeline-grid {
-		margin-top: 16px;
-		display: grid;
-		gap: 10px;
-	}
-
-	.timeline-state {
-		margin-top: 16px;
-		font-size: 13px;
-		line-height: 1.5;
-		color: #475569;
-	}
-
-	.timeline-state-error {
-		display: grid;
-		gap: 10px;
-	}
-
-	.issue-timeline {
-		margin: 16px 0 0;
-		padding: 0;
-		list-style: none;
-		display: grid;
-		gap: 0;
-	}
-
-	.timeline-event {
-		position: relative;
-		display: grid;
-		grid-template-columns: 20px minmax(0, 1fr);
-		column-gap: 12px;
-		padding-bottom: 14px;
-	}
-
-	.timeline-event:last-child {
-		padding-bottom: 0;
-	}
-
-	.timeline-event:not(:last-child)::after {
-		content: '';
-		position: absolute;
-		left: 9px;
-		top: 12px;
-		bottom: -2px;
-		width: 2px;
-		background: #e2e8f0;
-	}
-
-	.timeline-dot {
-		width: 10px;
-		height: 10px;
-		margin-top: 3px;
-		border-radius: 999px;
-		background: #e5484d;
-		box-shadow: 0 0 0 3px #ffe4e6;
-	}
-
-	.timeline-content {
-		padding: 0 0 0 2px;
-	}
-
-	.timeline-date {
-		margin: 0;
-		font-size: 12px;
-		font-weight: 700;
-		color: #64748b;
-	}
-
-	.timeline-title {
-		margin: 5px 0 0;
-		font-size: 14px;
-		font-weight: 700;
-		line-height: 1.5;
-		color: #0f172a;
-	}
-
-	.timeline-meta {
-		margin: 6px 0 0;
-		font-size: 12px;
-		line-height: 1.5;
-		color: #64748b;
-	}
-
-	.timeline-button {
-		margin-top: 14px;
-		border: 1px solid #fecdd3;
-		background: #fff1f2;
-		color: #9f1239;
-		font-size: 13px;
-		font-weight: 700;
-		border-radius: 10px;
-		padding: 9px 12px;
-		cursor: pointer;
-	}
-
-	.timeline-button:disabled {
-		opacity: 0.7;
-		cursor: default;
-	}
-
-	.timeline-item {
-		padding: 14px;
-		border-radius: 12px;
-		background: #f8fafc;
-		border: 1px solid #e2e8f0;
-	}
-
-	.timeline-item strong {
-		display: block;
-		margin-top: 8px;
-		font-size: 16px;
-		color: #0f172a;
-	}
-
-	.timeline-item small {
-		display: block;
-		margin-top: 6px;
-		font-size: 12px;
-		line-height: 1.5;
-		color: #64748b;
-	}
-
-	.submission-list {
-		margin-top: 16px;
-		display: grid;
-		gap: 12px;
-	}
-
-	.submission-item {
-		padding: 14px;
-		border-radius: 12px;
-		border: 1px solid #e2e8f0;
-		background: #fff;
-	}
-
-	.submission-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-	}
-
-	.submission-head strong {
-		font-size: 14px;
-		color: #0f172a;
-	}
-
-	.submission-head span,
-	.submission-meta {
-		font-size: 12px;
-		color: #64748b;
-	}
-
-	.submission-meta {
-		margin-top: 4px;
-	}
-
-	.submission-note {
-		margin-top: 10px;
-		font-size: 14px;
-		line-height: 1.6;
-		color: #0f172a;
-	}
-
-	.submission-flag {
-		margin-top: 10px;
-		padding: 9px 10px;
-		border-radius: 10px;
-		background: #fff7ed;
-		color: #9a3412;
-		font-size: 12px;
-		font-weight: 700;
-	}
-
-	.compact-card {
-		gap: 8px;
-	}
-
-	.compact-title {
-		margin-top: 8px;
-		font-size: 16px;
-		font-weight: 700;
-		line-height: 1.4;
-		color: #0f172a;
-	}
-
-	.compact-text {
-		margin-top: 8px;
-		font-size: 14px;
-		line-height: 1.5;
-		color: #0f172a;
-	}
-
-	.compact-text.muted {
-		margin-top: 4px;
-		color: #64748b;
-	}
-
-	.lightbox-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 1200;
-		display: grid;
-		place-items: center;
-		padding: 20px;
-		background: rgba(15, 23, 42, 0.86);
-	}
-
-	.lightbox-content {
-		position: relative;
-		max-width: min(960px, 100%);
-		max-height: 100%;
-	}
-
-	.lightbox-content img {
-		display: block;
-		max-width: 100%;
-		max-height: calc(100dvh - 80px);
-		border-radius: 16px;
-		object-fit: contain;
-	}
-
-	.lightbox-close {
-		position: absolute;
-		top: 12px;
-		right: 12px;
-		border: 0;
-		border-radius: 999px;
-		padding: 10px 14px;
-		background: rgba(15, 23, 42, 0.78);
-		color: #fff;
-		font-size: 12px;
-		font-weight: 700;
-		cursor: pointer;
-	}
-
-	@media (min-width: 768px) {
-		.issue-detail-page {
-			padding-top: 24px;
-			gap: 20px;
-		}
-
-		.timeline-grid {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-	}
-
-	@media (min-width: 960px) {
-		.detail-layout {
-			grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.8fr);
-			align-items: start;
-		}
-
-		.aside-stack {
-			position: sticky;
-			top: 78px;
-		}
-	}
-</style>
