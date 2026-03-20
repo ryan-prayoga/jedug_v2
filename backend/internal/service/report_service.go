@@ -145,9 +145,12 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 	}
 
 	locationInfo := ReportLocationNormalization{
-		RoadName:   nil,
-		RegionName: nil,
-		CityName:   nil,
+		RoadName:     nil,
+		RegionName:   nil,
+		CityName:     nil,
+		DistrictName: nil,
+		RegencyName:  nil,
+		ProvinceName: nil,
 	}
 	if s.locationNormalizer != nil {
 		locationInfo = s.locationNormalizer.NormalizeForReport(ctx, req.Longitude, req.Latitude)
@@ -206,6 +209,9 @@ func (s *reportService) SubmitReport(ctx context.Context, req SubmitReportReques
 		CasualtyCount:      req.CasualtyCount,
 		Note:               req.Note,
 		RoadName:           locationInfo.RoadName,
+		DistrictName:       locationInfo.DistrictName,
+		RegencyName:        locationInfo.RegencyName,
+		ProvinceName:       locationInfo.ProvinceName,
 		RequestFingerprint: requestFingerprint,
 		Media:              mediaInputs,
 	})

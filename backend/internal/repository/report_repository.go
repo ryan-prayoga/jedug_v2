@@ -63,6 +63,9 @@ type SubmitInput struct {
 	CasualtyCount      int
 	Note               *string
 	RoadName           *string
+	DistrictName       *string
+	RegencyName        *string
+	ProvinceName       *string
 	RequestFingerprint string
 	Media              []SubmitMediaInput
 }
@@ -475,18 +478,21 @@ func createSubmission(
 			id, issue_id, client_request_id, device_id, status,
 			location, region_id, gps_accuracy_m, captured_at, reported_at,
 			severity, has_casualty, casualty_count, note, source,
+			district_name, regency_name, province_name,
 			request_fingerprint, created_issue
 		) VALUES (
 			$1, $2, $3, $4, 'pending',
 			ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography,
 			$7, $8, $9, NOW(),
 			$10, $11, $12, $13, 'pwa',
-			$14, $15
+			$14, $15, $16,
+			$17, $18
 		)
 	`, id, issueID, clientReqID, input.DeviceID,
 		input.Longitude, input.Latitude,
 		regionID, input.GPSAccuracyM, input.CapturedAt,
 		input.Severity, input.HasCasualty, incomingCasualtyCount(input), input.Note,
+		input.DistrictName, input.RegencyName, input.ProvinceName,
 		input.RequestFingerprint, createdIssue,
 	)
 	if err != nil {

@@ -36,17 +36,23 @@ func TestReportLocationNormalizerInternalRegionPriority(t *testing.T) {
 	normalizer := NewReportLocationNormalizer(
 		&locationRepoStub{
 			label: &repository.LocationLabel{
-				RegionID:    11,
-				RegionName:  "Kebon Melati",
-				RegionLevel: "district",
-				ParentName:  strPtr("Jakarta Pusat"),
+				RegionID:     11,
+				RegionName:   "Kebon Melati",
+				RegionLevel:  "district",
+				ParentName:   strPtr("Jakarta Pusat"),
+				DistrictName: strPtr("Kebon Melati"),
+				RegencyName:  strPtr("Jakarta Pusat"),
+				ProvinceName: strPtr("DKI Jakarta"),
 			},
 		},
 		reverseGeocoderStub{
 			result: &ReverseGeocodeResult{
-				RoadName:   strPtr("Jl. KH. Mas Mansyur"),
-				RegionName: strPtr("Tanah Abang"),
-				CityName:   strPtr("Jakarta"),
+				RoadName:     strPtr("Jl. KH. Mas Mansyur"),
+				RegionName:   strPtr("Tanah Abang"),
+				CityName:     strPtr("Jakarta"),
+				DistrictName: strPtr("Tanah Abang"),
+				RegencyName:  strPtr("Jakarta Pusat"),
+				ProvinceName: strPtr("DKI Jakarta"),
 			},
 		},
 	)
@@ -64,6 +70,15 @@ func TestReportLocationNormalizerInternalRegionPriority(t *testing.T) {
 	}
 	if got.CityName == nil || *got.CityName != "Jakarta Pusat" {
 		t.Fatalf("expected city from internal parent, got %+v", got.CityName)
+	}
+	if got.DistrictName == nil || *got.DistrictName != "Kebon Melati" {
+		t.Fatalf("expected district from internal region hierarchy, got %+v", got.DistrictName)
+	}
+	if got.RegencyName == nil || *got.RegencyName != "Jakarta Pusat" {
+		t.Fatalf("expected regency from internal region hierarchy, got %+v", got.RegencyName)
+	}
+	if got.ProvinceName == nil || *got.ProvinceName != "DKI Jakarta" {
+		t.Fatalf("expected province from internal region hierarchy, got %+v", got.ProvinceName)
 	}
 }
 
@@ -92,17 +107,23 @@ func TestReportLocationNormalizerUsesHumanAreaWhenRoadMissing(t *testing.T) {
 	normalizer := NewReportLocationNormalizer(
 		&locationRepoStub{
 			label: &repository.LocationLabel{
-				RegionID:    77,
-				RegionName:  "Blimbing Gede",
-				RegionLevel: "village",
-				ParentName:  strPtr("Bojonegoro"),
+				RegionID:     77,
+				RegionName:   "Blimbing Gede",
+				RegionLevel:  "village",
+				ParentName:   strPtr("Bojonegoro"),
+				DistrictName: strPtr("Kapas"),
+				RegencyName:  strPtr("Bojonegoro"),
+				ProvinceName: strPtr("Jawa Timur"),
 			},
 		},
 		reverseGeocoderStub{
 			result: &ReverseGeocodeResult{
-				RoadName:   nil,
-				RegionName: strPtr("Blimbing Gede"),
-				CityName:   strPtr("Bojonegoro"),
+				RoadName:     nil,
+				RegionName:   strPtr("Blimbing Gede"),
+				CityName:     strPtr("Bojonegoro"),
+				DistrictName: strPtr("Kapas"),
+				RegencyName:  strPtr("Bojonegoro"),
+				ProvinceName: strPtr("Jawa Timur"),
 			},
 		},
 	)
@@ -114,5 +135,14 @@ func TestReportLocationNormalizerUsesHumanAreaWhenRoadMissing(t *testing.T) {
 	}
 	if got.RegionName == nil || *got.RegionName != "Blimbing Gede" {
 		t.Fatalf("expected internal region name to stay available, got %+v", got.RegionName)
+	}
+	if got.DistrictName == nil || *got.DistrictName != "Kapas" {
+		t.Fatalf("expected district label, got %+v", got.DistrictName)
+	}
+	if got.RegencyName == nil || *got.RegencyName != "Bojonegoro" {
+		t.Fatalf("expected regency label, got %+v", got.RegencyName)
+	}
+	if got.ProvinceName == nil || *got.ProvinceName != "Jawa Timur" {
+		t.Fatalf("expected province label, got %+v", got.ProvinceName)
 	}
 }

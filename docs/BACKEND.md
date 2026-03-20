@@ -152,6 +152,7 @@
   - normalisasi lokasi sekali per laporan:
     - lookup region internal (`regions`) sebagai sumber utama label wilayah
     - reverse geocoding ringan untuk melengkapi `road_name` jika kosong
+    - label administratif `district/regency/province` terbaik ikut dibawa dari hasil normalisasi submit agar issue detail tidak kehilangan field `Wilayah` saat `region_id` internal tidak terbentuk
     - jika nama jalan tidak ada tetapi label area/lokalitas manusiawi tersedia, `road_name` issue kini memakai label area itu lebih dulu, bukan langsung fallback koordinat
     - fallback `Kawasan sekitar lat,lng` jika label manusiawi tidak tersedia
   - reverse geocoding memakai timeout + cache in-memory agar ringan, dan gagal geocode tidak memblok submit report
@@ -166,6 +167,7 @@
   - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
   - create issue baru jika tidak ada kandidat relevan
   - create `issue_submissions` dengan `request_fingerprint` + `created_issue`
+  - create `issue_submissions` juga menyimpan `district_name`, `regency_name`, `province_name` terbaik dari hasil normalisasi submit
   - create `submission_media`
   - saat create issue baru:
     - isi `road_name` dari hasil normalisasi lokasi
@@ -186,7 +188,7 @@
   - filter `is_hidden = false`
   - exclude status `rejected`, `merged`
   - optional `status`, `severity >=`, `bbox`
-  - enrich lokasi publik bukan lagi hanya `join regions` langsung; query kini menurunkan `district_name`, `regency_name`, `province_name` dari `issues.region_id`, `issue_submissions.region_id` terbaru, atau spatial fallback dari `public_location`
+  - enrich lokasi publik bukan lagi hanya `join regions` langsung; query kini menurunkan `district_name`, `regency_name`, `province_name` dari label administratif submission terbaru yang tersedia, lalu fallback ke `issues.region_id`, `issue_submissions.region_id` terbaru, atau spatial fallback dari `public_location`
   - `region_name` publik kini berisi label administratif manusiawi (`district/regency/province`) bila tersedia
 - `IssueRepository.FindByID`:
   - hanya mengembalikan issue publik (`is_hidden = false`)

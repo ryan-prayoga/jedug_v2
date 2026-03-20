@@ -1554,6 +1554,26 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - `road_type` tetap hanya muncul jika backend punya nilai yang tepercaya; UI sekarang sengaja memilih menyembunyikan field kosong daripada menampilkan placeholder noisy.
 
+## 2026-03-20 - Persist Wilayah Administratif Dari Submit Report
+
+- Scope:
+  - memastikan field `Wilayah` di issue detail tidak jatuh ke kosong ketika submit report sudah berhasil mendapatkan label administratif dari normalisasi lokasi, terutama saat `region_id` internal tidak tersedia.
+- Dampak area:
+  - `backend/internal/service/reverse_geocoder.go`
+  - `backend/internal/service/report_location_normalizer.go`
+  - `backend/internal/service/report_service.go`
+  - `backend/internal/repository/report_repository.go`
+  - `backend/internal/repository/issue_repository.go`
+  - `backend/migrations/202603200005_persist_submission_admin_location.sql`
+  - `backend/schema/20260320_000000_baseline.sql`
+  - `backend/scripts/verify_schema_governance.sh`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/SCHEMA.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+- Mismatch baru (jika ada):
+  - issue lama yang historisnya tidak punya `region_id` dan belum pernah menyimpan label administratif tetap tidak bisa diperkaya mundur tanpa proses backfill/geocode ulang; patch ini menutup jalur submit baru dan issue lama yang mendapat submission baru.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:

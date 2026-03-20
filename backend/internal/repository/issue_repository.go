@@ -37,13 +37,19 @@ func NewIssueRepository(db *pgxpool.Pool) IssueRepository {
 }
 
 var publicIssueScopedCTE = fmt.Sprintf(`
-	WITH latest_submission_regions AS (
+	WITH latest_submission_locations AS (
 		SELECT DISTINCT ON (s.issue_id)
 			s.issue_id,
-			s.region_id
+			s.region_id,
+			NULLIF(BTRIM(s.district_name), '') AS district_name,
+			NULLIF(BTRIM(s.regency_name), '') AS regency_name,
+			NULLIF(BTRIM(s.province_name), '') AS province_name
 		FROM issue_submissions s
 		WHERE s.region_id IS NOT NULL
-		ORDER BY s.issue_id, s.reported_at DESC
+		   OR NULLIF(BTRIM(s.district_name), '') IS NOT NULL
+		   OR NULLIF(BTRIM(s.regency_name), '') IS NOT NULL
+		   OR NULLIF(BTRIM(s.province_name), '') IS NOT NULL
+		ORDER BY s.issue_id, s.reported_at DESC, s.created_at DESC
 	), base_issues AS (
 		SELECT
 			i.id,
@@ -55,6 +61,9 @@ var publicIssueScopedCTE = fmt.Sprintf(`
 			ST_Y(i.public_location::geometry) AS latitude,
 			i.region_id AS issue_region_id,
 			latest.region_id AS latest_region_id,
+			latest.district_name AS latest_district_name,
+			latest.regency_name AS latest_regency_name,
+			latest.province_name AS latest_province_name,
 			i.public_location::geometry AS public_location_geom,
 			i.road_name,
 			i.road_type,
@@ -68,7 +77,7 @@ var publicIssueScopedCTE = fmt.Sprintf(`
 			i.created_at,
 			i.updated_at
 		FROM issues i
-		LEFT JOIN latest_submission_regions latest ON latest.issue_id = i.id
+		LEFT JOIN latest_submission_locations latest ON latest.issue_id = i.id
 		WHERE i.is_hidden = FALSE
 		  AND i.status NOT IN ('rejected', 'merged')
 	), effective_regions AS (
@@ -135,6 +144,7 @@ var publicIssueScopedCTE = fmt.Sprintf(`
 			resolved.created_at,
 			resolved.updated_at,
 			COALESCE(
+				resolved.latest_district_name,
 				CASE
 					WHEN resolved.region_level_0 IN ('district', 'subdistrict') THEN resolved.region_name_0
 					WHEN resolved.region_level_1 IN ('district', 'subdistrict') THEN resolved.region_name_1
@@ -146,6 +156,7 @@ var publicIssueScopedCTE = fmt.Sprintf(`
 				NULL
 			) AS district_name,
 			COALESCE(
+				resolved.latest_regency_name,
 				CASE
 					WHEN resolved.region_level_0 IN ('city', 'regency') THEN resolved.region_name_0
 					WHEN resolved.region_level_1 IN ('city', 'regency') THEN resolved.region_name_1
@@ -157,6 +168,7 @@ var publicIssueScopedCTE = fmt.Sprintf(`
 				NULL
 			) AS regency_name,
 			COALESCE(
+				resolved.latest_province_name,
 				CASE
 					WHEN resolved.region_level_0 = 'province' THEN resolved.region_name_0
 					WHEN resolved.region_level_1 = 'province' THEN resolved.region_name_1
@@ -270,7 +282,7 @@ func (r *issueRepository) List(ctx context.Context, limit, offset int, status *s
 	}
 
 	if bbox != nil {
-			conditions = append(conditions, fmt.Sprintf(
+		conditions = append(conditions, fmt.Sprintf(
 			"i.public_location_geom && ST_MakeEnvelope($%d, $%d, $%d, $%d, 4326)",
 			n, n+1, n+2, n+3,
 		))

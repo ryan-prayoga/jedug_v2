@@ -17,7 +17,8 @@ func TestHTTPReverseGeocoderMappingAndCache(t *testing.T) {
 			"address": {
 				"road": "Jl. MH Thamrin",
 				"suburb": "Menteng",
-				"city": "Jakarta Pusat"
+				"city": "Jakarta Pusat",
+				"state": "DKI Jakarta"
 			}
 		}`))
 	}))
@@ -37,6 +38,15 @@ func TestHTTPReverseGeocoderMappingAndCache(t *testing.T) {
 	}
 	if first.CityName == nil || *first.CityName != "Jakarta Pusat" {
 		t.Fatalf("unexpected first city name: %#v", first)
+	}
+	if first.DistrictName == nil || *first.DistrictName != "Menteng" {
+		t.Fatalf("unexpected first district name: %#v", first)
+	}
+	if first.RegencyName == nil || *first.RegencyName != "Jakarta Pusat" {
+		t.Fatalf("unexpected first regency name: %#v", first)
+	}
+	if first.ProvinceName == nil || *first.ProvinceName != "DKI Jakarta" {
+		t.Fatalf("unexpected first province name: %#v", first)
 	}
 
 	second, err := geocoder.ReverseLookup(context.Background(), 106.81666, -6.20000)
