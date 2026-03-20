@@ -1,4 +1,12 @@
 <script lang="ts">
+	import {
+		ArrowLeftIcon,
+		CopyIcon,
+		LocationIcon,
+		MapIcon,
+		ShareIcon
+	} from '$lib/icons';
+
 	let {
 		title,
 		shareText,
@@ -21,15 +29,16 @@
 	const encodedUrl = $derived(encodeURIComponent(shareUrl));
 	const encodedText = $derived(encodeURIComponent(shareText));
 	const whatsappShareUrl = $derived(`https://wa.me/?text=${encodedText}%20${encodedUrl}`);
-	const telegramShareUrl = $derived(
-		`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`
-	);
-	const twitterShareUrl = $derived(
-		`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
-	);
-	const facebookShareUrl = $derived(
-		`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`
-	);
+	const telegramShareUrl = $derived(`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`);
+	const twitterShareUrl = $derived(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`);
+	const facebookShareUrl = $derived(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+
+	const socialLinks = $derived.by(() => [
+		{ label: 'WhatsApp', href: whatsappShareUrl },
+		{ label: 'Telegram', href: telegramShareUrl },
+		{ label: 'Twitter/X', href: twitterShareUrl },
+		{ label: 'Facebook', href: facebookShareUrl }
+	]);
 
 	function showShareMessage(message: string) {
 		shareMessage = message;
@@ -81,143 +90,63 @@
 	}
 </script>
 
-<section class="share-card" aria-label="Aksi publik issue">
-	<div class="card-header">
-		<h2>Bagikan Issue</h2>
-		<p>Siap dibagikan ke WhatsApp, Telegram, Twitter/X, Facebook, atau link biasa.</p>
+<section class="jedug-card p-5" aria-label="Aksi publik issue">
+	<div class="flex items-start gap-3">
+		<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+			<ShareIcon class="size-6" />
+		</div>
+		<div class="min-w-0">
+			<h2 class="text-lg font-bold text-slate-950">Bagikan Issue</h2>
+			<p class="mt-1 text-sm leading-6 text-slate-500">
+				Siap dibagikan ke WhatsApp, Telegram, Twitter/X, Facebook, atau link biasa.
+			</p>
+		</div>
 	</div>
 
-	<div class="cta-grid">
-		<a class="btn btn-secondary" href={backHref}>Kembali ke Peta</a>
-		<button type="button" class="btn btn-primary" onclick={handleShare}>Bagikan Issue</button>
-		<a class="btn btn-secondary" href={reportHref}>Lapor di Sekitar Sini</a>
-		<a class="btn btn-secondary" href={externalMapUrl} target="_blank" rel="noopener noreferrer">
+	<div class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+		<a class="btn-secondary" href={backHref}>
+			<ArrowLeftIcon class="size-[18px]" />
+			Kembali ke Peta
+		</a>
+		<button type="button" class="btn-primary" onclick={handleShare}>
+			<ShareIcon class="size-[18px]" />
+			Bagikan Issue
+		</button>
+		<a class="btn-secondary" href={reportHref}>
+			<MapIcon class="size-[18px]" />
+			Lapor di Sekitar Sini
+		</a>
+		<a class="btn-secondary" href={externalMapUrl} target="_blank" rel="noopener noreferrer">
+			<LocationIcon class="size-[18px]" />
 			Buka Lokasi di Peta
 		</a>
 	</div>
 
-	<div class="social-links">
-		<a href={whatsappShareUrl} target="_blank" rel="noopener noreferrer">WhatsApp</a>
-		<a href={telegramShareUrl} target="_blank" rel="noopener noreferrer">Telegram</a>
-		<a href={twitterShareUrl} target="_blank" rel="noopener noreferrer">Twitter/X</a>
-		<a href={facebookShareUrl} target="_blank" rel="noopener noreferrer">Facebook</a>
-		<button type="button" onclick={copyLink} disabled={copyingLink}>
+	<div class="mt-4 flex flex-wrap gap-2">
+		{#each socialLinks as item}
+			<a
+				href={item.href}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
+			>
+				{item.label}
+			</a>
+		{/each}
+		<button
+			type="button"
+			class="inline-flex items-center justify-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-bold text-brand-700 transition hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+			onclick={copyLink}
+			disabled={copyingLink}
+		>
+			<CopyIcon class="size-4" />
 			{copyingLink ? 'Menyalin...' : 'Salin Link'}
 		</button>
 	</div>
 
 	{#if shareMessage}
-		<p class="share-message">{shareMessage}</p>
+		<p class="mt-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+			{shareMessage}
+		</p>
 	{/if}
 </section>
-
-<style>
-	.share-card {
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-	}
-
-	.card-header h2 {
-		margin: 0;
-		font-size: 18px;
-		color: #0f172a;
-	}
-
-	.card-header p {
-		margin-top: 6px;
-		font-size: 13px;
-		line-height: 1.5;
-		color: #64748b;
-	}
-
-	.cta-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 8px;
-		margin-top: 16px;
-	}
-
-	.btn {
-		min-height: 48px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 10px 16px;
-		border-radius: 12px;
-		border: 1px solid #e2e8f0;
-		text-decoration: none;
-		font-size: 14px;
-		font-weight: 700;
-		text-align: center;
-		transition: opacity 0.18s ease, transform 0.12s ease, background-color 0.18s ease;
-		cursor: pointer;
-	}
-
-	.btn:active {
-		transform: scale(0.98);
-	}
-
-	.btn-primary {
-		background: #e5484d;
-		border-color: #e5484d;
-		color: #fff;
-	}
-
-	.btn-primary:hover {
-		opacity: 0.92;
-	}
-
-	.btn-secondary {
-		background: #fff;
-		color: #0f172a;
-	}
-
-	.btn-secondary:hover {
-		background: #f8fafc;
-	}
-
-	.social-links {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-top: 14px;
-	}
-
-	.social-links a,
-	.social-links button {
-		padding: 8px 10px;
-		border-radius: 999px;
-		border: 1px solid #e2e8f0;
-		background: #fff;
-		color: #334155;
-		font-size: 12px;
-		font-weight: 700;
-		text-decoration: none;
-		cursor: pointer;
-	}
-
-	.social-links button:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.share-message {
-		margin-top: 12px;
-		padding: 9px 10px;
-		border-radius: 10px;
-		border: 1px solid #bbf7d0;
-		background: #f0fdf4;
-		color: #166534;
-		font-size: 12px;
-		font-weight: 700;
-	}
-
-	@media (min-width: 768px) {
-		.cta-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-</style>

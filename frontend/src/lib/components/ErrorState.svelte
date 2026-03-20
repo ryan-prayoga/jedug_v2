@@ -1,48 +1,19 @@
 <script lang="ts">
+	import { DangerIcon, RefreshIcon } from '$lib/icons';
+
 	let { message = 'Terjadi kesalahan', onretry }: { message?: string; onretry?: () => void } = $props();
 </script>
 
-<div class="error-state">
-	<span class="icon">⚠️</span>
-	<p>{message}</p>
+<div class="state-panel border-rose-200 bg-rose-50/80">
+	<div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-white text-rose-600 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+		<DangerIcon class="size-6" />
+	</div>
+	<p class="mt-4 text-sm font-semibold text-rose-700">{message}</p>
+	<p class="mt-1 text-xs leading-5 text-rose-600/80">Coba ulangi beberapa saat lagi atau periksa koneksi internet.</p>
 	{#if onretry}
-		<button class="retry-btn" onclick={onretry}>Coba Lagi</button>
+		<button class="btn-danger mx-auto mt-4" onclick={onretry}>
+			<RefreshIcon class="size-[18px]" />
+			Coba Lagi
+		</button>
 	{/if}
 </div>
-
-<style>
-	.error-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 48px 16px;
-		color: #DC2626;
-	}
-	.icon {
-		font-size: 48px;
-		margin-bottom: 12px;
-		line-height: 1;
-	}
-	p {
-		font-size: 14px;
-		text-align: center;
-		margin-bottom: 16px;
-		max-width: 280px;
-		line-height: 1.5;
-	}
-	.retry-btn {
-		padding: 10px 20px;
-		font-size: 14px;
-		font-weight: 600;
-		color: #DC2626;
-		background: #FEF2F2;
-		border: 1px solid #FECACA;
-		border-radius: 12px;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-	.retry-btn:hover {
-		background: #FEE2E2;
-	}
-</style>

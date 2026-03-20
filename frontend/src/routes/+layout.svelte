@@ -1,8 +1,10 @@
 <script lang="ts">
+	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ConsentSheet from '$lib/components/ConsentSheet.svelte';
+	import { DangerIcon } from '$lib/icons';
 	import { browserPushState } from '$lib/stores/browser-push';
 	import { notificationPreferencesState } from '$lib/stores/notification-preferences';
 	import { getAnonToken, isConsentGiven, setConsentGiven } from '$lib/utils/storage';
@@ -69,16 +71,15 @@
 {:else}
 	<div class="app-shell">
 		<AppHeader />
-		<main
-			class="app-main"
-			class:app-main-full={isMapPage}
-			class:app-main-wide={isIssueDetailPage}
-		>
+		<main class="app-main" class:app-main-full={isMapPage} class:app-main-wide={isIssueDetailPage}>
 			{@render children()}
 		</main>
 
 		{#if initError}
-			<div class="init-toast">⚠️ {initError}</div>
+			<div class="fixed inset-x-4 bottom-4 z-[200] mx-auto flex max-w-xl items-start gap-3 rounded-[24px] border border-rose-200 bg-white/95 px-4 py-3 text-sm text-rose-700 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+				<DangerIcon class="mt-0.5 size-5 shrink-0" />
+				<span>{initError}</span>
+			</div>
 		{/if}
 
 		{#if showConsent}
@@ -86,62 +87,3 @@
 		{/if}
 	</div>
 {/if}
-
-<style>
-	:global(*) {
-		margin: 0;
-		padding: 0;
-		box-sizing: border-box;
-	}
-	:global(body) {
-		font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-		background: #F8FAFC;
-		color: #0F172A;
-		font-size: 14px;
-		line-height: 1.5;
-		-webkit-font-smoothing: antialiased;
-		-moz-osx-font-smoothing: grayscale;
-	}
-	.app-shell {
-		min-height: 100dvh;
-		display: flex;
-		flex-direction: column;
-	}
-	.app-main {
-		flex: 1;
-		max-width: 480px;
-		width: 100%;
-		margin: 0 auto;
-		padding: 0 16px 24px;
-	}
-	.app-main-full {
-		max-width: none;
-		padding: 0;
-		overflow: hidden;
-	}
-	.app-main-wide {
-		max-width: 1120px;
-		padding-bottom: 40px;
-	}
-	.init-toast {
-		position: fixed;
-		bottom: 1rem;
-		left: 50%;
-		transform: translateX(-50%);
-		background: #FFF5F5;
-		border: 1px solid #FED7D7;
-		color: #DC2626;
-		font-size: 12px;
-		padding: 8px 16px;
-		border-radius: 12px;
-		box-shadow: 0 4px 16px rgba(0,0,0,0.10);
-		z-index: 200;
-	}
-
-	@media (min-width: 768px) {
-		.app-main-wide {
-			padding-left: 24px;
-			padding-right: 24px;
-		}
-	}
-</style>

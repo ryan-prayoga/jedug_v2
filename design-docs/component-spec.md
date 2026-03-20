@@ -15,11 +15,13 @@ Dokumen ini bukan sumber utama token desain.
 
 ## AppHeader
 
-- Sticky top, white bg, bottom border `#E2E8F0`
-- Logo: "JEDUG" in brand red `#E5484D`, Inter 700, 1.25rem
-- Sub-label: "Pantau Jalan Rusak" in `#64748B`, 11px, next to logo
-- Nav links: "Lapor", "Peta", "Statistik", 14px, 500 weight, `#64748B`, hover `#E5484D`
-- Padding: 12px 16px
+- Sticky top, glass-like white surface, bottom border `#E2E8F0`
+- Logo block memakai brand red `#E5484D` + `Plus Jakarta Sans`
+- Sub-label tetap civic dan ringkas, boleh collapse di viewport sempit
+- Nav links: "Lapor", "Peta", "Statistik"
+  - pill active state harus jelas
+  - icon harus konsisten dengan family Solar line-duotone
+- Padding minimum: 12px 16px
 - Notification bell:
   - badge unread tampil dari jumlah item dengan `read_at = null`
   - panel dropdown tetap nyaman di mobile (`<= 340px` lebar efektif)
@@ -68,8 +70,13 @@ Dokumen ini bukan sumber utama token desain.
 ## IssueMap
 
 - Full viewport minus header
+- Page-level shell sekarang memuat:
+  - summary hero card di atas map
+  - segmented toggle marker/heatmap
+  - floating CTA report
+  - optional list panel
 - Map controls: top-right, compact
-- Loading overlay: top-left, pill badge, spinning dot + "Memuat..."
+- Loading overlay: top-left, pill badge, pulsing dot + "Memuat..."
 - Map info badge: top-left, pill, menampilkan `{n} titik` + status area (ada/tidak ada laporan)
 - Empty state map tidak menggunakan popup tengah; informasi "tidak ada laporan" ditampilkan di info badge
 - Error overlay: top full-width, red bg
@@ -93,6 +100,10 @@ Dokumen ini bukan sumber utama token desain.
   - tampilkan legend intensitas ringkas yang tetap aman di mobile
 - Jika setup heatmap gagal, fallback otomatis ke marker mode tanpa menjatuhkan map ke mode list
 - Jika setup cluster gagal, fallback ke unclustered marker layer (tanpa memutus flow map)
+- Panel daftar:
+  - desktop: right-side panel di dalam shell map
+  - mobile: overlay panel penuh dengan close button besar
+  - item panel memakai `IssueCard` yang sama dengan mode list
 
 ## Marker
 
@@ -138,12 +149,16 @@ Dokumen ini bukan sumber utama token desain.
 
 ## IssueCard
 
-- White bg, `#E2E8F0` border, 16px radius
+- White bg, border `#E2E8F0`, radius besar (`24px`)
 - Padding: 16px
-- Hover: subtle shadow
-- Severity pill + status pill at top
-- Road name bold
-- Meta line: submission count, casualty, relative time
+- Hover: subtle shadow + border emphasis
+- Severity pill + status pill tetap di area atas
+- Road / area name menjadi anchor hierarchy utama
+- Meta line memakai icon seperlunya untuk scanability
+- Harus tetap nyaman dipakai di:
+  - list publik
+  - panel map
+  - list/admin shell yang menampilkan summary issue
 
 ## IssueHeader
 
@@ -200,6 +215,49 @@ Dokumen ini bukan sumber utama token desain.
   - min-height 48px
   - tetap memakai brand red `#E5484D`
   - jangan tampil sebagai modal agresif atau interstitial
+- Layout visual final:
+  - follower count menjadi elemen sekunder yang jelas terlihat
+  - helper text anonim-friendly tetap terbaca di mobile
+  - jika following aktif, sub-card browser push muncul di bawah tanpa merusak hierarchy utama
+
+## StatsDashboard
+
+- Halaman `/stats` memakai dashboard ringan tanpa chart berat.
+- Struktur minimal:
+  - hero statistik
+  - filter wilayah
+  - metric card grid
+  - status breakdown
+  - time stats
+  - leaderboard
+  - top issue
+- Semua section harus tetap usable di mobile; jangan membuat tabel/chart horizontal yang rawan overflow.
+- Progress bar status cukup sederhana, tanpa animasi berat.
+
+## AdminLogin
+
+- Login admin harus tampil seperti surface yang meyakinkan, bukan form teknis polos.
+- Wajib ada:
+  - field username
+  - field password
+  - tombol show/hide password
+  - checkbox `Ingat saya`
+  - helper keamanan yang menjelaskan session tetap server-side
+- `Ingat saya` untuk arsitektur saat ini hanya boleh menyimpan username, bukan password atau cookie session.
+- Tombol show/hide password:
+  - icon button terintegrasi di sisi kanan input
+  - accessible via `aria-label`
+  - tidak mengganggu padding input
+
+## AdminShell & Moderation
+
+- Shell admin harus terasa operasional-friendly:
+  - frame lebar
+  - kartu utama jelas
+  - hierarchy aksi utama vs sekunder tegas
+- List/filter/detail moderasi tidak boleh terasa seperti halaman debug.
+- Badge status admin harus konsisten dengan warna/status publik, tetapi tetap lebih tenang dan profesional.
+- Empty/loading/error state wajib punya surface yang seragam dengan halaman publik.
 
 ## Notification-Driven Issue Refresh
 

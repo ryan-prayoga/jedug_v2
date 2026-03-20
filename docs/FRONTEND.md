@@ -4,6 +4,8 @@
 
 - SvelteKit 2 + Svelte 5
 - TypeScript
+- Tailwind CSS v4 via plugin Vite (`@tailwindcss/vite`)
+- Iconify (Solar line-duotone family) sebagai icon set tunggal lintas UI
 - MapLibre GL untuk peta publik
 
 ## Struktur Frontend
@@ -12,6 +14,8 @@
 - `src/lib/api/`: wrapper fetch dan type contracts
 - `src/lib/components/`: UI components
 - `src/lib/utils/`: geolocation, bbox, image compression, local storage
+- `src/lib/icons.ts`: adapter tunggal untuk icon Iconify yang dipakai lintas komponen
+- `src/app.css`: source of truth utility/theme layer Tailwind untuk token visual, primitive class, dan styling global MapLibre
 
 ## Route Publik
 
@@ -29,14 +33,39 @@
 - `/admin` (redirect ke `/admin/issues`)
 - `/admin/issues`
 - `/admin/issues/[id]`
+- login admin sekarang menampilkan UX tambahan:
+  - checkbox `Ingat saya`
+  - toggle `show / hide password`
 - admin frontend tidak lagi menyimpan bearer token di `localStorage`
 - helper `src/lib/api/admin.ts` sekarang selalu memakai `credentials: 'include'` agar browser mengirim cookie session admin
 - logout dilakukan lewat `POST /api/v1/admin/logout`, bukan sekadar menghapus state client
 - shell admin kini aman pada initial load/hard refresh route nested (`/admin/issues/[id]`); pengecekan sesi tidak lagi crash saat `afterNavigate.from` bernilai `null`
+- implementasi `Ingat saya` saat ini sengaja aman:
+  - frontend hanya menyimpan username admin di localStorage
+  - password dan cookie session tidak pernah disimpan manual di client
+  - durasi sesi tetap mengikuti TTL backend saat ini (`HttpOnly` cookie server-side)
+
+## UI Foundation
+
+- Styling frontend sekarang berpindah ke utility-first Tailwind CSS dengan theme token di `src/app.css`.
+- Primitive reusable yang jadi source of truth visual:
+  - layout shell: `app-shell`, `app-main`, `app-main-wide`, `app-main-full`
+  - surface: `jedug-card`, `jedug-card-soft`, `jedug-panel`, `admin-card`
+  - typography: `section-kicker`, `section-title`, `section-copy`, `surface-label`
+  - form: `input-shell`, `input-label`, `input-help`, `input-field`, `textarea-field`, `select-field`
+  - action: `btn-primary`, `btn-secondary`, `btn-ghost`, `btn-danger`, `btn-icon`
+  - badge/metric/state: `badge-muted`, `badge-tint`, `metric-card`, `state-panel`, `error-panel`, `notice-panel`
+- Font UI publik/admin sekarang memakai `Plus Jakarta Sans` dari `src/app.html`.
+- Icon policy:
+  - gunakan export dari `src/lib/icons.ts`, bukan import icon package langsung dari banyak tempat
+  - family default: Solar line-duotone
+  - icon dipakai untuk scanability, bukan dekorasi berat
 
 ## Komponen Penting
 
 - `AppHeader.svelte`
+  - sticky glass header publik
+  - nav pill active state + icon konsisten
   - notification center
   - CTA ringan browser push di dalam panel notifikasi
   - panel `Preferensi Notifikasi` ringan di dropdown yang sama
@@ -64,14 +93,27 @@
   - support swipe/drag down untuk close di mobile (threshold + snap-back)
 - `IssueCard.svelte`
   - ringkasan issue untuk list/panel
+  - sekarang jadi card metric-first dengan icon, badge konsisten, dan hierarchy yang sama untuk map/list/admin
 - `ImagePicker.svelte`
   - image selection + preview
+  - upload surface sekarang memakai card modern yang tetap ringan di mobile
 - `ConsentSheet.svelte`
   - consent gate sebelum submit
+- `src/routes/admin/login/+page.svelte`
+  - login card admin yang lebih polished
+  - show/hide password memakai Iconify
+  - remember-me username-only, security-aware
+- `src/routes/admin/+layout.svelte`
+  - shell admin baru dengan hierarchy visual lebih operasional-friendly
 
 ## Integrasi Map
 
 - `issues/+page.svelte` memanggil `fetchIssuesByBBox`.
+- shell route `/issues` sekarang memakai layout Tailwind penuh:
+  - hero summary card
+  - segmented control marker/heatmap
+  - floating CTA report
+  - list panel mobile/desktop yang konsisten dengan card issue baru
 - Debounce default 300ms.
 - BBox sama (rounded 5 desimal) di-skip untuk mengurangi fetch redundant.
 - Route `/issues` sekarang punya mode visual tambahan:
@@ -120,12 +162,15 @@
   - timeline vertikal `Riwayat Laporan` (event terbaru di atas)
   - detail tambahan + `public_note` ringkas + aktivitas terbaru yang memakai `recent_submissions[].public_note`
   - CTA share + social links + open external map
+  - follow card yang lebih jelas hierarchy-nya
+  - aside lokasi/share yang lebih lega di desktop
 - Komponen route dipisah agar maintainable:
   - `IssueHeader.svelte`
   - `IssueStats.svelte`
   - `IssueGallery.svelte`
   - `ShareActions.svelte`
 - Layout desktop issue detail memakai container lebar sendiri (`app-main-wide`) tanpa mengubah flow route publik lain.
+- Route page-level sekarang ikut memakai Tailwind/layout global sehingga card wrapper, indicator refresh, empty/error state, dan preview lightbox konsisten dengan halaman publik lain.
 - Presenter lokasi issue publik sekarang memakai prioritas yang lebih manusiawi:
   - `road_name` bila benar-benar nama jalan/area
   - fallback ke `district_name/regency_name/province_name` bila `road_name` lama hanya berisi copy koordinat sintetis
@@ -178,6 +223,20 @@
   - initial load follow tidak lagi menembak dua endpoint sekaligus tanpa alasan; status diprioritaskan dulu, count dipakai sebagai fallback ringan
   - refresh dari klik notifikasi pada issue yang sama juga me-refresh follow state agar count/following status tetap sinkron
   - saat browser ini sudah follow issue, route juga menampilkan CTA `Aktifkan Notifikasi Browser`
+  - visual follow card sekarang menegaskan bahwa browser anonim adalah identity follow sementara dan follower count menjadi elemen scan utama
+
+## Statistik Publik (`/stats`)
+
+- Route `/stats` sekarang memakai dashboard card-based penuh dengan Tailwind:
+  - hero statistik
+  - filter wilayah polished
+  - metric cards
+  - status breakdown card
+  - time stats
+  - leaderboard wilayah
+  - top issue cards
+- Halaman tetap tanpa chart berat; hierarchy dibangun lewat typography, icon, summary card, dan progress bar ringan.
+- Tombol `Gunakan lokasi saya` serta fallback geolocation tetap memakai flow lama; perubahan hanya pada presentasi/spacing/state surface.
 
 ## In-App Notification Center
 

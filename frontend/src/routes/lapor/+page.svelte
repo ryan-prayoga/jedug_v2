@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount, tick } from 'svelte';
+	import {
+		CameraIcon,
+		DangerIcon,
+		DocumentIcon,
+		InfoIcon,
+		LocationIcon,
+		RefreshIcon
+	} from '$lib/icons';
 	import ImagePicker from '$lib/components/ImagePicker.svelte';
-	import LoadingState from '$lib/components/LoadingState.svelte';
 	import { getOrCreateIssueFollowerId, isConsentGiven } from '$lib/utils/storage';
 	import { ensureDeviceBootstrap, isBootstrapMissingError } from '$lib/utils/device-init';
 	import { getLocation, type GeoResult } from '$lib/utils/geolocation';
@@ -12,17 +20,14 @@
 	import { submitReport } from '$lib/api/reports';
 	import { ApiError } from '$lib/api/client';
 
-	// Idempotency key: one per form session, prevents double-submit
 	let clientRequestId = crypto.randomUUID();
 
-	// Form state
 	let selectedFile = $state<File | null>(null);
 	let severity = $state(3);
 	let note = $state('');
 	let hasCasualty = $state(false);
 	let casualtyCount = $state(0);
 
-	// Process state
 	type Step =
 		| 'idle'
 		| 'getting-location'
@@ -49,12 +54,12 @@
 
 	const stepLabels: Record<Step, string> = {
 		idle: '',
-		'getting-location': '📍 Mengambil lokasi...',
-		compressing: '🗜️ Mengompres gambar...',
-		'preparing-upload': '📦 Menyiapkan upload...',
-		uploading: '⬆️ Mengunggah foto...',
-		submitting: '📤 Mengirim laporan...',
-		done: '✅ Selesai!'
+		'getting-location': 'Mengambil lokasi...',
+		compressing: 'Mengompres gambar...',
+		'preparing-upload': 'Menyiapkan upload...',
+		uploading: 'Mengunggah foto...',
+		submitting: 'Mengirim laporan...',
+		done: 'Selesai!'
 	};
 
 	const severityOptions = [
@@ -65,8 +70,6 @@
 		{ value: 5, label: 'Kritis', desc: 'Darurat, harus segera ditangani' }
 	];
 
-	// Get location on mount
-	import { onMount, tick } from 'svelte';
 	onMount(async () => {
 		try {
 			await ensureDeviceBootstrap({ retry: 1 });
@@ -211,13 +214,11 @@
 	}
 
 	function mapSubmitError(e: unknown): string {
-		// Network failure (no internet / DNS / CORS)
 		if (e instanceof TypeError) {
 			return 'Koneksi sedang bermasalah. Periksa internet lalu coba lagi.';
 		}
 		if (e instanceof ApiError) {
 			if (e.status === 429) {
-				// Backend returns a nice Indonesian message for this case
 				return e.message || 'Terlalu banyak laporan dikirim. Tunggu beberapa menit lalu coba lagi.';
 			}
 			if (e.status === 409) {
@@ -238,14 +239,12 @@
 			return 'Terjadi kesalahan saat mengirim laporan. Coba lagi.';
 		}
 		if (e instanceof Error) {
-			// Known English errors from browser/canvas — remap to Indonesian
 			if (e.message === 'Canvas context not available') {
 				return 'Gagal memproses foto. Coba pilih ulang foto lalu kirim lagi.';
 			}
 			if (e.message === 'bootstrap token missing') {
 				return 'Inisialisasi pelaporan belum selesai. Muat ulang halaman lalu coba lagi.';
 			}
-			// All other Error messages are our own Indonesian strings — pass through
 			return e.message;
 		}
 		return 'Terjadi kesalahan. Coba lagi.';
@@ -286,23 +285,15 @@
 				throw new Error('Lokasi belum tersedia. Aktifkan izin lokasi atau isi koordinat manual.');
 			}
 
-			// Step 1: Compress image
 			currentStep = 'compressing';
 			const compressed = await compressImage(selectedFile!);
 
-			// Step 2: Presign upload
 			currentStep = 'preparing-upload';
-			const presignRes = await presignUpload(
-				token,
-				'photo.webp',
-				'image/webp',
-				compressed.blob.size
-			);
+			const presignRes = await presignUpload(token, 'photo.webp', 'image/webp', compressed.blob.size);
 			if (!presignRes.data) throw new Error('Gagal menyiapkan upload');
 
 			const { object_key, upload_url, upload_method, headers, upload_token } = presignRes.data;
 
-			// Step 3: Upload file
 			currentStep = 'uploading';
 			const uploadHeaders =
 				presignRes.data.upload_mode === 'r2'
@@ -326,7 +317,6 @@
 				});
 			}
 
-			// Step 4: Submit report
 			currentStep = 'submitting';
 			const payload = {
 				client_request_id: clientRequestId,
@@ -372,7 +362,6 @@
 
 			currentStep = 'done';
 
-			// Redirect to issue page
 			setTimeout(() => {
 				goto(`/issues/${reportRes.data!.issue_id}`);
 			}, 500);
@@ -389,473 +378,277 @@
 	}
 </script>
 
-<div class="report-page">
-	<h1 class="page-title">Laporkan Jalan Rusak</h1>
-
-	<!-- Location status -->
-	<div class="section">
-		<div class="section-label">📍 Lokasi</div>
-		{#if geo}
-			<div class="location-info">
-				<span>{geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}</span>
-				<span class="accuracy">
-					{geo.accuracy > 0 ? `± ${Math.round(geo.accuracy)}m` : 'Koordinat manual'}
+<div class="public-stack">
+	<section class="jedug-card overflow-hidden">
+		<div class="grid gap-5 px-5 py-6 sm:px-6">
+			<div class="space-y-4">
+				<span class="section-kicker">
+					<DocumentIcon class="size-4" />
+					Form pelaporan cepat
 				</span>
+				<div class="space-y-2">
+					<h1 class="section-title text-balance">
+						Laporkan jalan rusak dengan bukti yang rapi dan mudah diproses.
+					</h1>
+					<p class="section-copy">
+						Fokusnya tetap sederhana: pastikan lokasi akurat, unggah foto yang jelas, lalu pilih tingkat keparahan yang paling sesuai.
+					</p>
+				</div>
 			</div>
-			{#if locationLabelLoading}
-				<div class="location-label location-label-loading">Mencari nama wilayah...</div>
-			{:else if locationLabel?.label}
-				<div class="location-label location-label-success">
-					<strong>{locationPrimaryLabel(locationLabel)}</strong>
-					{#if locationSecondaryLabel(locationLabel)}
-						<small>{locationSecondaryLabel(locationLabel)}</small>
-					{/if}
+			<div class="grid gap-3 sm:grid-cols-3">
+				<div class="jedug-panel p-4">
+					<p class="surface-label">1. Lokasi</p>
+					<p class="mt-2 text-sm font-semibold text-slate-900">Pastikan titik laporan benar</p>
+					<p class="mt-1 text-xs leading-5 text-slate-500">Koordinat tetap jadi acuan utama, label wilayah hanya konfirmasi UX.</p>
 				</div>
-				<div class="location-label location-label-muted">
-					Nama jalan akan dilengkapi otomatis saat laporan dikirim.
+				<div class="jedug-panel p-4">
+					<p class="surface-label">2. Foto</p>
+					<p class="mt-2 text-sm font-semibold text-slate-900">Gunakan foto yang mudah dibaca</p>
+					<p class="mt-1 text-xs leading-5 text-slate-500">Foto yang fokus membantu moderasi dan membuat issue lebih kredibel.</p>
 				</div>
-			{:else if locationLabelError}
-				<div class="location-label location-label-warning">{locationLabelError}</div>
+				<div class="jedug-panel p-4">
+					<p class="surface-label">3. Severity</p>
+					<p class="mt-2 text-sm font-semibold text-slate-900">Pilih level yang jujur</p>
+					<p class="mt-1 text-xs leading-5 text-slate-500">Gunakan deskripsi yang paling mendekati kondisi nyata di lapangan.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="jedug-card p-5">
+		<div class="flex items-start gap-3">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+				<LocationIcon class="size-6" />
+			</div>
+			<div class="min-w-0">
+				<h2 class="text-lg font-bold text-slate-950">Lokasi laporan</h2>
+				<p class="mt-1 text-sm leading-6 text-slate-500">
+					Koordinat yang akurat membantu issue masuk ke titik yang benar di peta.
+				</p>
+			</div>
+		</div>
+
+		<div class="mt-5 space-y-3">
+			{#if geo}
+				<div class="rounded-[24px] border border-emerald-200 bg-emerald-50/80 px-4 py-4">
+					<div class="flex flex-wrap items-center justify-between gap-3">
+						<div>
+							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Koordinat aktif</p>
+							<p class="mt-2 text-base font-bold text-slate-950">
+								{geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}
+							</p>
+						</div>
+						<span class="badge-muted border-emerald-200 bg-white text-emerald-700">
+							{geo.accuracy > 0 ? `± ${Math.round(geo.accuracy)}m` : 'Koordinat manual'}
+						</span>
+					</div>
+				</div>
+
+				{#if locationLabelLoading}
+					<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+						Mencari nama wilayah...
+					</div>
+				{:else if locationLabel?.label}
+					<div class="rounded-[22px] border border-blue-200 bg-blue-50/70 px-4 py-4">
+						<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">Konfirmasi wilayah</p>
+						<p class="mt-2 text-sm font-bold text-slate-950">{locationPrimaryLabel(locationLabel)}</p>
+						{#if locationSecondaryLabel(locationLabel)}
+							<p class="mt-1 text-xs leading-5 text-blue-700">{locationSecondaryLabel(locationLabel)}</p>
+						{/if}
+					</div>
+					<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+						Nama jalan akan dilengkapi otomatis saat laporan dikirim.
+					</div>
+				{:else if locationLabelError}
+					<div class="notice-panel">{locationLabelError}</div>
+				{:else}
+					<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+						Nama wilayah belum tersedia, koordinat tetap jadi acuan laporan.
+					</div>
+				{/if}
+
+				<button type="button" class="btn-secondary" onclick={() => loadLocation(true)} disabled={locationLoading || submitting}>
+					<RefreshIcon class="size-[18px]" />
+					Perbarui lokasi
+				</button>
+			{:else if locationLoading}
+				<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+					Mengambil lokasi...
+				</div>
 			{:else}
-				<div class="location-label location-label-muted">
-					Nama wilayah belum tersedia, koordinat tetap jadi acuan laporan.
+				<div class="error-panel">{geoError ?? 'Lokasi belum tersedia.'}</div>
+				<div class="jedug-panel space-y-3 p-4">
+					<div class="flex items-start gap-3">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+							<InfoIcon class="size-5" />
+						</div>
+						<p class="text-sm leading-6 text-slate-600">
+							Jika lokasi otomatis gagal di laptop, isi koordinat manual dari Google Maps.
+						</p>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<input
+							class="input-field"
+							type="number"
+							inputmode="decimal"
+							step="any"
+							placeholder="Latitude, mis. -6.200000"
+							bind:value={manualLatitude}
+							disabled={submitting}
+						/>
+						<input
+							class="input-field"
+							type="number"
+							inputmode="decimal"
+							step="any"
+							placeholder="Longitude, mis. 106.816666"
+							bind:value={manualLongitude}
+							disabled={submitting}
+						/>
+					</div>
+					<div class="flex flex-col gap-2 sm:flex-row">
+						<button type="button" class="btn-primary flex-1" onclick={applyManualLocation} disabled={submitting || locationLoading}>
+							<LocationIcon class="size-[18px]" />
+							Gunakan koordinat ini
+						</button>
+						<button type="button" class="btn-secondary flex-1" onclick={() => loadLocation(true)} disabled={locationLoading || submitting}>
+							<RefreshIcon class="size-[18px]" />
+							Coba ambil lokasi lagi
+						</button>
+					</div>
 				</div>
 			{/if}
-			<button
-				type="button"
-				class="location-retry"
-				onclick={() => loadLocation(true)}
-				disabled={locationLoading || submitting}
-			>
-				Perbarui lokasi
-			</button>
-		{:else if locationLoading}
-			<div class="location-loading">Mengambil lokasi...</div>
-		{:else}
-			<div class="location-error">{geoError ?? 'Lokasi belum tersedia.'}</div>
-			<div class="manual-location">
-				<p class="manual-location-help">
-					Jika lokasi otomatis gagal di laptop, isi koordinat manual dari Google Maps.
-				</p>
-				<div class="manual-location-grid">
-					<input
-						type="number"
-						inputmode="decimal"
-						step="any"
-						placeholder="Latitude, mis. -6.200000"
-						bind:value={manualLatitude}
-						disabled={submitting}
-					/>
-					<input
-						type="number"
-						inputmode="decimal"
-						step="any"
-						placeholder="Longitude, mis. 106.816666"
-						bind:value={manualLongitude}
-						disabled={submitting}
-					/>
-				</div>
-				<button
-					type="button"
-					class="manual-location-apply"
-					onclick={applyManualLocation}
-					disabled={submitting || locationLoading}
-				>
-					Gunakan koordinat ini
-				</button>
+		</div>
+	</section>
+
+	<section class="jedug-card p-5">
+		<div class="mb-4 flex items-start gap-3">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+				<CameraIcon class="size-6" />
 			</div>
-			<button
-				type="button"
-				class="location-retry"
-				onclick={() => loadLocation(true)}
-				disabled={locationLoading || submitting}
-			>
-				Coba ambil lokasi lagi
-			</button>
-		{/if}
-	</div>
-
-	<!-- Image picker -->
-	<div class="section">
-		<div class="section-label">📷 Foto <span class="required">*</span></div>
+			<div>
+				<h2 class="text-lg font-bold text-slate-950">Foto bukti</h2>
+				<p class="mt-1 text-sm leading-6 text-slate-500">
+					Unggah minimal satu foto yang memperlihatkan kondisi kerusakan dengan jelas.
+				</p>
+			</div>
+		</div>
 		<ImagePicker onchange={handleFileChange} />
-	</div>
+	</section>
 
-	<!-- Severity -->
-	<div class="section">
-		<div class="section-label">⚠️ Tingkat Keparahan <span class="required">*</span></div>
-		<div class="severity-options">
+	<section class="jedug-card p-5">
+		<div class="mb-4 flex items-start gap-3">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+				<DangerIcon class="size-6" />
+			</div>
+			<div>
+				<h2 class="text-lg font-bold text-slate-950">Tingkat keparahan</h2>
+				<p class="mt-1 text-sm leading-6 text-slate-500">
+					Pilih level yang paling menggambarkan dampak kerusakan di lapangan.
+				</p>
+			</div>
+		</div>
+
+		<div class="space-y-2">
 			{#each severityOptions as opt}
-				<label class="severity-option" class:selected={severity === opt.value}>
-					<input type="radio" name="severity" value={opt.value} bind:group={severity} />
-					<span class="severity-value">{opt.value}</span>
-					<span class="severity-detail">
-						<strong>{opt.label}</strong>
-						<small>{opt.desc}</small>
+				<label
+					class={`flex cursor-pointer items-center gap-4 rounded-[24px] border px-4 py-4 transition hover:border-slate-300 ${severity === opt.value ? 'border-brand-200 bg-brand-50/70' : 'border-slate-200 bg-white'}`}
+				>
+					<input class="hidden" type="radio" name="severity" value={opt.value} bind:group={severity} />
+					<span
+						class:bg-brand-500={severity === opt.value}
+						class:text-white={severity === opt.value}
+						class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-700"
+					>
+						{opt.value}
+					</span>
+					<span class="min-w-0">
+						<strong class="block text-sm font-bold text-slate-900">{opt.label}</strong>
+						<small class="mt-1 block text-xs leading-5 text-slate-500">{opt.desc}</small>
 					</span>
 				</label>
 			{/each}
 		</div>
-	</div>
+	</section>
 
-	<!-- Casualty -->
-	<div class="section">
-		<div class="section-label">🚑 Ada korban?</div>
-		<label class="toggle-label">
-			<input type="checkbox" bind:checked={hasCasualty} />
-			<span>Ya, ada korban</span>
-		</label>
-		{#if hasCasualty}
-			<div class="casualty-input">
-				<label>
-					Jumlah korban
-					<input
-						type="number"
-						bind:value={casualtyCount}
-						min="1"
-						max="999"
-						class="number-input"
-					/>
-				</label>
+	<section class="grid gap-4 md:grid-cols-2">
+		<div class="jedug-card p-5">
+			<div class="mb-4 flex items-start gap-3">
+				<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+					<DangerIcon class="size-6" />
+				</div>
+				<div>
+					<h2 class="text-lg font-bold text-slate-950">Informasi korban</h2>
+					<p class="mt-1 text-sm leading-6 text-slate-500">
+						Isi hanya jika memang ada laporan korban dari kejadian terkait titik ini.
+					</p>
+				</div>
 			</div>
-		{/if}
-	</div>
 
-	<!-- Note -->
-	<div class="section">
-		<div class="section-label">📝 Catatan</div>
-		<textarea
-			bind:value={note}
-			placeholder="Deskripsi singkat kondisi jalan (opsional)"
-			rows="3"
-			maxlength="500"
-			class="note-input"
-		></textarea>
-		<div class="char-count">{note.length}/500</div>
-	</div>
+			<label class="flex items-center gap-3 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
+				<input type="checkbox" class="h-4 w-4 accent-[#e5484d]" bind:checked={hasCasualty} />
+				<span class="text-sm font-semibold text-slate-800">Ya, ada korban</span>
+			</label>
 
-	<!-- Progress -->
+			{#if hasCasualty}
+				<div class="mt-3">
+					<label class="input-shell">
+						<span class="input-label">Jumlah korban</span>
+						<input type="number" bind:value={casualtyCount} min="1" max="999" class="input-field" />
+					</label>
+				</div>
+			{/if}
+		</div>
+
+		<div class="jedug-card p-5">
+			<div class="mb-4 flex items-start gap-3">
+				<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+					<DocumentIcon class="size-6" />
+				</div>
+				<div>
+					<h2 class="text-lg font-bold text-slate-950">Catatan tambahan</h2>
+					<p class="mt-1 text-sm leading-6 text-slate-500">
+						Tambahkan konteks singkat yang membantu orang lain memahami situasinya.
+					</p>
+				</div>
+			</div>
+
+			<textarea
+				bind:value={note}
+				placeholder="Deskripsi singkat kondisi jalan (opsional)"
+				rows="4"
+				maxlength="500"
+				class="textarea-field"
+			></textarea>
+			<div class="mt-2 text-right text-xs font-semibold text-slate-400">{note.length}/500</div>
+		</div>
+	</section>
+
 	{#if submitting && currentStep !== 'idle'}
-		<div class="progress-status">
+		<div class="rounded-[22px] border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700">
 			{stepLabels[currentStep]}
 		</div>
 	{/if}
 
-	<!-- Error -->
 	{#if error}
-		<div class="error-msg" bind:this={errorRef}>⚠️ {error}</div>
+		<div class="error-panel" bind:this={errorRef}>{error}</div>
 	{/if}
 
-	<!-- Submit -->
-	<button
-		class="submit-btn"
-		onclick={handleSubmit}
-		disabled={submitting || bootstrapInitializing || !selectedFile || locationLoading}
-	>
-		{#if submitting}
-			Mengirim...
-		{:else}
-			Kirim Laporan
-		{/if}
-	</button>
+	<div class="jedug-card p-4">
+		<button
+			class="btn-primary w-full"
+			onclick={handleSubmit}
+			disabled={submitting || bootstrapInitializing || !selectedFile || locationLoading}
+		>
+			<DocumentIcon class="size-[18px]" />
+			{#if submitting}
+				Mengirim...
+			{:else}
+				Kirim Laporan
+			{/if}
+		</button>
+		<p class="mt-3 text-center text-xs leading-5 text-slate-500">
+			Laporan dikirim anonim dari browser ini. Pastikan foto dan koordinat sudah benar sebelum menekan tombol kirim.
+		</p>
+	</div>
 </div>
-
-<style>
-	.report-page {
-		padding-top: 24px;
-		padding-bottom: 32px;
-	}
-	.page-title {
-		font-size: 20px;
-		font-weight: 700;
-		margin-bottom: 24px;
-		color: #0F172A;
-	}
-	.section {
-		margin-bottom: 24px;
-	}
-	.section-label {
-		font-size: 14px;
-		font-weight: 600;
-		color: #64748B;
-		margin-bottom: 8px;
-	}
-	.required {
-		color: #E5484D;
-	}
-
-	/* Location */
-	.location-info {
-		font-size: 13px;
-		color: #0F172A;
-		background: #F0FDF4;
-		border: 1px solid #BBF7D0;
-		padding: 8px 12px;
-		border-radius: 10px;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-	.accuracy {
-		color: #16A34A;
-		font-size: 12px;
-	}
-	.location-error {
-		font-size: 13px;
-		color: #DC2626;
-		background: #FEF2F2;
-		border: 1px solid #FECACA;
-		padding: 8px 12px;
-		border-radius: 10px;
-	}
-	.location-loading {
-		font-size: 13px;
-		color: #64748B;
-		padding: 8px 12px;
-		background: #F8FAFC;
-		border: 1px solid #E2E8F0;
-		border-radius: 10px;
-	}
-	.location-retry {
-		margin-top: 8px;
-		border: 1px solid #E2E8F0;
-		background: #fff;
-		color: #0F172A;
-		padding: 8px 12px;
-		border-radius: 10px;
-		font-size: 13px;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.location-retry:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-	.location-label {
-		margin-top: 8px;
-		padding: 8px 12px;
-		border-radius: 10px;
-		font-size: 13px;
-	}
-	.location-label-loading {
-		background: #F8FAFC;
-		border: 1px solid #E2E8F0;
-		color: #64748B;
-	}
-	.location-label-success {
-		background: #EFF6FF;
-		border: 1px solid #BFDBFE;
-		color: #1D4ED8;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-	.location-label-success strong {
-		font-size: 13px;
-		font-weight: 700;
-	}
-	.location-label-success small {
-		font-size: 12px;
-		color: #2563EB;
-	}
-	.location-label-warning {
-		background: #FFF7ED;
-		border: 1px solid #FED7AA;
-		color: #C2410C;
-	}
-	.location-label-muted {
-		background: #F8FAFC;
-		border: 1px solid #E2E8F0;
-		color: #64748B;
-	}
-	.manual-location {
-		margin-top: 10px;
-	}
-	.manual-location-help {
-		font-size: 12px;
-		color: #64748B;
-		margin: 0 0 8px;
-	}
-	.manual-location-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 8px;
-	}
-	.manual-location-grid input {
-		border: 1px solid #E2E8F0;
-		border-radius: 10px;
-		padding: 10px 12px;
-		font-size: 14px;
-		background: #fff;
-	}
-	.manual-location-apply {
-		margin-top: 8px;
-		border: 1px solid #E2E8F0;
-		background: #fff;
-		color: #0F172A;
-		padding: 8px 12px;
-		border-radius: 10px;
-		font-size: 13px;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.manual-location-apply:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-
-	/* Severity */
-	.severity-options {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-	.severity-option {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 10px 12px;
-		border: 1px solid #E2E8F0;
-		border-radius: 12px;
-		cursor: pointer;
-		background: #fff;
-		transition: border-color 0.15s;
-	}
-	.severity-option.selected {
-		border-color: #E5484D;
-		background: #FEF2F2;
-	}
-	.severity-option input {
-		display: none;
-	}
-	.severity-value {
-		width: 28px;
-		height: 28px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		background: #F1F5F9;
-		font-weight: 700;
-		font-size: 13px;
-		flex-shrink: 0;
-	}
-	.severity-option.selected .severity-value {
-		background: #E5484D;
-		color: #fff;
-	}
-	.severity-detail {
-		display: flex;
-		flex-direction: column;
-	}
-	.severity-detail strong {
-		font-size: 14px;
-	}
-	.severity-detail small {
-		font-size: 12px;
-		color: #94A3B8;
-	}
-
-	/* Casualty */
-	.toggle-label {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-size: 14px;
-		cursor: pointer;
-	}
-	.toggle-label input {
-		width: 18px;
-		height: 18px;
-		accent-color: #E5484D;
-	}
-	.casualty-input {
-		margin-top: 10px;
-	}
-	.casualty-input label {
-		font-size: 13px;
-		color: #64748B;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-	.number-input {
-		width: 80px;
-		padding: 6px 10px;
-		border: 1px solid #E2E8F0;
-		border-radius: 10px;
-		font-size: 14px;
-	}
-
-	/* Note */
-	.note-input {
-		width: 100%;
-		padding: 10px 12px;
-		border: 1px solid #E2E8F0;
-		border-radius: 10px;
-		font-size: 14px;
-		font-family: inherit;
-		resize: vertical;
-		line-height: 1.5;
-	}
-	.note-input:focus {
-		outline: none;
-		border-color: #E5484D;
-	}
-	.char-count {
-		text-align: right;
-		font-size: 12px;
-		color: #94A3B8;
-		margin-top: 4px;
-	}
-
-	/* Progress */
-	.progress-status {
-		text-align: center;
-		font-size: 14px;
-		color: #64748B;
-		padding: 12px;
-		background: #EFF6FF;
-		border: 1px solid #BFDBFE;
-		border-radius: 12px;
-		margin-bottom: 12px;
-	}
-
-	/* Error */
-	.error-msg {
-		text-align: center;
-		font-size: 14px;
-		color: #DC2626;
-		padding: 10px 12px;
-		background: #FEF2F2;
-		border: 1px solid #FECACA;
-		border-radius: 12px;
-		margin-bottom: 12px;
-	}
-
-	/* Submit */
-	.submit-btn {
-		display: block;
-		width: 100%;
-		padding: 16px;
-		font-size: 16px;
-		font-weight: 700;
-		color: #fff;
-		background: #E5484D;
-		border: none;
-		border-radius: 12px;
-		cursor: pointer;
-		transition: opacity 0.15s, transform 0.1s;
-		min-height: 48px;
-	}
-	.submit-btn:hover:not(:disabled) {
-		opacity: 0.88;
-	}
-	.submit-btn:active:not(:disabled) {
-		transform: scale(0.97);
-	}
-	.submit-btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-</style>
