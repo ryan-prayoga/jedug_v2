@@ -27,8 +27,19 @@ run_sql_file() {
     psql "${DATABASE_URL}" -X -v ON_ERROR_STOP=1 -f "${file_path}"
 }
 
+run_sql() {
+    local sql="$1"
+    echo "==> executing inline SQL"
+    psql "${DATABASE_URL}" -X -v ON_ERROR_STOP=1 -c "${sql}"
+}
+
 case "${MODE}" in
     fresh)
+        echo "==> resetting public schema (this deletes all existing tables and data)"
+        run_sql "DROP SCHEMA IF EXISTS public CASCADE;"
+        run_sql "CREATE SCHEMA public;"
+        run_sql "GRANT ALL ON SCHEMA public TO CURRENT_USER;"
+        run_sql "GRANT USAGE ON SCHEMA public TO PUBLIC;"
         run_sql_file "${BASELINE_FILE}"
         ;;
     upgrade)

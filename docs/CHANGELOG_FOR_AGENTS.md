@@ -1610,6 +1610,25 @@ Area yang selalu wajib update docs bila berubah:
 - Mismatch baru (jika ada):
   - metadata klasifikasi lokasi Nominatim (`category/type/addresstype/place_rank`) sudah diparse, tetapi belum dipromosikan ke field publik baru karena `road_type` existing masih sempit dan bersemantik jaringan jalan, bukan OSM place type umum.
 
+## 2026-03-20 - Fresh DB Sekarang Benar-Benar Reset Data
+
+- Scope:
+  - menyamakan arti command fresh database dengan ekspektasi operasional: clear seluruh data schema `public` sebelum bootstrap baseline + migration.
+- Dampak area:
+  - `backend/scripts/bootstrap_db.sh`
+  - `backend/Makefile`
+  - `backend/README.md`
+  - `backend/schema/README.md`
+  - `backend/migrations/README.md`
+- File docs yang diupdate:
+  - `docs/BACKEND.md`
+  - `docs/CHANGELOG_FOR_AGENTS.md`
+  - `backend/README.md`
+  - `backend/schema/README.md`
+  - `backend/migrations/README.md`
+- Mismatch baru (jika ada):
+  - mode `fresh` hanya mereset schema `public`; object di schema non-`public` yang dibuat manual di database target tidak disentuh.
+
 ## Template Entri Berikutnya
 
 Gunakan format ini untuk update berikutnya:
