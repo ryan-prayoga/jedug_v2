@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { browserPushState } from '$lib/stores/browser-push';
 	import { notificationPreferencesState } from '$lib/stores/notification-preferences';
 	import { ArrowUpIcon, BellIcon, SettingsIcon } from '$lib/icons';
@@ -120,6 +121,11 @@
 	function isSaving(key: string): boolean {
 		return prefsState.savingKeys.includes(key);
 	}
+
+	onMount(() => {
+		void browserPushState.init();
+		void notificationPreferencesState.init();
+	});
 
 	async function toggle(key: string, value: boolean) {
 		await notificationPreferencesState.update({ [key]: value }, key);

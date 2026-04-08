@@ -2,9 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import BrowserPushCard from '$lib/components/BrowserPushCard.svelte';
-	import NearbyAlertsPanel from '$lib/components/NearbyAlertsPanel.svelte';
-	import NotificationPreferencesPanel from '$lib/components/NotificationPreferencesPanel.svelte';
 	import {
 		BellIcon,
 		ChartIcon,
@@ -28,6 +25,14 @@
 	let openNotif = $state(false);
 	let notifButtonEl = $state<HTMLButtonElement | null>(null);
 	let notifPanelEl = $state<HTMLDivElement | null>(null);
+	let BrowserPushCardComponent =
+		$state<typeof import('$lib/components/BrowserPushCard.svelte').default | null>(null);
+	let NearbyAlertsPanelComponent =
+		$state<typeof import('$lib/components/NearbyAlertsPanel.svelte').default | null>(null);
+	let NotificationPreferencesPanelComponent =
+		$state<typeof import('$lib/components/NotificationPreferencesPanel.svelte').default | null>(null);
+	let notifPanelsLoading = $state(false);
+	let notifPanelsError = $state<string | null>(null);
 
 	function isLaporActive(path: string): boolean {
 		return path === '/lapor' || path.startsWith('/lapor/');
@@ -78,8 +83,41 @@
 		await notificationsState.delete(id);
 	}
 
+	async function ensureNotifPanelsLoaded() {
+		if (
+			notifPanelsLoading ||
+			(BrowserPushCardComponent &&
+				NearbyAlertsPanelComponent &&
+				NotificationPreferencesPanelComponent)
+		) {
+			return;
+		}
+
+		notifPanelsLoading = true;
+		notifPanelsError = null;
+
+		try {
+			const [browserPushCardModule, nearbyAlertsPanelModule, notificationPreferencesPanelModule] =
+				await Promise.all([
+					import('$lib/components/BrowserPushCard.svelte'),
+					import('$lib/components/NearbyAlertsPanel.svelte'),
+					import('$lib/components/NotificationPreferencesPanel.svelte')
+				]);
+			BrowserPushCardComponent = browserPushCardModule.default;
+			NearbyAlertsPanelComponent = nearbyAlertsPanelModule.default;
+			NotificationPreferencesPanelComponent = notificationPreferencesPanelModule.default;
+		} catch {
+			notifPanelsError = 'Panel notifikasi tambahan belum bisa dimuat. Coba buka lagi.';
+		} finally {
+			notifPanelsLoading = false;
+		}
+	}
+
 	function handlePanelToggle() {
 		openNotif = !openNotif;
+		if (openNotif) {
+			void ensureNotifPanelsLoaded();
+		}
 	}
 
 	onMount(() => {
@@ -171,12 +209,28 @@
 						</div>
 
 						<div class="max-h-[75dvh] overflow-y-auto px-3 py-3">
-							<BrowserPushCard
-								variant="compact"
-								lead="Aktifkan notifikasi browser agar perubahan issue tetap masuk walau tab JEDUG tidak sedang dibuka."
-							/>
-							<NotificationPreferencesPanel />
-							<NearbyAlertsPanel />
+							{#if notifPanelsLoading && !BrowserPushCardComponent}
+								<div class="state-panel border-0 bg-white/80 px-4 py-6">
+									<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
+									<p class="mt-3 text-sm text-slate-500">Menyiapkan panel notifikasi...</p>
+								</div>
+							{:else}
+								{#if notifPanelsError}
+									<div class="error-panel mx-1 mb-3">{notifPanelsError}</div>
+								{/if}
+								{#if BrowserPushCardComponent}
+									<BrowserPushCardComponent
+										variant="compact"
+										lead="Aktifkan notifikasi browser agar perubahan issue tetap masuk walau tab JEDUG tidak sedang dibuka."
+									/>
+								{/if}
+								{#if NotificationPreferencesPanelComponent}
+									<NotificationPreferencesPanelComponent />
+								{/if}
+								{#if NearbyAlertsPanelComponent}
+									<NearbyAlertsPanelComponent />
+								{/if}
+							{/if}
 
 							<div class="mt-3 rounded-[24px] border border-slate-100 bg-slate-50/75 p-2">
 								<div class="flex items-center justify-between px-2 py-2">

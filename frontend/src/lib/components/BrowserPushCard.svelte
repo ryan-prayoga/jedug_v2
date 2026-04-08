@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { browserPushState } from '$lib/stores/browser-push';
 	import { notificationPreferencesState } from '$lib/stores/notification-preferences';
 	import {
@@ -132,6 +133,10 @@
 	});
 
 	const StatusIcon = $derived(statusIcon);
+
+	onMount(() => {
+		void browserPushState.init();
+	});
 
 	async function handleAction() {
 		if (requiresRepair) {

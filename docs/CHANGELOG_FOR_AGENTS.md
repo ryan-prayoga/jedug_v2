@@ -25,6 +25,29 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-04-08 - Notification Center Public Shell Dilazy-Load
+
+- Scope:
+  - menurunkan biaya bundle shared publik tanpa mengubah perilaku utama notification center.
+
+### Frontend
+
+1. `routes/+layout.svelte` tidak lagi menginisialisasi browser push dan notification preferences pada first paint; layout kini hanya bootstrap device + in-app notifications.
+2. `AppHeader.svelte` tidak lagi mengimpor `BrowserPushCard`, `NotificationPreferencesPanel`, dan `NearbyAlertsPanel` secara statis.
+3. Tiga panel notification center tersebut sekarang di-load lazy saat user benar-benar membuka panel lonceng.
+4. `BrowserPushCard.svelte` dan `NotificationPreferencesPanel.svelte` kini self-initializing agar tetap aman dipakai di route lain tanpa bergantung pada root layout.
+
+### Dampak
+
+5. Shared chunk publik berkurang karena kode browser push/preferences tidak lagi ikut first paint semua route non-admin.
+6. Warning bundle terbesar tetap berasal dari chunk MapLibre di route `/issues`, jadi optimasi ini memang menyasar biaya shared shell, bukan chunk peta.
+
+### Docs
+
+7. Diperbarui:
+   - `docs/FRONTEND.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-04-08 - Public Issue Visibility dan Enum Status Diselaraskan ke Schema
 
 - Scope:

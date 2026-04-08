@@ -264,7 +264,7 @@
     - `error`
     - `unavailableMessage`
 - Saat app publik pertama kali mount (`routes/+layout.svelte`), frontend menjalankan `notificationsState.init()` setelah bootstrap device.
-- Setelah store notif + browser push init, frontend menjalankan `notificationPreferencesState.init()` sekali agar panel settings tidak fetch berulang.
+- Browser push dan preferensi notifikasi tidak lagi di-init pada first paint; keduanya di-load lazy saat `BrowserPushCard` atau `NotificationPreferencesPanel` benar-benar dimount.
 - Nearby alerts tidak ikut di-init pada first paint; panel melakukan fetch lazy saat user benar-benar membuka section tersebut.
 - Jika `follower_token` belum ada/expired, frontend mencoba refresh lewat `POST /api/v1/followers/auth` memakai `X-Device-Token`.
 - Endpoint yang dipakai:
@@ -314,7 +314,7 @@
     - `busy`
     - `error` / `success`
 - Init flow:
-  - dijalankan di `routes/+layout.svelte` setelah `notificationsState.init()`
+  - dijalankan lazy saat `BrowserPushCard.svelte` atau `NotificationPreferencesPanel.svelte` dimount
   - tidak memunculkan permission prompt otomatis
   - memeriksa capability browser, permission saat ini, status backend, existing subscription bila permission sudah `granted`, serta mode iOS `Home Screen` vs tab browser biasa
 - Endpoint yang dipakai:
@@ -323,7 +323,7 @@
   - `POST /api/v1/push/subscribe`
   - `POST /api/v1/push/unsubscribe`
 - CTA UI:
-  - `AppHeader` notification panel memakai `BrowserPushCard.svelte` versi compact
+  - `AppHeader` notification panel memakai `BrowserPushCard.svelte` versi compact yang di-load lazy saat panel dibuka
   - detail issue menampilkan `BrowserPushCard.svelte` di bawah follow card setelah browser anonim mengikuti issue
   - panel preferensi menampilkan toggle push, tetapi saat browser push belum aktif toggle dapat dinonaktifkan dan user diarahkan ke `BrowserPushCard`
   - khusus iPhone/iOS:
