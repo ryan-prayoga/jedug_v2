@@ -25,6 +25,28 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-04-08 - MapLibre Runtime Dikeluarkan dari Chunk Vite
+
+- Scope:
+  - menghilangkan warning chunk besar pada route `/issues` tanpa mengubah kontrak API atau flow peta publik.
+
+### Frontend
+
+1. `IssueMap.svelte` tidak lagi memuat runtime `maplibre-gl` lewat `import()` bundler.
+2. Runtime MapLibre sekarang dimuat sebagai asset script eksternal (`?url`) saat route peta benar-benar dibuka, dan stylesheet-nya juga diinject on-demand.
+3. Route `/issues` tetap menampilkan loading overlay lokal sambil runtime peta diunduh dan diinisialisasi.
+
+### Dampak
+
+4. Build frontend tidak lagi menghasilkan warning `Some chunks are larger than 500 kB after minification` dari MapLibre.
+5. Perubahan ini mengecilkan graph chunk JS aplikasi, tetapi tidak mengecilkan bobot runtime MapLibre itu sendiri secara material; biaya download peta tetap dominan saat user benar-benar membuka `/issues`.
+
+### Docs
+
+6. Diperbarui:
+   - `docs/FRONTEND.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-04-08 - Map Runtime Lazy-Load + Metadata Fix `/lapor`
 
 - Scope:

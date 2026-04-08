@@ -81,7 +81,8 @@
   - lazy-load data hanya saat panel dibuka agar app init tetap ringan
   - mendukung autofill koordinat dari geolocation browser + input manual
 - `IssueMap.svelte`
-  - runtime `maplibre-gl` + CSS kini dilazy-load saat komponen mount agar shell `/issues` bisa tampil lebih dulu
+  - runtime `maplibre-gl` + CSS kini di-load on-demand sebagai asset eksternal saat komponen mount, bukan dibundle ke chunk route
+  - warning `>500 kB` untuk chunk JS route peta hilang karena runtime MapLibre tidak lagi masuk graph chunk Vite
   - inisialisasi MapLibre
   - marker publik via `GeoJSON source + layers`
   - heatmap publik severity-aware via `GeoJSON source + heatmap/circle layers`

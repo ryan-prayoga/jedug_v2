@@ -10,6 +10,8 @@
 		MapLayerMouseEvent,
 		MapMouseEvent
 	} from 'maplibre-gl';
+	import maplibreRuntimeURL from 'maplibre-gl/dist/maplibre-gl.js?url';
+	import maplibreStylesheetURL from 'maplibre-gl/dist/maplibre-gl.css?url';
 
 	let {
 		issues = [],
@@ -53,6 +55,11 @@
 	};
 
 	type MapLibreModule = typeof import('maplibre-gl');
+	type MapLibreWindow = Window &
+		typeof globalThis & {
+			maplibregl?: MapLibreModule;
+			__jedugMapLibreRuntimePromise__?: Promise<MapLibreModule>;
+		};
 
 	let mapContainer: HTMLDivElement;
 	let map: MapLibreMap | null = null;
@@ -63,12 +70,12 @@
 	let clusteringEnabled = $state(true);
 	let heatmapAvailable = $state(true);
 	let issueByID = new Map<string, Issue>();
-	let maplibreModule: MapLibreModule | null = null;
-	let maplibreModulePromise: Promise<MapLibreModule> | null = null;
 
 	const DEFAULT_CENTER: [number, number] = [110.4, -7.0];
 	const DEFAULT_ZOOM = 7;
 	const USER_ZOOM = 15;
+	const MAPLIBRE_STYLESHEET_ID = 'jedug-maplibre-runtime-css';
+	const MAPLIBRE_SCRIPT_ID = 'jedug-maplibre-runtime-js';
 
 	const ISSUE_SOURCE_ID = 'jedug-issues-source';
 	const HEATMAP_SOURCE_ID = 'jedug-heatmap-source';
@@ -221,18 +228,79 @@
 		return [HEATMAP_DENSITY_LAYER_ID, HEATMAP_POINT_LAYER_ID];
 	}
 
-	async function loadMapLibreModule(): Promise<MapLibreModule> {
-		if (maplibreModule) return maplibreModule;
-		if (!maplibreModulePromise) {
-			maplibreModulePromise = Promise.all([
-				import('maplibre-gl'),
-				import('maplibre-gl/dist/maplibre-gl.css')
-			]).then(([module]) => {
-				maplibreModule = module;
-				return module;
-			});
+	function getRuntimeWindow(): MapLibreWindow {
+		return window as MapLibreWindow;
+	}
+
+	function ensureMapLibreStylesheet() {
+		const existing = document.getElementById(MAPLIBRE_STYLESHEET_ID) as HTMLLinkElement | null;
+		if (existing) return Promise.resolve();
+
+		return new Promise<void>((resolve, reject) => {
+			const link = document.createElement('link');
+			link.id = MAPLIBRE_STYLESHEET_ID;
+			link.rel = 'stylesheet';
+			link.href = maplibreStylesheetURL;
+			link.onload = () => resolve();
+			link.onerror = () => reject(new Error('Stylesheet MapLibre gagal dimuat'));
+			document.head.appendChild(link);
+		});
+	}
+
+	function ensureMapLibreScript() {
+		const runtimeWindow = getRuntimeWindow();
+		if (runtimeWindow.maplibregl) {
+			return Promise.resolve(runtimeWindow.maplibregl);
 		}
-		return maplibreModulePromise;
+		if (runtimeWindow.__jedugMapLibreRuntimePromise__) {
+			return runtimeWindow.__jedugMapLibreRuntimePromise__;
+		}
+
+		runtimeWindow.__jedugMapLibreRuntimePromise__ = new Promise<MapLibreModule>(
+			(resolve, reject) => {
+				const settleFromWindow = () => {
+					const maplibre = runtimeWindow.maplibregl;
+					if (!maplibre) {
+						runtimeWindow.__jedugMapLibreRuntimePromise__ = undefined;
+						reject(new Error('Runtime MapLibre tidak tersedia setelah script dimuat'));
+						return;
+					}
+					resolve(maplibre);
+				};
+
+				const existing = document.getElementById(MAPLIBRE_SCRIPT_ID) as HTMLScriptElement | null;
+				if (existing) {
+					existing.addEventListener('load', settleFromWindow, { once: true });
+					existing.addEventListener(
+						'error',
+						() => {
+							runtimeWindow.__jedugMapLibreRuntimePromise__ = undefined;
+							reject(new Error('Script MapLibre gagal dimuat'));
+						},
+						{ once: true }
+					);
+					return;
+				}
+
+				const script = document.createElement('script');
+				script.id = MAPLIBRE_SCRIPT_ID;
+				script.src = maplibreRuntimeURL;
+				script.async = true;
+				script.onload = settleFromWindow;
+				script.onerror = () => {
+					runtimeWindow.__jedugMapLibreRuntimePromise__ = undefined;
+					reject(new Error('Script MapLibre gagal dimuat'));
+				};
+				document.head.appendChild(script);
+			}
+		);
+
+		return runtimeWindow.__jedugMapLibreRuntimePromise__;
+	}
+
+	async function loadMapLibreModule(): Promise<MapLibreModule> {
+		await ensureMapLibreStylesheet();
+		return ensureMapLibreScript();
 	}
 
 	function getSource(sourceID: string): GeoJSONSource | null {
