@@ -25,6 +25,30 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-04-08 - Semantic Fix Panel `/issues` + Favicon Publik
+
+- Scope:
+  - menutup invalid HTML di panel daftar peta dan membersihkan warning browser yang tersisa pada shell publik.
+
+### Frontend
+
+1. `IssueCard.svelte` sekarang mendukung dua root mode:
+   - `link` untuk daftar publik biasa
+   - `static` untuk dipakai di dalam wrapper `button`
+2. Panel daftar pada `routes/issues/+page.svelte` sekarang memakai `IssueCard mode="static"` sehingga tidak lagi merender struktur invalid `button > a`.
+3. `src/app.html` kini mendaftarkan favicon global, dan asset baru disajikan dari `frontend/static/favicon.svg`.
+
+### Dampak
+
+4. Interaksi klik/focus/keyboard pada panel daftar peta menjadi lebih deterministik.
+5. Smoke test browser tidak lagi menyisakan error `favicon.ico 404`.
+
+### Docs
+
+6. Diperbarui:
+   - `docs/FRONTEND.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-04-08 - MapLibre Runtime Dikeluarkan dari Chunk Vite
 
 - Scope:

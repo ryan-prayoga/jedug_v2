@@ -4,7 +4,9 @@
 	import { relativeTime } from '$lib/utils/date';
 	import { getIssueRoadOrAreaLabel, getStatusLabel } from '$lib/utils/issue-detail';
 
-	let { issue }: { issue: Issue } = $props();
+	type IssueCardMode = 'link' | 'static';
+
+	let { issue, mode = 'link' }: { issue: Issue; mode?: IssueCardMode } = $props();
 
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
 	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
@@ -25,12 +27,17 @@
 		rejected: 'border-rose-200 bg-rose-50 text-rose-700',
 		merged: 'border-slate-200 bg-slate-50 text-slate-500'
 	};
+
+	const rootTag = $derived(mode === 'link' ? 'a' : 'article');
+	const rootHref = $derived(mode === 'link' ? `/issues/${issue.id}` : undefined);
+	const rootClass = $derived(
+		mode === 'link'
+			? 'group jedug-card block overflow-hidden p-4 text-inherit transition hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(15,23,42,0.12)]'
+			: 'jedug-card block overflow-hidden p-4 text-inherit'
+	);
 </script>
 
-<a
-	href="/issues/{issue.id}"
-	class="group jedug-card block overflow-hidden p-4 text-inherit transition hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(15,23,42,0.12)]"
->
+<svelte:element this={rootTag} href={rootHref} class={rootClass}>
 	<div class="space-y-4">
 		<div class="flex flex-wrap items-center gap-2">
 			<span
@@ -99,4 +106,4 @@
 			</div>
 		</div>
 	</div>
-</a>
+</svelte:element>

@@ -466,7 +466,7 @@
 											}`}
 											onclick={() => handleIssueSelect(issue)}
 										>
-											<IssueCard {issue} />
+											<IssueCard {issue} mode="static" />
 										</button>
 									{/each}
 								</div>

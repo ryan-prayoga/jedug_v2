@@ -56,6 +56,7 @@
   - action: `btn-primary`, `btn-secondary`, `btn-ghost`, `btn-danger`, `btn-icon`
   - badge/metric/state: `badge-muted`, `badge-tint`, `metric-card`, `state-panel`, `error-panel`, `notice-panel`
 - Font UI publik/admin sekarang memakai `Plus Jakarta Sans` dari `src/app.html`.
+- `src/app.html` juga menjadi source of truth head global ringan seperti favicon publik (`static/favicon.svg`).
 - Icon policy:
   - gunakan export dari `src/lib/icons.ts`, bukan import icon package langsung dari banyak tempat
   - family default: Solar line-duotone
@@ -96,6 +97,7 @@
 - `IssueCard.svelte`
   - ringkasan issue untuk list/panel
   - sekarang jadi card metric-first dengan icon, badge konsisten, dan hierarchy yang sama untuk map/list/admin
+  - mendukung root mode `link` dan `static` agar panel daftar peta tidak lagi menghasilkan nested interactive element (`button > a`)
 - `ImagePicker.svelte`
   - image selection + preview
   - upload surface sekarang memakai card modern yang tetap ringan di mobile
@@ -116,6 +118,7 @@
   - segmented control marker/heatmap
   - floating CTA report
   - list panel mobile/desktop yang konsisten dengan card issue baru
+  - item panel map sekarang selectable via `button` murni; link detail tetap dipakai hanya pada mode daftar penuh
 - Debounce default 300ms.
 - BBox sama (rounded 5 desimal) di-skip untuk mengurangi fetch redundant.
 - Route `/issues` sekarang punya mode visual tambahan:

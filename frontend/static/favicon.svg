@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<title>JEDUG favicon</title>
+<rect width="128" height="128" rx="32" fill="#E5484D"/>
+<path d="M64 24C46.327 24 32 38.327 32 56C32 79.501 64 104 64 104C64 104 96 79.501 96 56C96 38.327 81.673 24 64 24Z" fill="white" fill-opacity="0.18"/>
+<path d="M64 30C49.641 30 38 41.641 38 56C38 75.129 64 95 64 95C64 95 90 75.129 90 56C90 41.641 78.359 30 64 30Z" fill="white"/>
+<circle cx="64" cy="56" r="12" fill="#F6C453"/>
+<path d="M56 83L64 69L72 83" stroke="#E5484D" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
