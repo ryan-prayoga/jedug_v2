@@ -58,7 +58,8 @@ Seluruh frontend JEDUG (Svelte 5 + SvelteKit 2) telah di-polish mengikuti design
 
 - 20px top radius, drag handle 40×4px `#CBD5E1`
 - Desktop: 380px side panel; Mobile: 55vh max
-- Status badges color-coded (Open=biru, Verified=hijau, Fixed=abu)
+- Status badges color-coded (Open=biru, Fixed/Archived=abu)
+- Verification badges dipisah dari lifecycle status: Community/Admin verified hijau, Unverified slate
 - Buttons min-height 48px, primary `#E5484D`
 
 ### PrimaryButton

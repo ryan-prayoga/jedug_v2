@@ -53,8 +53,16 @@ Dokumen ini bukan tempat utama untuk behavior detail tiap komponen atau flow hal
 | Status   | Label         | Hex       | Usage                      |
 | -------- | ------------- | --------- | -------------------------- |
 | open     | Terbuka       | `#2563EB` | Status badge               |
-| verified | Terverifikasi | `#16A34A` | Status badge               |
 | fixed    | Selesai       | `#64748B` | Status badge, muted marker |
+| archived | Diarsipkan    | `#64748B` | Status badge, muted marker |
+
+### Verification
+
+| Status             | Label                   | Hex       | Usage                  |
+| ------------------ | ----------------------- | --------- | ---------------------- |
+| unverified         | Belum diverifikasi      | `#475569` | Verification badge     |
+| community_verified | Terverifikasi komunitas | `#15803D` | Verification badge     |
+| admin_verified     | Diverifikasi admin      | `#166534` | Verification badge     |
 
 ### Neutral
 

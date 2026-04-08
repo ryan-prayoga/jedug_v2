@@ -170,7 +170,7 @@
     - fingerprint beda -> reject conflict
   - `region_id` issue/submission baru kini lebih dulu memakai hasil lookup lokasi yang sudah dinormalisasi saat submit; jika kosong baru fallback ke resolver region internal repository
   - prioritas level wilayah kini juga mengenali alias Indonesia (`provinsi`, `kabupaten`, `kota`, `kecamatan`) agar `region_id` issue/submission baru tidak jatuh ke level yang terlalu bawah hanya karena label level berbeda
-  - duplicate detection issue aktif publik (`open|verified|in_progress`, `is_hidden=false`) dalam radius configurable (default 30m)
+  - duplicate detection issue aktif publik (`open`, `is_hidden=false`) dalam radius configurable (default 30m)
   - pilih kandidat terbaik: distance terdekat -> status aktif -> verification status -> `last_seen_at` terbaru -> severity tertinggi
   - create issue baru jika tidak ada kandidat relevan
   - create `issue_submissions` dengan `request_fingerprint` + `created_issue`
@@ -195,16 +195,16 @@
   - filter `is_hidden = false`
   - exclude status `rejected`, `merged`
   - optional `status`, `severity >=`, `bbox`
-  - enrich lokasi publik bukan lagi hanya `join regions` langsung; query kini menurunkan `district_name`, `regency_name`, `province_name` dari label administratif submission terbaru yang tersedia, lalu fallback ke `issues.region_id`, `issue_submissions.region_id` terbaru, atau spatial fallback dari `public_location`
+  - enrich lokasi publik bukan lagi hanya `join regions` langsung; query kini menurunkan `district_name`, `regency_name`, `province_name` dari label administratif submission terbaru non-`rejected`/`spam`, lalu fallback ke `issues.region_id`, `issue_submissions.region_id` terbaru, atau spatial fallback dari `public_location`
   - `region_name` publik kini berisi label administratif manusiawi (`district/regency/province`) bila tersedia
 - `IssueRepository.FindByID`:
   - hanya mengembalikan issue publik (`is_hidden = false`)
   - exclude status `rejected`, `merged` agar deep-link publik konsisten dengan list/map
 - `FindByIDWithDetail`:
-  - media publik top 20, primary first, exclude submission berstatus `rejected`
+  - media publik top 20, primary first, exclude submission berstatus `rejected` dan `spam`
   - expose `primary_media` additive untuk hero/OG fallback, tetap kompatibel dengan array `media`
   - expose `public_note` additive sebagai ringkasan catatan publik yang sudah dinormalisasi/truncate
-  - recent submissions top 3, exclude submission berstatus `rejected`
+  - recent submissions top 3, exclude submission berstatus `rejected` dan `spam`
   - recent submissions membawa `casualty_count` dan `public_note` additive agar UI tidak perlu menampilkan note mentah
   - resolve `public_url` media via storage service (compatible local legacy + R2)
   - hanya expose field publik (tanpa device/admin/internal note)
@@ -433,7 +433,7 @@
     - `active_scope.label`: label manusiawi untuk scope aktif
     - `active_scope.is_default`: `true` bila scope aktif berasal dari fallback default backend, bukan query eksplisit caller
   - status stats (`status`) sekarang mengikuti scope aktif yang sama dengan `summary`
-    - `open` dihitung sebagai issue unresolved (`open|verified|in_progress`)
+    - `open` dihitung sebagai issue unresolved (`open`)
     - `fixed`
     - `archived`
   - time stats (`time`) sekarang mengikuti scope aktif yang sama dengan `summary`

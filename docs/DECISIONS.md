@@ -15,7 +15,7 @@ Format: tanggal - keputusan - konteks - konsekuensi.
 ## 2026-03-10 - Smart Duplicate Merge ke Issue Aktif (Default 30 Meter)
 
 - Keputusan:
-  - submission baru di-attach ke issue aktif publik terdekat (`open|verified|in_progress`, `is_hidden=false`) dalam radius default 30m (configurable via `DUPLICATE_RADIUS_M`).
+  - submission baru di-attach ke issue aktif publik terdekat (`open`, `is_hidden=false`) dalam radius default 30m (configurable via `DUPLICATE_RADIUS_M`).
   - issue `fixed`, `archived`, `rejected`, `merged`, atau hidden tidak dipakai sebagai target merge.
   - jika ada beberapa kandidat, prioritas pemilihan: distance terdekat -> status/verification aktif -> `last_seen_at` terbaru -> severity lebih tinggi.
 - Konteks:
@@ -218,8 +218,19 @@ Format: tanggal - keputusan - konteks - konsekuensi.
   - audit reliability menemukan queue/runtime failure masih sulit dilihat cepat dan beberapa surface data tumbuh tanpa policy minimum yang eksplisit.
 - Konsekuensi:
   - operator bisa membaca status dasar sistem cukup dari `/api/v1/health`, PM2 logs, dan tabel runtime tanpa stack monitoring berat.
-  - notifications, push delivery jobs, dan push subscriptions sekarang punya retention default yang lebih jelas.
-  - solusi ini belum menggantikan metrics/alerting dedicated bila trafik dan kompleksitas operasional naik signifikan.
+
+## 2026-04-08 - Enum Issue Publik dan Visibility Submission Mengikuti Schema Kanonik
+
+- Keputusan:
+  - duplicate detection issue publik hanya memakai issue aktif `status = open`.
+  - query publik yang membaca `issue_submissions` wajib mengecualikan `rejected` dan `spam`, termasuk untuk galeri, `recent_submissions`, dan fallback label wilayah.
+  - presenter frontend publik wajib mengerti enum kanonik schema untuk lifecycle issue (`open/fixed/archived/rejected/merged`) dan verification (`unverified/community_verified/admin_verified`).
+- Konteks:
+  - audit menemukan drift enum lama `verified/in_progress/pending` masih hidup di query duplicate, stats, dan badge frontend, serta detail publik masih bisa membawa data turunan dari submission `spam`.
+- Konsekuensi:
+  - angka stats `open` sekarang konsisten dengan schema issue yang terversion.
+  - media/note/label wilayah dari submission yang dimoderasi sebagai `spam` atau `rejected` tidak lagi bocor ke surface publik.
+  - fallback compatibility untuk nilai legacy tetap boleh ada di presenter/ranking helper, tetapi source of truth runtime kembali ke enum schema repo.
 
 ## 2026-03-20 - Public Upload Abuse Hardening Menggunakan Pending Ticket Registry + Orphan Cleanup
 

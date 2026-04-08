@@ -27,14 +27,18 @@ var (
 
 	duplicateStatusPriority = map[string]int{
 		"open":        0,
-		"verified":    1,
-		"in_progress": 2,
+		"verified":    0,
+		"in_progress": 0,
+		"fixed":       1,
+		"archived":    2,
 	}
 	duplicateVerificationPriority = map[string]int{
-		"verified":   0,
-		"pending":    1,
-		"unverified": 2,
-		"rejected":   3,
+		"admin_verified":     0,
+		"community_verified": 1,
+		"verified":           1,
+		"unverified":         2,
+		"pending":            2,
+		"rejected":           3,
 	}
 )
 
@@ -405,7 +409,7 @@ func findDuplicateCandidate(ctx context.Context, tx pgx.Tx, lon, lat, radiusM fl
 		FROM issues i
 		CROSS JOIN input_point
 		WHERE i.is_hidden = FALSE
-		  AND i.status IN ('open', 'verified', 'in_progress')
+		  AND i.status = 'open'
 		  AND ST_DWithin(i.public_location, input_point.point, $3)
 		ORDER BY distance_m ASC, i.last_seen_at DESC
 		LIMIT $4

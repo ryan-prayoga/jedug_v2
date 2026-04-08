@@ -25,6 +25,43 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-04-08 - Public Issue Visibility dan Enum Status Diselaraskan ke Schema
+
+- Scope:
+  - menutup kebocoran submission `spam` pada jalur publik sekaligus membersihkan drift enum issue/verification antara backend, stats, dan presenter frontend.
+
+### Backend
+
+1. `IssueRepository` sekarang hanya memakai submission non-`rejected`/`spam` untuk:
+   - galeri media publik
+   - `recent_submissions`
+   - fallback label wilayah dari latest submission
+2. `ReportRepository` duplicate detection kini memakai issue aktif kanonik `status = 'open'`.
+3. Ranking duplicate diperbarui agar memahami verification kanonik `admin_verified/community_verified/unverified`, dengan fallback legacy tetap defensif.
+4. `StatsRepository` tidak lagi menghitung status historis `verified/in_progress` sebagai issue open dan juga mengabaikan submission `spam/rejected` saat menurunkan label wilayah.
+
+### Frontend / Design
+
+5. Presenter status/verification publik sekarang eksplisit mendukung enum schema:
+   - status issue `open/fixed/archived/rejected/merged`
+   - verification `unverified/community_verified/admin_verified`
+6. `IssueCard` dan `IssueBottomSheet` ikut diselaraskan agar badge publik tidak jatuh ke raw string saat menerima enum kanonik.
+7. Design docs status/verification diperbarui agar sinkron dengan implementasi.
+
+### Docs
+
+8. Diperbarui:
+   - `docs/BACKEND.md`
+   - `docs/FRONTEND.md`
+   - `docs/MAP_AND_LOCATION.md`
+   - `docs/ARCHITECTURE.md`
+   - `docs/SCHEMA.md`
+   - `docs/DECISIONS.md`
+   - `backend/schema/README.md`
+   - `design-docs/design-system.md`
+   - `design-docs/guide.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-03-20 - Tailwind CSS + Iconify Frontend Polish
 
 - Scope:

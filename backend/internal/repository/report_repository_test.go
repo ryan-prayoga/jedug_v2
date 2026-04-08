@@ -21,7 +21,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					Status:             "open",
-					VerificationStatus: "pending",
+					VerificationStatus: "unverified",
 					LastSeenAt:         now,
 					SeverityCurrent:    3,
 					DistanceM:          22.1,
@@ -29,7 +29,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 					Status:             "open",
-					VerificationStatus: "pending",
+					VerificationStatus: "unverified",
 					LastSeenAt:         now,
 					SeverityCurrent:    1,
 					DistanceM:          7.2,
@@ -38,7 +38,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 			want: duplicateCandidate{
 				IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 				Status:             "open",
-				VerificationStatus: "pending",
+				VerificationStatus: "unverified",
 				LastSeenAt:         now,
 				SeverityCurrent:    1,
 				DistanceM:          7.2,
@@ -49,8 +49,8 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 			candidates: []duplicateCandidate{
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000003"),
-					Status:             "in_progress",
-					VerificationStatus: "pending",
+					Status:             "archived",
+					VerificationStatus: "unverified",
 					LastSeenAt:         now,
 					SeverityCurrent:    2,
 					DistanceM:          10,
@@ -58,7 +58,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000004"),
 					Status:             "open",
-					VerificationStatus: "pending",
+					VerificationStatus: "unverified",
 					LastSeenAt:         now,
 					SeverityCurrent:    2,
 					DistanceM:          10,
@@ -67,7 +67,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 			want: duplicateCandidate{
 				IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000004"),
 				Status:             "open",
-				VerificationStatus: "pending",
+				VerificationStatus: "unverified",
 				LastSeenAt:         now,
 				SeverityCurrent:    2,
 				DistanceM:          10,
@@ -79,7 +79,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000005"),
 					Status:             "open",
-					VerificationStatus: "pending",
+					VerificationStatus: "unverified",
 					LastSeenAt:         now.Add(-10 * time.Minute),
 					SeverityCurrent:    4,
 					DistanceM:          9.5,
@@ -87,7 +87,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000006"),
 					Status:             "open",
-					VerificationStatus: "pending",
+					VerificationStatus: "unverified",
 					LastSeenAt:         now,
 					SeverityCurrent:    1,
 					DistanceM:          9.5,
@@ -96,19 +96,19 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 			want: duplicateCandidate{
 				IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000006"),
 				Status:             "open",
-				VerificationStatus: "pending",
+				VerificationStatus: "unverified",
 				LastSeenAt:         now,
 				SeverityCurrent:    1,
 				DistanceM:          9.5,
 			},
 		},
 		{
-			name: "uses higher severity when previous keys tie",
+			name: "prefers stronger verification when previous keys tie",
 			candidates: []duplicateCandidate{
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000007"),
 					Status:             "open",
-					VerificationStatus: "verified",
+					VerificationStatus: "community_verified",
 					LastSeenAt:         now,
 					SeverityCurrent:    2,
 					DistanceM:          11,
@@ -116,7 +116,7 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000008"),
 					Status:             "open",
-					VerificationStatus: "verified",
+					VerificationStatus: "admin_verified",
 					LastSeenAt:         now,
 					SeverityCurrent:    4,
 					DistanceM:          11,
@@ -125,36 +125,65 @@ func TestPickBestDuplicateCandidate(t *testing.T) {
 			want: duplicateCandidate{
 				IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000008"),
 				Status:             "open",
-				VerificationStatus: "verified",
+				VerificationStatus: "admin_verified",
 				LastSeenAt:         now,
 				SeverityCurrent:    4,
 				DistanceM:          11,
 			},
 		},
 		{
-			name: "prefers active status over fixed in defensive tie",
+			name: "uses higher severity when previous keys tie",
 			candidates: []duplicateCandidate{
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000009"),
-					Status:             "fixed",
-					VerificationStatus: "verified",
+					Status:             "open",
+					VerificationStatus: "admin_verified",
 					LastSeenAt:         now,
-					SeverityCurrent:    5,
+					SeverityCurrent:    2,
 					DistanceM:          6,
 				},
 				{
 					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
 					Status:             "open",
-					VerificationStatus: "pending",
+					VerificationStatus: "admin_verified",
 					LastSeenAt:         now,
-					SeverityCurrent:    1,
+					SeverityCurrent:    5,
 					DistanceM:          6,
 				},
 			},
 			want: duplicateCandidate{
 				IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
 				Status:             "open",
-				VerificationStatus: "pending",
+				VerificationStatus: "admin_verified",
+				LastSeenAt:         now,
+				SeverityCurrent:    5,
+				DistanceM:          6,
+			},
+		},
+		{
+			name: "prefers active status over fixed in defensive tie",
+			candidates: []duplicateCandidate{
+				{
+					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000011"),
+					Status:             "fixed",
+					VerificationStatus: "admin_verified",
+					LastSeenAt:         now,
+					SeverityCurrent:    5,
+					DistanceM:          6,
+				},
+				{
+					IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000012"),
+					Status:             "open",
+					VerificationStatus: "unverified",
+					LastSeenAt:         now,
+					SeverityCurrent:    1,
+					DistanceM:          6,
+				},
+			},
+			want: duplicateCandidate{
+				IssueID:            uuid.MustParse("00000000-0000-0000-0000-000000000012"),
+				Status:             "open",
+				VerificationStatus: "unverified",
 				LastSeenAt:         now,
 				SeverityCurrent:    1,
 				DistanceM:          6,

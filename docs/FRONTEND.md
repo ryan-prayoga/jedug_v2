@@ -515,7 +515,6 @@ Hardening UX submit report:
 ## Known Mismatch
 
 - Design polishing fokus besar di public UI; admin UI belum sepenuhnya mengikuti style token terbaru.
-- Sebagian mapping label status di UI tidak eksplisit mencakup semua enum schema (`merged`, `rejected`, dll), sehingga fallback ke raw status string bisa muncul.
 
 ## Read This Next
 

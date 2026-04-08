@@ -2,25 +2,28 @@
 	import type { Issue } from '$lib/api/types';
 	import { CameraIcon, DangerIcon, DocumentIcon, LocationIcon } from '$lib/icons';
 	import { relativeTime } from '$lib/utils/date';
-	import { getIssueRoadOrAreaLabel } from '$lib/utils/issue-detail';
+	import { getIssueRoadOrAreaLabel, getStatusLabel } from '$lib/utils/issue-detail';
 
 	let { issue }: { issue: Issue } = $props();
 
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
 	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
 	const statusLabel: Record<string, string> = {
-		open: 'Terbuka',
-		fixed: 'Selesai',
-		archived: 'Diarsipkan',
 		closed: 'Selesai',
-		in_progress: 'Diproses'
+		in_progress: 'Diproses',
+		verified: 'Terverifikasi',
+		rejected: 'Ditolak',
+		merged: 'Digabung'
 	};
 	const statusTone: Record<string, string> = {
 		open: 'border-blue-200 bg-blue-50 text-blue-700',
 		fixed: 'border-slate-200 bg-slate-100 text-slate-600',
 		archived: 'border-slate-200 bg-slate-100 text-slate-600',
 		closed: 'border-slate-200 bg-slate-100 text-slate-600',
-		in_progress: 'border-emerald-200 bg-emerald-50 text-emerald-700'
+		in_progress: 'border-amber-200 bg-amber-50 text-amber-700',
+		verified: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+		rejected: 'border-rose-200 bg-rose-50 text-rose-700',
+		merged: 'border-slate-200 bg-slate-50 text-slate-500'
 	};
 </script>
 
@@ -39,7 +42,7 @@
 			<span
 				class={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone[issue.status] || statusTone.open}`}
 			>
-				{statusLabel[issue.status] || issue.status}
+				{statusLabel[issue.status] || getStatusLabel(issue.status)}
 			</span>
 		</div>
 
@@ -92,7 +95,7 @@
 			</div>
 			<div class="rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
 				<div class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Status</div>
-				<p class="mt-2 text-sm font-semibold text-slate-800">{statusLabel[issue.status] || issue.status}</p>
+				<p class="mt-2 text-sm font-semibold text-slate-800">{statusLabel[issue.status] || getStatusLabel(issue.status)}</p>
 			</div>
 		</div>
 	</div>

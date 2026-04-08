@@ -435,7 +435,6 @@ Dokumen ini disusun dari:
 
 - File SQL eksternal historis tidak lagi menjadi source of truth; baseline repo yang baru adalah referensi utama untuk fresh bootstrap.
 - File SQL historis memang memiliki typo formatting `submission_media` (`widthINT/heightINT`); baseline dan migration repo sekarang menormalkan kolom menjadi `width` / `height`.
-- Sebagian query backend masih memeriksa status issue historis `verified` / `in_progress`; baseline repo tidak memperluas enum issue untuk itu dan menganggap keduanya sebagai mismatch code-level yang perlu dibersihkan terpisah.
 
 ## Read This Next
 

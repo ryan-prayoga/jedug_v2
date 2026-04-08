@@ -96,7 +96,6 @@ Dependency flow: `handler -> service -> repository/storage`.
 
 - Schema memiliki tabel akun user (users/oauth/sessions), tetapi alur aktif admin masih env + in-memory session.
 - Nginx/PM2 config runtime tidak disimpan di repo.
-- Sebagian query backend masih defensif terhadap status historis `verified` / `in_progress`, sementara baseline schema issue yang terversion hanya mendefinisikan `open/fixed/archived/rejected/merged`.
 
 ## Read This Next
 

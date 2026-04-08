@@ -87,10 +87,13 @@ var statsScopedIssuesCTE = fmt.Sprintf(`
 			NULLIF(BTRIM(s.regency_name), '') AS regency_name,
 			NULLIF(BTRIM(s.province_name), '') AS province_name
 		FROM issue_submissions s
-		WHERE s.region_id IS NOT NULL
-		   OR NULLIF(BTRIM(s.district_name), '') IS NOT NULL
-		   OR NULLIF(BTRIM(s.regency_name), '') IS NOT NULL
-		   OR NULLIF(BTRIM(s.province_name), '') IS NOT NULL
+		WHERE s.status NOT IN ('rejected', 'spam')
+		  AND (
+			s.region_id IS NOT NULL
+			OR NULLIF(BTRIM(s.district_name), '') IS NOT NULL
+			OR NULLIF(BTRIM(s.regency_name), '') IS NOT NULL
+			OR NULLIF(BTRIM(s.province_name), '') IS NOT NULL
+		  )
 		ORDER BY s.issue_id, s.reported_at DESC, s.created_at DESC
 	), base_issues AS (
 	SELECT
@@ -497,7 +500,7 @@ func (r *statsRepository) querySummary(ctx context.Context, scope domain.PublicS
 			COALESCE(SUM(normalized.photo_count), 0)::bigint AS total_photos,
 			COALESCE(SUM(normalized.submission_count), 0)::bigint AS total_reports,
 			COUNT(*) FILTER (
-				WHERE normalized.status IN ('open', 'verified', 'in_progress')
+				WHERE normalized.status = 'open'
 			)::bigint AS open_issues,
 			COUNT(*) FILTER (
 				WHERE normalized.status = 'fixed'
@@ -525,7 +528,7 @@ func (r *statsRepository) querySummary(ctx context.Context, scope domain.PublicS
 							0
 						) / 86400.0
 					)
-				) FILTER (WHERE normalized.status IN ('open', 'verified', 'in_progress')),
+				) FILTER (WHERE normalized.status = 'open'),
 				0
 			)::bigint AS oldest_open_issue_age_days
 		FROM normalized
@@ -688,7 +691,7 @@ func (r *statsRepository) queryOldestOpenIssue(ctx context.Context, scope domain
 			)::bigint AS age_days,
 			normalized.first_seen_at
 		FROM normalized
-		WHERE normalized.status IN ('open', 'verified', 'in_progress')
+		WHERE normalized.status = 'open'
 	`, `
 		ORDER BY normalized.first_seen_at ASC, normalized.last_seen_at ASC
 		LIMIT 1

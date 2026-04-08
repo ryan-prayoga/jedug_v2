@@ -45,10 +45,13 @@ var publicIssueScopedCTE = fmt.Sprintf(`
 			NULLIF(BTRIM(s.regency_name), '') AS regency_name,
 			NULLIF(BTRIM(s.province_name), '') AS province_name
 		FROM issue_submissions s
-		WHERE s.region_id IS NOT NULL
-		   OR NULLIF(BTRIM(s.district_name), '') IS NOT NULL
-		   OR NULLIF(BTRIM(s.regency_name), '') IS NOT NULL
-		   OR NULLIF(BTRIM(s.province_name), '') IS NOT NULL
+		WHERE s.status NOT IN ('rejected', 'spam')
+		  AND (
+			s.region_id IS NOT NULL
+			OR NULLIF(BTRIM(s.district_name), '') IS NOT NULL
+			OR NULLIF(BTRIM(s.regency_name), '') IS NOT NULL
+			OR NULLIF(BTRIM(s.province_name), '') IS NOT NULL
+		  )
 		ORDER BY s.issue_id, s.reported_at DESC, s.created_at DESC
 	), base_issues AS (
 		SELECT
@@ -356,7 +359,7 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 		FROM submission_media sm
 		JOIN issue_submissions s ON s.id = sm.submission_id
 		WHERE s.issue_id = $1
-		  AND s.status <> 'rejected'
+		  AND s.status NOT IN ('rejected', 'spam')
 		ORDER BY sm.is_primary DESC, sm.sort_order ASC, sm.created_at DESC
 		LIMIT 20
 	`, id)
@@ -390,7 +393,7 @@ func (r *issueRepository) FindByIDWithDetail(ctx context.Context, id uuid.UUID) 
 		SELECT id, status, severity, has_casualty, casualty_count, note, reported_at
 		FROM issue_submissions
 		WHERE issue_id = $1
-		  AND status <> 'rejected'
+		  AND status NOT IN ('rejected', 'spam')
 		ORDER BY reported_at DESC
 		LIMIT 3
 	`, id)

@@ -24,5 +24,4 @@ Intended direction:
 
 Known mismatch:
 
-- sebagian query backend masih defensif terhadap status historis `verified` / `in_progress`, sementara baseline schema issue tetap mendefinisikan status kanonik `open/fixed/archived/rejected/merged`.
 - tabel `notifications.event_id` sengaja belum diberi FK ke `issue_events.id` agar rollout ke environment lama tetap aman; relasi saat ini logical-only.

@@ -19,35 +19,41 @@ type Tone = {
 
 const STATUS_LABELS: Record<string, string> = {
 	open: 'Terbuka',
-	verified: 'Terverifikasi',
-	in_progress: 'Diproses',
 	fixed: 'Selesai',
 	archived: 'Diarsipkan',
 	rejected: 'Ditolak',
-	merged: 'Digabung'
+	merged: 'Digabung',
+	verified: 'Terverifikasi',
+	in_progress: 'Diproses',
+	closed: 'Selesai'
 };
 
 const STATUS_TONES: Record<string, Tone> = {
 	open: { bg: '#EFF6FF', text: '#2563EB' },
-	verified: { bg: '#F0FDF4', text: '#16A34A' },
-	in_progress: { bg: '#FEF3C7', text: '#B45309' },
 	fixed: { bg: '#F1F5F9', text: '#64748B' },
 	archived: { bg: '#F1F5F9', text: '#64748B' },
 	rejected: { bg: '#FEF2F2', text: '#DC2626' },
-	merged: { bg: '#F8FAFC', text: '#64748B' }
+	merged: { bg: '#F8FAFC', text: '#64748B' },
+	verified: { bg: '#F0FDF4', text: '#16A34A' },
+	in_progress: { bg: '#FEF3C7', text: '#B45309' },
+	closed: { bg: '#F1F5F9', text: '#64748B' }
 };
 
 const VERIFICATION_LABELS: Record<string, string> = {
+	admin_verified: 'Diverifikasi Admin',
+	community_verified: 'Terverifikasi Komunitas',
+	unverified: 'Belum Diverifikasi',
 	verified: 'Terverifikasi',
 	pending: 'Menunggu Verifikasi',
-	unverified: 'Belum Diverifikasi',
 	rejected: 'Verifikasi Ditolak'
 };
 
 const VERIFICATION_TONES: Record<string, Tone> = {
+	admin_verified: { bg: '#DCFCE7', text: '#166534' },
+	community_verified: { bg: '#ECFDF5', text: '#15803D' },
+	unverified: { bg: '#F1F5F9', text: '#475569' },
 	verified: { bg: '#DCFCE7', text: '#166534' },
 	pending: { bg: '#FEF3C7', text: '#92400E' },
-	unverified: { bg: '#F1F5F9', text: '#475569' },
 	rejected: { bg: '#FEE2E2', text: '#991B1B' }
 };
 

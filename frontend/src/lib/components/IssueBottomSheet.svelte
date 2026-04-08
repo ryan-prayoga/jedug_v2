@@ -9,7 +9,7 @@
 		MapIcon
 	} from '$lib/icons';
 	import { relativeTime } from '$lib/utils/date';
-	import { getIssueRoadOrAreaLabel } from '$lib/utils/issue-detail';
+	import { getIssueRoadOrAreaLabel, getStatusLabel, getStatusTone } from '$lib/utils/issue-detail';
 
 	let {
 		issue,
@@ -34,20 +34,9 @@
 
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
 	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
-	const statusLabel: Record<string, string> = {
-		open: 'Terbuka',
-		fixed: 'Selesai',
-		archived: 'Diarsipkan'
-	};
-	const statusColor: Record<string, { bg: string; text: string }> = {
-		open: { bg: '#EFF6FF', text: '#2563EB' },
-		fixed: { bg: '#F1F5F9', text: '#64748B' },
-		archived: { bg: '#F1F5F9', text: '#64748B' }
-	};
-
 	function getStatusStyle(status: string) {
-		const sc = statusColor[status] || statusColor.open;
-		return `background: ${sc.bg}; color: ${sc.text}`;
+		const tone = getStatusTone(status);
+		return `background: ${tone.bg}; color: ${tone.text}`;
 	}
 
 	function handleOverlayClick() {
@@ -190,7 +179,7 @@
 							class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
 							style={getStatusStyle(issue.status)}
 						>
-							{statusLabel[issue.status] || issue.status}
+								{getStatusLabel(issue.status)}
 						</span>
 					</div>
 					<button class="btn-icon size-10" type="button" onclick={onclose} aria-label="Tutup detail issue">

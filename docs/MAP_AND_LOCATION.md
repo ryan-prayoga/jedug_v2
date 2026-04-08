@@ -75,7 +75,7 @@ Heatmap publik saat ini tidak memakai density mentah. Bobot titik dihitung ringa
 - submission bonus:
   - `+0.02` per laporan tambahan, capped di 4 laporan tambahan
 - status multiplier:
-  - `open/in_progress/verified`: `1.0`
+  - `open`: `1.0`
   - `fixed/archived`: `0.45`
 - final weight di-clamp ke rentang `0.08..1.00`
 
@@ -138,7 +138,6 @@ Di halaman `/lapor`:
 
 ## Known Mismatch
 
-- Perbedaan mapping label status antar komponen bisa membuat label tidak konsisten.
 - beberapa perubahan kecil pada DOM/event marker bisa memicu regressi selected marker vs sheet behavior.
 
 ## Read This Next
