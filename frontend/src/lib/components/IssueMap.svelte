@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import maplibregl, { type MapLayerMouseEvent } from 'maplibre-gl';
-	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type { Issue } from '$lib/api/types';
 	import type { BBox } from '$lib/utils/bbox';
 	import { getIssueHeatWeight, type MapVisualMode } from '$lib/utils/issue-heatmap';
+	import type {
+		GeoJSONSource,
+		GeolocateControl,
+		Map as MapLibreMap,
+		MapLayerMouseEvent,
+		MapMouseEvent
+	} from 'maplibre-gl';
 
 	let {
 		issues = [],
@@ -47,14 +52,19 @@
 		features: IssueFeature[];
 	};
 
+	type MapLibreModule = typeof import('maplibre-gl');
+
 	let mapContainer: HTMLDivElement;
-	let map: maplibregl.Map | null = null;
-	let geolocateControl: maplibregl.GeolocateControl | null = null;
+	let map: MapLibreMap | null = null;
+	let geolocateControl: GeolocateControl | null = null;
 	let mapReady = $state(false);
+	let maplibreLoading = $state(true);
 	let didAutoGeolocate = false;
 	let clusteringEnabled = $state(true);
 	let heatmapAvailable = $state(true);
 	let issueByID = new Map<string, Issue>();
+	let maplibreModule: MapLibreModule | null = null;
+	let maplibreModulePromise: Promise<MapLibreModule> | null = null;
 
 	const DEFAULT_CENTER: [number, number] = [110.4, -7.0];
 	const DEFAULT_ZOOM = 7;
@@ -211,11 +221,25 @@
 		return [HEATMAP_DENSITY_LAYER_ID, HEATMAP_POINT_LAYER_ID];
 	}
 
-	function getSource(sourceID: string): maplibregl.GeoJSONSource | null {
+	async function loadMapLibreModule(): Promise<MapLibreModule> {
+		if (maplibreModule) return maplibreModule;
+		if (!maplibreModulePromise) {
+			maplibreModulePromise = Promise.all([
+				import('maplibre-gl'),
+				import('maplibre-gl/dist/maplibre-gl.css')
+			]).then(([module]) => {
+				maplibreModule = module;
+				return module;
+			});
+		}
+		return maplibreModulePromise;
+	}
+
+	function getSource(sourceID: string): GeoJSONSource | null {
 		if (!map) return null;
 		const source = map.getSource(sourceID);
 		if (!source) return null;
-		return source as maplibregl.GeoJSONSource;
+		return source as GeoJSONSource;
 	}
 
 	function setSourceData(sourceID: string, featureCollection: IssueFeatureCollection) {
@@ -518,7 +542,7 @@
 		return layerIDs;
 	}
 
-	function isInteractiveFeatureClick(event: maplibregl.MapMouseEvent): boolean {
+	function isInteractiveFeatureClick(event: MapMouseEvent): boolean {
 		if (!map) return false;
 		const activeLayers = interactiveLayerIDs(visualMode).filter((layerID) => Boolean(map?.getLayer(layerID)));
 		if (activeLayers.length === 0) return false;
@@ -653,52 +677,68 @@
 	});
 
 	onMount(() => {
-		try {
-			map = new maplibregl.Map({
-				container: mapContainer,
-				style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-				center: DEFAULT_CENTER,
-				zoom: DEFAULT_ZOOM,
-				attributionControl: false
-			});
+		let disposed = false;
 
-			map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
-			map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-			geolocateControl = new maplibregl.GeolocateControl({
-				positionOptions: { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
-				trackUserLocation: false,
-				showUserLocation: true,
-				fitBoundsOptions: {
-					maxZoom: USER_ZOOM,
-					duration: 1000
+		void (async () => {
+			try {
+				const maplibre = await loadMapLibreModule();
+				if (disposed || !mapContainer) return;
+
+				map = new maplibre.Map({
+					container: mapContainer,
+					style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+					center: DEFAULT_CENTER,
+					zoom: DEFAULT_ZOOM,
+					attributionControl: false
+				});
+
+				map.addControl(new maplibre.AttributionControl({ compact: true }), 'bottom-right');
+				map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
+				geolocateControl = new maplibre.GeolocateControl({
+					positionOptions: { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+					trackUserLocation: false,
+					showUserLocation: true,
+					fitBoundsOptions: {
+						maxZoom: USER_ZOOM,
+						duration: 1000
+					}
+				});
+				map.addControl(geolocateControl, 'top-right');
+
+				map.on('load', () => {
+					if (!setupIssueRendering()) {
+						maplibreLoading = false;
+						return;
+					}
+
+					mapReady = true;
+					maplibreLoading = false;
+					onmapready?.();
+					setIssueSourceData(issues);
+					updateSelectedLayer(visualMode === 'marker' ? selectedIssue?.id ?? null : null);
+					updateVisualMode(visualMode);
+					emitBBox();
+					tryInitialGeolocate();
+				});
+
+				map.on('moveend', emitBBox);
+				map.on('click', (event) => {
+					if (isInteractiveFeatureClick(event)) {
+						return;
+					}
+					onissueselect(null);
+				});
+			} catch (e) {
+				if (!disposed) {
+					maplibreLoading = false;
+					onmaperror?.(e instanceof Error ? e.message : 'Peta gagal dimuat');
 				}
-			});
-			map.addControl(geolocateControl, 'top-right');
+			}
+		})();
 
-			map.on('load', () => {
-				if (!setupIssueRendering()) {
-					return;
-				}
-
-				mapReady = true;
-				onmapready?.();
-				setIssueSourceData(issues);
-				updateSelectedLayer(visualMode === 'marker' ? selectedIssue?.id ?? null : null);
-				updateVisualMode(visualMode);
-				emitBBox();
-				tryInitialGeolocate();
-			});
-
-			map.on('moveend', emitBBox);
-			map.on('click', (event) => {
-				if (isInteractiveFeatureClick(event)) {
-					return;
-				}
-				onissueselect(null);
-			});
-		} catch (e) {
-			onmaperror?.(e instanceof Error ? e.message : 'Peta gagal dimuat');
-		}
+		return () => {
+			disposed = true;
+		};
 	});
 
 	onDestroy(() => {
@@ -711,12 +751,78 @@
 	});
 </script>
 
-<div class="map-wrapper" bind:this={mapContainer}></div>
+<div class="map-shell">
+	<div class="map-wrapper" bind:this={mapContainer}></div>
+	{#if maplibreLoading && !mapReady}
+		<div class="map-loading-overlay">
+			<div class="map-loading-card">
+				<span class="map-loading-dot"></span>
+				<span>Memuat runtime peta...</span>
+			</div>
+		</div>
+	{/if}
+</div>
 
 <style>
+	.map-shell {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		min-height: 300px;
+	}
+
 	.map-wrapper {
 		width: 100%;
 		height: 100%;
 		min-height: 300px;
+	}
+
+	.map-loading-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+		background:
+			radial-gradient(circle at top left, rgba(229, 72, 77, 0.14), transparent 28%),
+			linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(238, 242, 247, 0.94));
+	}
+
+	.map-loading-card {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.75rem;
+		border: 1px solid rgba(226, 232, 240, 0.92);
+		border-radius: 999px;
+		padding: 0.875rem 1rem;
+		background: rgba(255, 255, 255, 0.96);
+		box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+		color: #475569;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.map-loading-dot {
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 999px;
+		background: #e5484d;
+		animation: map-loading-pulse 1.2s ease-in-out infinite;
+	}
+
+	@keyframes map-loading-pulse {
+		0%,
+		100% {
+			transform: scale(0.85);
+			opacity: 0.45;
+		}
+
+		50% {
+			transform: scale(1);
+			opacity: 1;
+		}
 	}
 </style>

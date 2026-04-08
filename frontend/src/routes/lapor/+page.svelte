@@ -378,6 +378,14 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Laporkan Jalan Rusak | JEDUG</title>
+	<meta
+		name="description"
+		content="Kirim laporan jalan rusak secara anonim lewat JEDUG dengan lokasi akurat, foto bukti, dan tingkat keparahan yang jelas."
+	/>
+</svelte:head>
+
 <div class="public-stack">
 	<section class="jedug-card overflow-hidden">
 		<div class="grid gap-5 px-5 py-6 sm:px-6">

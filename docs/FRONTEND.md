@@ -81,6 +81,7 @@
   - lazy-load data hanya saat panel dibuka agar app init tetap ringan
   - mendukung autofill koordinat dari geolocation browser + input manual
 - `IssueMap.svelte`
+  - runtime `maplibre-gl` + CSS kini dilazy-load saat komponen mount agar shell `/issues` bisa tampil lebih dulu
   - inisialisasi MapLibre
   - marker publik via `GeoJSON source + layers`
   - heatmap publik severity-aware via `GeoJSON source + heatmap/circle layers`
@@ -432,6 +433,8 @@
 ## Integrasi Upload + Submit
 
 Di `/lapor`:
+
+- route sekarang punya metadata halaman eksplisit (`title` + meta `description`) agar navigasi client-side tidak mewarisi head dari route publik sebelumnya.
 
 1. Ambil lokasi (auto/fallback manual input).
 2. Resolve label lokasi manusiawi via endpoint internal `GET /api/v1/location/label`.

@@ -25,6 +25,29 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-04-08 - Map Runtime Lazy-Load + Metadata Fix `/lapor`
+
+- Scope:
+  - mempercepat shell `/issues` saat route peta dibuka tanpa mengubah kontrak API, sekaligus menutup bug metadata client-side pada `/lapor`.
+
+### Frontend
+
+1. `IssueMap.svelte` tidak lagi mengimpor `maplibre-gl` dan CSS-nya secara eager di entry komponen.
+2. Runtime MapLibre kini dilazy-load saat komponen mount, sehingga wrapper route `/issues` bisa tampil dulu sambil library peta diunduh.
+3. Ditambahkan overlay loading ringan di level komponen peta agar state sebelum runtime MapLibre siap tetap jelas bagi user.
+4. `routes/lapor/+page.svelte` sekarang punya `svelte:head` sendiri (`title` + `meta description`), jadi navigasi dari `/stats` atau route lain tidak lagi meninggalkan title lama di browser.
+
+### Dampak
+
+5. Perubahan ini memperbaiki jalur loading `/issues`, tetapi tidak menghilangkan fakta bahwa byte utama MapLibre tetap besar; warning build hanya akan hilang penuh jika library dieksternalisasi atau stack peta diganti.
+6. Smoke test browser manual di preview lokal (dengan mock API) berhasil melewati `/`, notification center, `/issues`, `/issues/[id]`, `/stats`, dan `/lapor`; temuan runtime yang tersisa hanya `favicon.ico 404`.
+
+### Docs
+
+7. Diperbarui:
+   - `docs/FRONTEND.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-04-08 - Notification Center Public Shell Dilazy-Load
 
 - Scope:
