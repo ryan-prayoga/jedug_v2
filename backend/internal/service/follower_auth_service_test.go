@@ -10,8 +10,7 @@ import (
 )
 
 type followerAuthRepoStub struct {
-	bindings     map[uuid.UUID]*domain.FollowerAuthBinding
-	hasFootprint bool
+	bindings map[uuid.UUID]*domain.FollowerAuthBinding
 }
 
 func (s *followerAuthRepoStub) GetByFollowerID(_ context.Context, followerID uuid.UUID) (*domain.FollowerAuthBinding, error) {
@@ -30,10 +29,6 @@ func (s *followerAuthRepoStub) Upsert(_ context.Context, followerID uuid.UUID, d
 		UpdatedAt:       now,
 	}
 	return nil
-}
-
-func (s *followerAuthRepoStub) HasFootprint(_ context.Context, _ uuid.UUID) (bool, error) {
-	return s.hasFootprint, nil
 }
 
 type issueFollowRepoForAuthStub struct {
@@ -58,7 +53,7 @@ func (s *issueFollowRepoForAuthStub) IsFollowing(context.Context, uuid.UUID, uui
 
 func TestFollowerAuthServiceIssueAndAuthenticateToken(t *testing.T) {
 	repo := &followerAuthRepoStub{}
-	followRepo := &issueFollowRepoForAuthStub{}
+	followRepo := &issueFollowRepoForAuthStub{following: true}
 	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
 		Secret:    []byte("01234567890123456789012345678901"),
 		TTL:       time.Hour,
@@ -98,6 +93,45 @@ func TestFollowerAuthServiceIssueAndAuthenticateToken(t *testing.T) {
 	}
 }
 
+func TestFollowerAuthServiceAuthorizeFollowMutationRejectsBindingMismatch(t *testing.T) {
+	followerID := uuid.New()
+	repo := &followerAuthRepoStub{
+		bindings: map[uuid.UUID]*domain.FollowerAuthBinding{
+			followerID: {
+				FollowerID:      followerID,
+				DeviceTokenHash: "other-hash",
+				CreatedAt:       time.Now().UTC(),
+				UpdatedAt:       time.Now().UTC(),
+			},
+		},
+	}
+	followRepo := &issueFollowRepoForAuthStub{}
+	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
+		Secret:    []byte("01234567890123456789012345678901"),
+		TTL:       time.Hour,
+		StreamTTL: 5 * time.Minute,
+	})
+
+	if err := svc.AuthorizeFollowMutation(context.Background(), followerID, "device-token-123"); err != ErrFollowerBindingMismatch {
+		t.Fatalf("expected ErrFollowerBindingMismatch, got %v", err)
+	}
+}
+
+func TestFollowerAuthServiceRejectsFollowMutationClaimWithoutExistingFollow(t *testing.T) {
+	repo := &followerAuthRepoStub{}
+	followRepo := &issueFollowRepoForAuthStub{}
+	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
+		Secret:    []byte("01234567890123456789012345678901"),
+		TTL:       time.Hour,
+		StreamTTL: 5 * time.Minute,
+	})
+
+	_, err := svc.IssueForFollowMutation(context.Background(), uuid.New(), uuid.New(), "device-token-123")
+	if err != ErrFollowerBindingNotFound {
+		t.Fatalf("expected ErrFollowerBindingNotFound, got %v", err)
+	}
+}
+
 func TestFollowerAuthServiceRejectsBindingMismatch(t *testing.T) {
 	existingFollowerID := uuid.New()
 	repo := &followerAuthRepoStub{
@@ -124,17 +158,18 @@ func TestFollowerAuthServiceRejectsBindingMismatch(t *testing.T) {
 }
 
 func TestFollowerAuthServiceRejectsNotificationAccessWithoutMatchingDeviceToken(t *testing.T) {
+	followerID := uuid.New()
 	repo := &followerAuthRepoStub{}
-	followRepo := &issueFollowRepoForAuthStub{}
+	followRepo := &issueFollowRepoForAuthStub{following: true}
 	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
 		Secret:    []byte("01234567890123456789012345678901"),
 		TTL:       time.Hour,
 		StreamTTL: 5 * time.Minute,
 	}).(*followerAuthService)
 
-	token, err := svc.IssueForNotificationAccess(context.Background(), uuid.New(), "device-token-123")
+	token, err := svc.IssueForFollowMutation(context.Background(), uuid.New(), followerID, "device-token-123")
 	if err != nil {
-		t.Fatalf("IssueForNotificationAccess returned error: %v", err)
+		t.Fatalf("IssueForFollowMutation returned error: %v", err)
 	}
 
 	_, err = svc.AuthenticateNotificationAccess(context.Background(), token.Token, "other-device-token")
@@ -144,17 +179,18 @@ func TestFollowerAuthServiceRejectsNotificationAccessWithoutMatchingDeviceToken(
 }
 
 func TestFollowerAuthServiceRejectsWrongTokenPurpose(t *testing.T) {
+	followerID := uuid.New()
 	repo := &followerAuthRepoStub{}
-	followRepo := &issueFollowRepoForAuthStub{}
+	followRepo := &issueFollowRepoForAuthStub{following: true}
 	svc := NewFollowerAuthService(repo, followRepo, FollowerAuthServiceConfig{
 		Secret:    []byte("01234567890123456789012345678901"),
 		TTL:       time.Hour,
 		StreamTTL: 5 * time.Minute,
 	}).(*followerAuthService)
 
-	token, err := svc.IssueForNotificationAccess(context.Background(), uuid.New(), "device-token-123")
+	token, err := svc.IssueForFollowMutation(context.Background(), uuid.New(), followerID, "device-token-123")
 	if err != nil {
-		t.Fatalf("IssueForNotificationAccess returned error: %v", err)
+		t.Fatalf("IssueForFollowMutation returned error: %v", err)
 	}
 
 	if _, err := svc.AuthenticateNotificationAccess(context.Background(), token.StreamToken, "device-token-123"); err != ErrFollowerTokenInvalid {

@@ -27,6 +27,7 @@ var (
 )
 
 type FollowerAuthService interface {
+	AuthorizeFollowMutation(ctx context.Context, followerID uuid.UUID, deviceToken string) error
 	IssueForNotificationAccess(ctx context.Context, followerID uuid.UUID, deviceToken string) (*domain.FollowerAuthToken, error)
 	IssueForFollowMutation(ctx context.Context, issueID, followerID uuid.UUID, deviceToken string) (*domain.FollowerAuthToken, error)
 	AuthenticateNotificationAccess(ctx context.Context, rawToken, deviceToken string) (uuid.UUID, error)
@@ -98,6 +99,24 @@ func (s *followerAuthService) IssueForNotificationAccess(ctx context.Context, fo
 	}
 
 	return s.issueTokenPair(followerID, deviceTokenHash)
+}
+
+func (s *followerAuthService) AuthorizeFollowMutation(ctx context.Context, followerID uuid.UUID, deviceToken string) error {
+	deviceTokenHash, err := normalizeDeviceToken(deviceToken)
+	if err != nil {
+		return err
+	}
+
+	binding, err := s.repo.GetByFollowerID(ctx, followerID)
+	if err != nil {
+		return err
+	}
+
+	if binding != nil && binding.DeviceTokenHash != deviceTokenHash {
+		return ErrFollowerBindingMismatch
+	}
+
+	return nil
 }
 
 func (s *followerAuthService) IssueForFollowMutation(ctx context.Context, issueID, followerID uuid.UUID, deviceToken string) (*domain.FollowerAuthToken, error) {
@@ -217,15 +236,6 @@ func (s *followerAuthService) ensureBinding(
 			return ErrFollowerBindingMismatch
 		}
 		return nil
-	}
-
-	hasFootprint, err := s.repo.HasFootprint(ctx, followerID)
-	if err != nil {
-		return err
-	}
-
-	if !hasFootprint {
-		return s.repo.Upsert(ctx, followerID, deviceTokenHash)
 	}
 
 	if allowIssueClaim && issueID != uuid.Nil {

@@ -232,6 +232,7 @@
   - backend mengikat `follower_id` ke `X-Device-Token` anonim lewat tabel `follower_auth_bindings`
   - response `follow` / `unfollow` / `follow-status` kini juga dapat mengembalikan `follower_token` device-bound untuk endpoint non-SSE, plus `follower_stream_token` khusus SSE
   - endpoint `POST /api/v1/followers/auth` dipakai frontend untuk refresh token notifikasi secara aman tanpa login penuh
+  - binding follower baru tidak lagi dibuat sebelum mutasi `follow` sukses; request `follow-status` / `POST /followers/auth` tanpa binding existing sekarang hanya mengembalikan `follower_binding_not_found`
 - Endpoint publik additive:
   - `POST /api/v1/issues/:id/follow`
   - `DELETE /api/v1/issues/:id/follow`
@@ -248,6 +249,10 @@
   - `follower_id` harus UUID valid dan non-nil
   - `DELETE` / `POST` menerima `follower_id` dari body, dan fallback query param untuk kompatibilitas client/proxy yang tidak mengirim body DELETE dengan stabil
   - `follow` / `unfollow` / `follow-status` sekarang juga memerlukan `X-Device-Token` agar `follower_id` tidak lagi menjadi bearer secret mentah
+- Flow auth mutasi follow:
+  - `POST /issues/:id/follow` memvalidasi `X-Device-Token` dan binding existing lebih dulu, lalu baru menulis row `issue_followers`
+  - binding `follower_auth_bindings` baru diterbitkan setelah follow sukses, sehingga browser baru tidak bisa “pre-claim” `follower_id` tanpa footprint server-side
+  - recovery binding lama yang hilang tetap additive: browser asli masih bisa mengklaim ulang lewat `follow`/`unfollow` pada issue yang memang sudah/sedang ia follow
 - Service memastikan issue target masih issue publik (`FindByID`), sehingga hidden/rejected/merged tidak bisa di-follow dari endpoint publik.
 - Repository menggunakan:
   - `INSERT ... ON CONFLICT (issue_id, follower_id) DO NOTHING` agar follow idempotent dan conflict-safe

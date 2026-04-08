@@ -28,7 +28,7 @@ func (h *IssueFollowHandler) Follow(c *fiber.Ctx) error {
 		return err
 	}
 
-	authToken, authErr := h.authSvc.IssueForFollowMutation(c.Context(), issueID, followerID, c.Get("X-Device-Token"))
+	authErr := h.authSvc.AuthorizeFollowMutation(c.Context(), followerID, c.Get("X-Device-Token"))
 	if authErr != nil {
 		return mapFollowerAuthError(c, authErr)
 	}
@@ -36,6 +36,11 @@ func (h *IssueFollowHandler) Follow(c *fiber.Ctx) error {
 	state, svcErr := h.svc.Follow(c.Context(), issueID, followerID)
 	if svcErr != nil {
 		return mapIssueFollowError(c, svcErr)
+	}
+
+	authToken, authErr := h.authSvc.IssueForFollowMutation(c.Context(), issueID, followerID, c.Get("X-Device-Token"))
+	if authErr != nil {
+		return mapFollowerAuthError(c, authErr)
 	}
 	state.FollowerToken = authToken.Token
 	state.FollowerTokenExpiresAt = &authToken.ExpiresAt

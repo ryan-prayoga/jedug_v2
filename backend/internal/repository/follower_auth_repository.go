@@ -13,7 +13,6 @@ import (
 type FollowerAuthRepository interface {
 	GetByFollowerID(ctx context.Context, followerID uuid.UUID) (*domain.FollowerAuthBinding, error)
 	Upsert(ctx context.Context, followerID uuid.UUID, deviceTokenHash string) error
-	HasFootprint(ctx context.Context, followerID uuid.UUID) (bool, error)
 }
 
 type followerAuthRepository struct {
@@ -54,20 +53,4 @@ func (r *followerAuthRepository) Upsert(ctx context.Context, followerID uuid.UUI
 			updated_at = NOW()
 	`, followerID, deviceTokenHash)
 	return err
-}
-
-func (r *followerAuthRepository) HasFootprint(ctx context.Context, followerID uuid.UUID) (bool, error) {
-	var exists bool
-	err := r.db.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1 FROM issue_followers WHERE follower_id = $1
-			UNION ALL
-			SELECT 1 FROM notifications WHERE follower_id = $1
-			UNION ALL
-			SELECT 1 FROM push_subscriptions WHERE follower_id = $1
-			UNION ALL
-			SELECT 1 FROM nearby_alert_subscriptions WHERE follower_id = $1
-		)
-	`, followerID).Scan(&exists)
-	return exists, err
 }

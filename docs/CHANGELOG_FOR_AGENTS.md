@@ -25,6 +25,31 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-04-08 - Hardening Follower Binding Claim Flow
+
+- Scope:
+  - menutup celah auth follow anonim yang masih bisa membuat binding `follower_id` terlalu dini sebelum footprint follow benar-benar ada.
+
+### Backend
+
+1. `FollowerAuthService` sekarang memisahkan precheck mutasi follow dari penerbitan token final.
+2. `POST /issues/:id/follow` memvalidasi `X-Device-Token` dan binding existing lebih dulu, lalu baru memanggil service `Follow`.
+3. `IssueForFollowMutation` tidak lagi mengizinkan `blind upsert` binding saat follower belum punya relasi follow pada issue target.
+4. Recovery binding legacy tetap ada, tetapi hanya untuk issue yang memang sudah di-follow follower tersebut.
+5. Helper repository `HasFootprint` dihapus karena recovery path tidak lagi bergantung pada footprint generik lintas tabel.
+
+### Dampak
+
+6. Browser baru tidak bisa lagi meng-claim `follower_id` hanya dengan UUID + `X-Device-Token` valid lewat `follow-status` atau preflight auth follow.
+7. Flow follow pertama tetap berjalan: binding diterbitkan setelah row `issue_followers` sukses ditulis dan token response dibuat sesudahnya.
+
+### Docs
+
+8. Diperbarui:
+   - `docs/BACKEND.md`
+   - `docs/DECISIONS.md`
+   - `docs/CHANGELOG_FOR_AGENTS.md`
+
 ## 2026-04-08 - Semantic Fix Panel `/issues` + Favicon Publik
 
 - Scope:
