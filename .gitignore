@@ -5,3 +5,6 @@
 
 
 .idea/
+.playwright*
+.qwen
+output/
