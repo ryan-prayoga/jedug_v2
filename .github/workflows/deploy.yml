@@ -14,120 +14,99 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Pull latest code
+      - name: Deploy backend + frontend
         working-directory: /home/ubuntu/projects/jedug_v2
         run: |
           set -Eeuo pipefail
+
+          # Load PATH
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          export PATH="$HOME/.local/bin:$PATH:/usr/local/go/bin"
+
+          PROJECT_DIR="/home/ubuntu/projects/jedug_v2"
+          BACKEND_DIR="${PROJECT_DIR}/backend"
+          FRONTEND_DIR="${PROJECT_DIR}/frontend"
+          BACKEND_PM2="jedug-backend"
+          FRONTEND_PM2="jedug-frontend"
+          BACKEND_PORT="5000"
+          FRONTEND_PORT="5001"
+
+          fail() { echo "[DEPLOY][ERROR] $1" >&2; exit 1; }
+
+          load_env_file() {
+            local env_file="$1"
+            if [ -f "$env_file" ]; then
+              set -a; . "$env_file"; set +a
+            fi
+          }
+
+          check_pm2_online() {
+            local name="$1"
+            local status
+            status="$(pm2 jlist | node -e "const fs=require('fs'); const input=fs.readFileSync(0,'utf8'); const arr=JSON.parse(input||'[]'); const name=process.argv[1]; const p=arr.find(x=>x.name===name); if(!p){process.exit(2);} console.log(p.pm2_env?.status||'unknown');" "$name")" || fail "PM2 process '${name}' not found"
+            [ "$status" = "online" ] || fail "PM2 '${name}' not online (status=${status})"
+          }
+
+          check_port_listen() {
+            ss -ltn | awk '{print $4}' | grep -E "(^|:)$1$" >/dev/null 2>&1 || fail "Port $1 not listening"
+          }
+
+          echo "[DEPLOY] Pull latest code"
+          cd "$PROJECT_DIR"
           PREVIOUS_REF="$(git rev-parse HEAD)"
-          echo "PREVIOUS_REF=${PREVIOUS_REF}" >> "$GITHUB_ENV"
-          git fetch --prune origin
-          git checkout main
-          git reset --hard origin/main
-          echo "✅ Code updated to $(git rev-parse --short HEAD)"
+          git fetch --prune origin || fail "git fetch failed"
+          git checkout main || fail "git checkout failed"
+          git reset --hard origin/main || fail "git reset failed"
+          TARGET_REF="$(git rev-parse --short HEAD)"
 
-      - name: Load environment
-        working-directory: /home/ubuntu/projects/jedug_v2
-        run: |
-          set -Eeuo pipefail
-          if [ -f backend/.env ]; then
-            set -a
-            . backend/.env
-            set +a
-          fi
-          if [ -f frontend/.env ]; then
-            set -a
-            . frontend/.env
-            set +a
-          fi
-          echo "✅ Environment loaded"
+          echo "[DEPLOY] Load environment"
+          load_env_file "${BACKEND_DIR}/.env"
+          load_env_file "${FRONTEND_DIR}/.env"
 
-      - name: Backend preflight
-        working-directory: /home/ubuntu/projects/jedug_v2/backend
-        run: |
-          set -Eeuo pipefail
-          export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:$PATH"
-          go run ./cmd/preflight || { echo "❌ Backend preflight failed"; exit 1; }
-          ./scripts/verify_schema_governance.sh || { echo "❌ Schema governance failed"; exit 1; }
-          echo "✅ Backend preflight OK"
+          echo "[DEPLOY] Backend preflight"
+          cd "$BACKEND_DIR"
+          go run ./cmd/preflight || fail "Backend preflight failed"
+          ./scripts/verify_schema_governance.sh || fail "Schema governance failed"
 
-      - name: Frontend preflight
-        working-directory: /home/ubuntu/projects/jedug_v2/frontend
-        run: |
-          set -Eeuo pipefail
-          test -n "${PUBLIC_API_BASE_URL:-}" || { echo "❌ PUBLIC_API_BASE_URL not set"; exit 1; }
-          test -n "${PUBLIC_APP_BASE_URL:-}" || { echo "❌ PUBLIC_APP_BASE_URL not set"; exit 1; }
-          echo "✅ Frontend preflight OK"
+          echo "[DEPLOY] Frontend preflight"
+          cd "$FRONTEND_DIR"
+          [ -n "${PUBLIC_API_BASE_URL:-}" ] || fail "PUBLIC_API_BASE_URL not set"
+          [ -n "${PUBLIC_APP_BASE_URL:-}" ] || fail "PUBLIC_APP_BASE_URL not set"
 
-      - name: Build backend (gas)
-        working-directory: /home/ubuntu/projects/jedug_v2/backend
-        run: |
-          set -Eeuo pipefail
-          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:/usr/local/go/bin:$PATH"
-          gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no || {
-            echo "❌ Backend build failed, attempting rollback..."
-            cd /home/ubuntu/projects/jedug_v2
-            git reset --hard "${PREVIOUS_REF}"
-            gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no
-            echo "⚠️ Rolled back to ${PREVIOUS_REF}"
-            exit 1
+          echo "[DEPLOY] Build backend"
+          cd "$BACKEND_DIR"
+          gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || {
+            echo "[DEPLOY][ROLLBACK] Backend build failed, rolling back to ${PREVIOUS_REF}"
+            cd "$PROJECT_DIR" && git reset --hard "$PREVIOUS_REF"
+            cd "$BACKEND_DIR" && gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no
+            fail "Backend build failed; rolled back to ${PREVIOUS_REF}"
           }
-          echo "✅ Backend built"
 
-      - name: Build frontend (gas)
-        working-directory: /home/ubuntu/projects/jedug_v2/frontend
-        run: |
-          set -Eeuo pipefail
-          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:/usr/local/go/bin:$PATH"
-          gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no || {
-            echo "❌ Frontend build failed, attempting rollback..."
-            cd /home/ubuntu/projects/jedug_v2
-            git reset --hard "${PREVIOUS_REF}"
-            cd backend && gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no
-            cd ../frontend && gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no
-            echo "⚠️ Rolled back to ${PREVIOUS_REF}"
-            exit 1
+          echo "[DEPLOY] Build frontend"
+          cd "$FRONTEND_DIR"
+          gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || {
+            echo "[DEPLOY][ROLLBACK] Frontend build failed, rolling back to ${PREVIOUS_REF}"
+            cd "$PROJECT_DIR" && git reset --hard "$PREVIOUS_REF"
+            cd "$BACKEND_DIR" && gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no
+            cd "$FRONTEND_DIR" && gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no
+            fail "Frontend build failed; rolled back to ${PREVIOUS_REF}"
           }
-          echo "✅ Frontend built"
 
-      - name: Verify runtime
-        run: |
-          set -Eeuo pipefail
-          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:$PATH"
+          echo "[DEPLOY] Verify runtime"
+          check_pm2_online "$BACKEND_PM2"
+          check_pm2_online "$FRONTEND_PM2"
+          check_port_listen "$BACKEND_PORT"
+          check_port_listen "$FRONTEND_PORT"
 
-          # Check PM2 processes
-          pm2 jlist | python3 -c "
-          import sys, json
-          arr = json.load(sys.stdin)
-          for name in ['jedug-backend', 'jedug-frontend']:
-              p = next((x for x in arr if x['name'] == name), None)
-              if not p: print(f'❌ {name} not found'); sys.exit(1)
-              if p['pm2_env']['status'] != 'online': print(f'❌ {name} not online'); sys.exit(1)
-              print(f'✅ {name} online')
-          "
+          curl -sf --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:${BACKEND_PORT}/api/v1/health | grep -q '"status":"ok"' || fail "Backend healthcheck failed"
+          curl -sf --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:${FRONTEND_PORT}/health | grep -q '"status":"ok"' || fail "Frontend healthcheck failed"
 
-          # Check ports
-          ss -ltn | awk '{print $4}' | grep -E '(:5000$|:5001$)' || { echo "❌ Ports not listening"; exit 1; }
+          echo "[DEPLOY] Verify public ingress"
+          curl -sf "${PUBLIC_APP_BASE_URL}/health" | grep -q '"status":"ok"' || fail "Public frontend failed"
+          curl -sf "${PUBLIC_API_BASE_URL}/api/v1/health" | grep -q '"status":"ok"' || fail "Public backend failed"
+          curl -sf "${PUBLIC_API_BASE_URL}/api/v1/issues" | grep -q '"success":true' || fail "Public API issues failed"
 
-          # HTTP healthchecks
-          curl -sf --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:5000/api/v1/health | grep -q '"status":"ok"' || { echo "❌ Backend healthcheck failed"; exit 1; }
-          curl -sf --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:5001/health | grep -q '"status":"ok"' || { echo "❌ Frontend healthcheck failed"; exit 1; }
+          pm2 save || fail "pm2 save failed"
 
-          echo "✅ Runtime verification passed"
-
-      - name: Verify public ingress
-        run: |
-          set -Eeuo pipefail
-          test -n "${PUBLIC_APP_BASE_URL:-}" || { echo "❌ PUBLIC_APP_BASE_URL not set"; exit 1; }
-          test -n "${PUBLIC_API_BASE_URL:-}" || { echo "❌ PUBLIC_API_BASE_URL not set"; exit 1; }
-
-          curl -sf "${PUBLIC_APP_BASE_URL}/health" | grep -q '"status":"ok"' || { echo "❌ Public frontend healthcheck failed"; exit 1; }
-          curl -sf "${PUBLIC_API_BASE_URL}/api/v1/health" | grep -q '"status":"ok"' || { echo "❌ Public backend healthcheck failed"; exit 1; }
-          curl -sf "${PUBLIC_API_BASE_URL}/api/v1/issues" | grep -q '"success":true' || { echo "❌ Public API issues failed"; exit 1; }
-
-          echo "✅ Public ingress verification passed"
-
-      - name: Save PM2
-        run: |
-          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:$PATH"
-          pm2 save
-          echo "✅ Deploy complete"
+          echo "[DEPLOY] ✅ Success: backend + frontend healthy at commit ${TARGET_REF}"
