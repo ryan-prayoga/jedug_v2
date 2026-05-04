@@ -11,340 +11,123 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script_stop: true
-          script: |
-            set -Eeuo pipefail
+      - name: Pull latest code
+        working-directory: /home/ubuntu/projects/jedug_v2
+        run: |
+          set -Eeuo pipefail
+          PREVIOUS_REF="$(git rev-parse HEAD)"
+          echo "PREVIOUS_REF=${PREVIOUS_REF}" >> "$GITHUB_ENV"
+          git fetch --prune origin
+          git checkout main
+          git reset --hard origin/main
+          echo "✅ Code updated to $(git rev-parse --short HEAD)"
 
-            PROJECT_DIR="/home/ubuntu/projects/jedug_v2"
-            BACKEND_DIR="${PROJECT_DIR}/backend"
-            FRONTEND_DIR="${PROJECT_DIR}/frontend"
-            BACKEND_PM2="jedug-backend"
-            FRONTEND_PM2="jedug-frontend"
-            BACKEND_PORT="5000"
-            FRONTEND_PORT="5001"
-            DEPLOY_LOCK_FILE="${PROJECT_DIR}/.deploy.lock"
-            PREVIOUS_REF=""
-            TARGET_REF=""
-            DEPLOY_TOUCHED_RUNTIME="0"
-            ROLLBACK_ATTEMPTED="0"
+      - name: Load environment
+        working-directory: /home/ubuntu/projects/jedug_v2
+        run: |
+          set -Eeuo pipefail
+          if [ -f backend/.env ]; then
+            set -a
+            . backend/.env
+            set +a
+          fi
+          if [ -f frontend/.env ]; then
+            set -a
+            . frontend/.env
+            set +a
+          fi
+          echo "✅ Environment loaded"
 
-            fail() {
-              echo "[DEPLOY][ERROR] $1" >&2
-              exit 1
-            }
+      - name: Backend preflight
+        working-directory: /home/ubuntu/projects/jedug_v2/backend
+        run: |
+          set -Eeuo pipefail
+          export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:$PATH"
+          go run ./cmd/preflight || { echo "❌ Backend preflight failed"; exit 1; }
+          ./scripts/verify_schema_governance.sh || { echo "❌ Schema governance failed"; exit 1; }
+          echo "✅ Backend preflight OK"
 
-            load_env_file() {
-              local env_file="$1"
-              if [ -f "$env_file" ]; then
-                set -a
-                # shellcheck disable=SC1090
-                . "$env_file"
-                set +a
-              fi
-            }
+      - name: Frontend preflight
+        working-directory: /home/ubuntu/projects/jedug_v2/frontend
+        run: |
+          set -Eeuo pipefail
+          test -n "${PUBLIC_API_BASE_URL:-}" || { echo "❌ PUBLIC_API_BASE_URL not set"; exit 1; }
+          test -n "${PUBLIC_APP_BASE_URL:-}" || { echo "❌ PUBLIC_APP_BASE_URL not set"; exit 1; }
+          echo "✅ Frontend preflight OK"
 
-            require_command() {
-              local cmd="$1"
-              command -v "$cmd" >/dev/null 2>&1 || fail "Command wajib tidak ditemukan: $cmd"
-            }
+      - name: Build backend (gas)
+        working-directory: /home/ubuntu/projects/jedug_v2/backend
+        run: |
+          set -Eeuo pipefail
+          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:/usr/local/go/bin:$PATH"
+          gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no || {
+            echo "❌ Backend build failed, attempting rollback..."
+            cd /home/ubuntu/projects/jedug_v2
+            git reset --hard "${PREVIOUS_REF}"
+            gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no
+            echo "⚠️ Rolled back to ${PREVIOUS_REF}"
+            exit 1
+          }
+          echo "✅ Backend built"
 
-            normalize_url() {
-              local raw="${1:-}"
-              raw="${raw%/}"
-              printf '%s' "$raw"
-            }
+      - name: Build frontend (gas)
+        working-directory: /home/ubuntu/projects/jedug_v2/frontend
+        run: |
+          set -Eeuo pipefail
+          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:/usr/local/go/bin:$PATH"
+          gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no || {
+            echo "❌ Frontend build failed, attempting rollback..."
+            cd /home/ubuntu/projects/jedug_v2
+            git reset --hard "${PREVIOUS_REF}"
+            cd backend && gas build --no-ui --yes --type go --pm2-name jedug-backend --port 5000 --git-pull no
+            cd ../frontend && gas build --no-ui --yes --type node-web --pm2-name jedug-frontend --port 5001 --git-pull no
+            echo "⚠️ Rolled back to ${PREVIOUS_REF}"
+            exit 1
+          }
+          echo "✅ Frontend built"
 
-            ensure_gas_ready() {
-              if command -v gas >/dev/null 2>&1; then
-                echo "[DEPLOY] gas tersedia: $(command -v gas)"
-                return 0
-              fi
+      - name: Verify runtime
+        run: |
+          set -Eeuo pipefail
+          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:$PATH"
 
-              fail "gas tidak ditemukan di PATH"
-            }
+          # Check PM2 processes
+          pm2 jlist | python3 -c "
+          import sys, json
+          arr = json.load(sys.stdin)
+          for name in ['jedug-backend', 'jedug-frontend']:
+              p = next((x for x in arr if x['name'] == name), None)
+              if not p: print(f'❌ {name} not found'); sys.exit(1)
+              if p['pm2_env']['status'] != 'online': print(f'❌ {name} not online'); sys.exit(1)
+              print(f'✅ {name} online')
+          "
 
-            ensure_pm2_ready() {
-              local node_bin_dir
+          # Check ports
+          ss -ltn | awk '{print $4}' | grep -E '(:5000$|:5001$)' || { echo "❌ Ports not listening"; exit 1; }
 
-              # Non-interactive SSH kadang tidak mewarisi PATH Node dari shell login.
-              if [ -d "$HOME/.nvm/versions/node" ]; then
-                node_bin_dir="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin | sort | tail -n 1 || true)"
-                if [ -n "${node_bin_dir:-}" ]; then
-                  export PATH="$node_bin_dir:$PATH"
-                fi
-              fi
+          # HTTP healthchecks
+          curl -sf --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:5000/api/v1/health | grep -q '"status":"ok"' || { echo "❌ Backend healthcheck failed"; exit 1; }
+          curl -sf --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:5001/health | grep -q '"status":"ok"' || { echo "❌ Frontend healthcheck failed"; exit 1; }
 
-              if command -v pm2 >/dev/null 2>&1; then
-                echo "[DEPLOY] PM2 tersedia: $(command -v pm2)"
-                return 0
-              fi
+          echo "✅ Runtime verification passed"
 
-              if ! command -v npm >/dev/null 2>&1; then
-                fail "PM2 tidak ditemukan dan npm juga tidak tersedia di PATH"
-              fi
+      - name: Verify public ingress
+        run: |
+          set -Eeuo pipefail
+          test -n "${PUBLIC_APP_BASE_URL:-}" || { echo "❌ PUBLIC_APP_BASE_URL not set"; exit 1; }
+          test -n "${PUBLIC_API_BASE_URL:-}" || { echo "❌ PUBLIC_API_BASE_URL not set"; exit 1; }
 
-              echo "[DEPLOY] PM2 belum tersedia. Install user-local via npm..."
-              export PATH="$HOME/.local/bin:$PATH"
-              npm install -g pm2 --prefix "$HOME/.local" || fail "install PM2 gagal"
-              hash -r
+          curl -sf "${PUBLIC_APP_BASE_URL}/health" | grep -q '"status":"ok"' || { echo "❌ Public frontend healthcheck failed"; exit 1; }
+          curl -sf "${PUBLIC_API_BASE_URL}/api/v1/health" | grep -q '"status":"ok"' || { echo "❌ Public backend healthcheck failed"; exit 1; }
+          curl -sf "${PUBLIC_API_BASE_URL}/api/v1/issues" | grep -q '"success":true' || { echo "❌ Public API issues failed"; exit 1; }
 
-              command -v pm2 >/dev/null 2>&1 || fail "PM2 tetap tidak ditemukan setelah instalasi"
-              echo "[DEPLOY] PM2 siap: $(command -v pm2)"
-            }
+          echo "✅ Public ingress verification passed"
 
-            check_pm2_online() {
-              local process_name="$1"
-              local status_line
-
-              status_line="$(pm2 jlist | node -e "const fs=require('fs'); const input=fs.readFileSync(0,'utf8'); const arr=JSON.parse(input||'[]'); const name=process.argv[1]; const p=arr.find(x=>x.name===name); if(!p){process.exit(2);} console.log(p.pm2_env?.status||'unknown');" "$process_name")" || fail "Proses PM2 '${process_name}' tidak ditemukan"
-
-              if [ "$status_line" != "online" ]; then
-                fail "Proses PM2 '${process_name}' tidak online (status=${status_line})"
-              fi
-            }
-
-            check_port_listen() {
-              local port="$1"
-              if ! ss -ltn | awk '{print $4}' | grep -E "(^|:)$port$" >/dev/null 2>&1; then
-                fail "Port ${port} tidak dalam kondisi LISTEN"
-              fi
-            }
-
-            http_check_exact() {
-              local name="$1"
-              local url="$2"
-              local expected_status="$3"
-              local expected_substring="${4:-}"
-              local body_file
-              local status_code
-
-              body_file="$(mktemp)"
-              status_code="$(
-                curl \
-                  --silent \
-                  --show-error \
-                  --output "$body_file" \
-                  --write-out '%{http_code}' \
-                  --retry 12 \
-                  --retry-delay 2 \
-                  --retry-connrefused \
-                  --connect-timeout 2 \
-                  --max-time 5 \
-                  --location \
-                  "$url"
-              )" || {
-                echo "[DEPLOY][ERROR] HTTP check ${name} gagal menghubungi ${url}" >&2
-                cat "$body_file" >&2 || true
-                rm -f "$body_file"
-                return 1
-              }
-
-              if [ "$status_code" != "$expected_status" ]; then
-                echo "[DEPLOY][ERROR] HTTP check ${name} gagal (expected=${expected_status}, actual=${status_code}, url=${url})" >&2
-                cat "$body_file" >&2 || true
-                rm -f "$body_file"
-                return 1
-              fi
-
-              if [ -n "$expected_substring" ] && ! grep -F "$expected_substring" "$body_file" >/dev/null 2>&1; then
-                echo "[DEPLOY][ERROR] HTTP check ${name} body tidak mengandung substring wajib: ${expected_substring}" >&2
-                cat "$body_file" >&2 || true
-                rm -f "$body_file"
-                return 1
-              fi
-
-              echo "[DEPLOY] HTTP check ${name} OK (${url})"
-              rm -f "$body_file"
-            }
-
-            http_check_any_status() {
-              local name="$1"
-              local url="$2"
-              local allowed_statuses="$3"
-              local expected_substring="${4:-}"
-              local body_file
-              local status_code
-              local allowed_match="0"
-
-              body_file="$(mktemp)"
-              status_code="$(
-                curl \
-                  --silent \
-                  --show-error \
-                  --output "$body_file" \
-                  --write-out '%{http_code}' \
-                  --retry 8 \
-                  --retry-delay 2 \
-                  --retry-connrefused \
-                  --connect-timeout 3 \
-                  --max-time 8 \
-                  --location \
-                  "$url"
-              )" || {
-                echo "[DEPLOY][ERROR] HTTP check ${name} gagal menghubungi ${url}" >&2
-                cat "$body_file" >&2 || true
-                rm -f "$body_file"
-                return 1
-              }
-
-              for candidate in $allowed_statuses; do
-                if [ "$status_code" = "$candidate" ]; then
-                  allowed_match="1"
-                  break
-                fi
-              done
-
-              if [ "$allowed_match" != "1" ]; then
-                echo "[DEPLOY][ERROR] HTTP check ${name} gagal (allowed=${allowed_statuses}, actual=${status_code}, url=${url})" >&2
-                cat "$body_file" >&2 || true
-                rm -f "$body_file"
-                return 1
-              fi
-
-              if [ -n "$expected_substring" ] && ! grep -F "$expected_substring" "$body_file" >/dev/null 2>&1; then
-                echo "[DEPLOY][ERROR] HTTP check ${name} body tidak mengandung substring wajib: ${expected_substring}" >&2
-                cat "$body_file" >&2 || true
-                rm -f "$body_file"
-                return 1
-              fi
-
-              echo "[DEPLOY] HTTP check ${name} OK (${url})"
-              rm -f "$body_file"
-            }
-
-            verify_runtime_local() {
-              echo "[DEPLOY] Verifikasi runtime lokal: PM2 proses online"
-              check_pm2_online "$BACKEND_PM2"
-              check_pm2_online "$FRONTEND_PM2"
-
-              echo "[DEPLOY] Verifikasi runtime lokal: port backend/frontend LISTEN"
-              check_port_listen "$BACKEND_PORT"
-              check_port_listen "$FRONTEND_PORT"
-
-              echo "[DEPLOY] Verifikasi runtime lokal: healthcheck HTTP backend/frontend"
-              http_check_exact "backend-local-health" "http://127.0.0.1:${BACKEND_PORT}/api/v1/health" "200" '"status":"ok"' || return 1
-              http_check_exact "frontend-local-health" "http://127.0.0.1:${FRONTEND_PORT}/health" "200" '"status":"ok"' || return 1
-            }
-
-            verify_public_ingress() {
-              local public_app_url
-              local public_api_url
-
-              public_app_url="$(normalize_url "${PUBLIC_APP_BASE_URL:-}")"
-              public_api_url="$(normalize_url "${PUBLIC_API_BASE_URL:-}")"
-
-              [ -n "$public_app_url" ] || fail "PUBLIC_APP_BASE_URL belum terkonfigurasi untuk smoke test publik"
-              [ -n "$public_api_url" ] || fail "PUBLIC_API_BASE_URL belum terkonfigurasi untuk smoke test publik"
-
-              echo "[DEPLOY] Verifikasi ingress publik via domain/proxy"
-              http_check_exact "frontend-public-health" "${public_app_url}/health" "200" '"status":"ok"' || return 1
-              http_check_exact "backend-public-health" "${public_api_url}/api/v1/health" "200" '"status":"ok"' || return 1
-              http_check_exact "api-public-issues" "${public_api_url}/api/v1/issues" "200" '"success":true' || return 1
-              http_check_any_status "sse-public-route" "${public_api_url}/api/v1/notifications/stream" "401 403" '"success":false' || return 1
-            }
-
-            rollback_or_fail() {
-              local reason="$1"
-
-              if [ "$DEPLOY_TOUCHED_RUNTIME" != "1" ]; then
-                fail "$reason"
-              fi
-
-              if [ "$ROLLBACK_ATTEMPTED" = "1" ]; then
-                fail "${reason}; rollback sebelumnya juga gagal atau sedang berjalan"
-              fi
-
-              ROLLBACK_ATTEMPTED="1"
-
-              echo "[DEPLOY][ROLLBACK] Triggered: ${reason}"
-              echo "[DEPLOY][ROLLBACK] Kembali ke commit sebelumnya: ${PREVIOUS_REF}"
-
-              cd "$PROJECT_DIR" || fail "Rollback gagal: project directory tidak ditemukan"
-              git reset --hard "$PREVIOUS_REF" || fail "Rollback gagal: git reset ke ${PREVIOUS_REF} gagal"
-
-              cd "$BACKEND_DIR" || fail "Rollback gagal: backend directory tidak ditemukan"
-              gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || fail "Rollback gagal: gas build backend gagal"
-
-              cd "$FRONTEND_DIR" || fail "Rollback gagal: frontend directory tidak ditemukan"
-              gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || fail "Rollback gagal: gas build frontend gagal"
-
-              verify_runtime_local || fail "Rollback gagal: runtime lokal commit sebelumnya tidak healthy"
-              verify_public_ingress || fail "Rollback gagal: ingress publik commit sebelumnya tetap tidak healthy"
-              pm2 save || fail "Rollback gagal: pm2 save gagal"
-
-              fail "${reason}; rollback ke ${PREVIOUS_REF} berhasil dijalankan"
-            }
-
-            preflight_backend() {
-              echo "[DEPLOY] Backend preflight env + startup checks"
-              cd "$BACKEND_DIR" || fail "Backend directory tidak ditemukan: $BACKEND_DIR"
-              go run ./cmd/preflight || fail "Backend preflight gagal"
-
-              echo "[DEPLOY] Backend schema governance verification"
-              ./scripts/verify_schema_governance.sh || fail "Schema governance verification gagal"
-            }
-
-            preflight_frontend() {
-              echo "[DEPLOY] Frontend preflight env checks"
-              cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
-              [ -n "${PUBLIC_API_BASE_URL:-}" ] || fail "PUBLIC_API_BASE_URL belum terkonfigurasi untuk frontend"
-              [ -n "${PUBLIC_APP_BASE_URL:-}" ] || fail "PUBLIC_APP_BASE_URL belum terkonfigurasi untuk smoke test publik frontend"
-            }
-
-            echo "[DEPLOY] Masuk ke project directory"
-            cd "$PROJECT_DIR" || fail "Project directory tidak ditemukan: $PROJECT_DIR"
-
-            exec 9>"$DEPLOY_LOCK_FILE"
-            flock -n 9 || fail "Deploy lain sedang berjalan di VPS"
-
-            echo "[DEPLOY] Pull kode terbaru dari main"
-            PREVIOUS_REF="$(git rev-parse HEAD)" || fail "gagal membaca current commit"
-            git fetch --prune origin || fail "git fetch gagal"
-            TARGET_REF="$(git rev-parse origin/main)" || fail "gagal membaca target commit"
-            git checkout main || fail "git checkout main gagal"
-            git reset --hard origin/main || fail "git reset origin/main gagal"
-
-            echo "[DEPLOY] Pastikan runtime tools tersedia di environment CI non-interactive"
-            ensure_pm2_ready
-            ensure_gas_ready
-            require_command curl
-            require_command flock
-            require_command git
-            require_command go
-            require_command node
-            require_command psql
-            require_command ss
-            echo "[DEPLOY] PM2 logrotate diasumsikan sebagai setup manual satu kali di VPS, bukan bagian deploy utama"
-
-            load_env_file "${BACKEND_DIR}/.env"
-            load_env_file "${FRONTEND_DIR}/.env"
-
-            preflight_backend
-            preflight_frontend
-
-            echo "[DEPLOY] Deploy backend via gas build (non-interactive)"
-            cd "$BACKEND_DIR" || fail "Backend directory tidak ditemukan: $BACKEND_DIR"
-            DEPLOY_TOUCHED_RUNTIME="1"
-            gas build --no-ui --yes --type go --pm2-name "$BACKEND_PM2" --port "$BACKEND_PORT" --git-pull no || rollback_or_fail "gas build backend gagal"
-
-            echo "[DEPLOY] Deploy frontend via gas build (non-interactive)"
-            cd "$FRONTEND_DIR" || fail "Frontend directory tidak ditemukan: $FRONTEND_DIR"
-            gas build --no-ui --yes --type node-web --pm2-name "$FRONTEND_PM2" --port "$FRONTEND_PORT" --git-pull no || rollback_or_fail "gas build frontend gagal"
-
-            verify_runtime_local || rollback_or_fail "runtime verification lokal gagal"
-            verify_public_ingress || rollback_or_fail "public ingress smoke test gagal"
-
-            echo "[DEPLOY] Simpan process list PM2"
-            pm2 save || fail "pm2 save gagal"
-
-            echo "[DEPLOY] Sukses: backend + frontend healthy secara lokal dan publik di commit ${TARGET_REF}"
+      - name: Save PM2
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | sort -V | tail -1)/bin:$PATH"
+          pm2 save
+          echo "✅ Deploy complete"
