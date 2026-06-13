@@ -1,16 +1,21 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"jedug_backend/internal/repository"
 )
 
 const (
 	AdminSessionCookieName   = "jedug_admin_session"
 	AdminSessionCookiePath   = "/api/v1/admin"
 	AdminSessionTTL          = 12 * time.Hour
+	adminSessionOpTimeout    = 5 * time.Second
 	adminLoginWindow         = 15 * time.Minute
 	adminLoginLockout        = 30 * time.Minute
 	adminLoginMaxFailures    = 5
@@ -23,87 +28,75 @@ type AdminSession struct {
 	ExpiresAt time.Time
 }
 
-// SessionStore is a thread-safe in-memory session store.
-type SessionStore struct {
-	mu           sync.RWMutex
-	sessions     map[string]*AdminSession
-	tokenByAdmin map[string]string
+// hashSessionToken returns the SHA-256 hex digest of a raw session token.
+// The raw token is sent to the browser cookie; only this hash is persisted.
+func hashSessionToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
-func NewSessionStore() *SessionStore {
-	return &SessionStore{
-		sessions:     make(map[string]*AdminSession),
-		tokenByAdmin: make(map[string]string),
+// dbSessionStore is a DB-backed admin session store. Sessions survive restarts
+// and enforce a single active session per admin via the repository.
+type dbSessionStore struct {
+	repo repository.AdminSessionRepository
+	ttl  time.Duration
+}
+
+func newDBSessionStore(repo repository.AdminSessionRepository) *dbSessionStore {
+	return &dbSessionStore{
+		repo: repo,
+		ttl:  AdminSessionTTL,
 	}
 }
 
-func (s *SessionStore) Create(username string) (string, error) {
+// Create generates a fresh random token, persists its hash (replacing any prior
+// session for the admin), and returns the RAW token for the cookie.
+func (s *dbSessionStore) Create(username string) (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 	token := hex.EncodeToString(b)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), adminSessionOpTimeout)
+	defer cancel()
 
-	s.cleanupExpiredLocked(time.Now())
-	if previous, ok := s.tokenByAdmin[username]; ok {
-		delete(s.sessions, previous)
+	if err := s.repo.Create(ctx, hashSessionToken(token), username, time.Now().Add(s.ttl)); err != nil {
+		return "", err
 	}
-	s.sessions[token] = &AdminSession{
-		Username:  username,
-		ExpiresAt: time.Now().Add(AdminSessionTTL),
-	}
-	s.tokenByAdmin[username] = token
-
 	return token, nil
 }
 
-func (s *SessionStore) Validate(token string) *AdminSession {
-	now := time.Now()
-
-	s.mu.RLock()
-	sess, ok := s.sessions[token]
-	s.mu.RUnlock()
-
-	if !ok {
+// Validate returns the session for a raw token if it is valid (unrevoked,
+// unexpired), or nil otherwise.
+func (s *dbSessionStore) Validate(token string) *AdminSession {
+	if token == "" {
 		return nil
 	}
-	if now.After(sess.ExpiresAt) {
-		s.Revoke(token)
+
+	ctx, cancel := context.WithTimeout(context.Background(), adminSessionOpTimeout)
+	defer cancel()
+
+	rec, err := s.repo.FindValid(ctx, hashSessionToken(token), time.Now())
+	if err != nil || rec == nil {
 		return nil
 	}
-	return sess
+	return &AdminSession{
+		Username:  rec.Username,
+		ExpiresAt: rec.ExpiresAt,
+	}
 }
 
-func (s *SessionStore) Revoke(token string) {
+// Revoke removes a session by raw token (logout).
+func (s *dbSessionStore) Revoke(token string) {
 	if token == "" {
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), adminSessionOpTimeout)
+	defer cancel()
 
-	sess, ok := s.sessions[token]
-	if !ok {
-		return
-	}
-	delete(s.sessions, token)
-	if current, ok := s.tokenByAdmin[sess.Username]; ok && current == token {
-		delete(s.tokenByAdmin, sess.Username)
-	}
-}
-
-func (s *SessionStore) cleanupExpiredLocked(now time.Time) {
-	for token, sess := range s.sessions {
-		if now.After(sess.ExpiresAt) {
-			delete(s.sessions, token)
-			if current, ok := s.tokenByAdmin[sess.Username]; ok && current == token {
-				delete(s.tokenByAdmin, sess.Username)
-			}
-		}
-	}
+	_ = s.repo.Delete(ctx, hashSessionToken(token))
 }
 
 type adminLoginAttemptState struct {

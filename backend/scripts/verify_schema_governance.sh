@@ -79,6 +79,7 @@ WITH required(name) AS (
         ('nearby_alert_deliveries'),
         ('moderation_actions'),
         ('issue_daily_stats'),
+        ('admin_sessions'),
         ('issue_public_view')
 )
 SELECT name
@@ -135,7 +136,9 @@ WITH missing_named_objects AS (
             ('idx_push_delivery_jobs_ready'),
             ('idx_push_delivery_jobs_delivered_at'),
             ('idx_push_delivery_jobs_failed_at'),
-            ('idx_nearby_alert_subscriptions_geog')
+            ('idx_nearby_alert_subscriptions_geog'),
+            ('idx_admin_sessions_username'),
+            ('idx_admin_sessions_expires_at')
     ) AS required(name)
     WHERE to_regclass('public.' || name) IS NULL
 ),

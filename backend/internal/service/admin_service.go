@@ -44,16 +44,16 @@ type AdminService interface {
 type adminService struct {
 	adminUsername string
 	adminPassword string
-	sessions      *SessionStore
+	sessions      *dbSessionStore
 	loginGuard    *adminLoginGuard
 	repo          repository.AdminRepository
 }
 
-func NewAdminService(username, password string, repo repository.AdminRepository) AdminService {
+func NewAdminService(username, password string, repo repository.AdminRepository, sessionRepo repository.AdminSessionRepository) AdminService {
 	return &adminService{
 		adminUsername: username,
 		adminPassword: password,
-		sessions:      NewSessionStore(),
+		sessions:      newDBSessionStore(sessionRepo),
 		loginGuard:    newAdminLoginGuard(),
 		repo:          repo,
 	}

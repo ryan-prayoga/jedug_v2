@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"jedug_backend/internal/domain"
@@ -95,6 +97,72 @@ func (f *adminRepoFake) AdjustSubmitterTrustScores(_ context.Context, _ uuid.UUI
 	return nil
 }
 
+type adminSessionRepoFake struct {
+	mu           sync.Mutex
+	byTokenHash  map[string]*repository.AdminSessionRecord
+	tokenByAdmin map[string]string
+}
+
+func newAdminSessionRepoFake() *adminSessionRepoFake {
+	return &adminSessionRepoFake{
+		byTokenHash:  make(map[string]*repository.AdminSessionRecord),
+		tokenByAdmin: make(map[string]string),
+	}
+}
+
+func (f *adminSessionRepoFake) Create(_ context.Context, tokenHash, username string, expiresAt time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if previous, ok := f.tokenByAdmin[username]; ok {
+		delete(f.byTokenHash, previous)
+	}
+	f.byTokenHash[tokenHash] = &repository.AdminSessionRecord{Username: username, ExpiresAt: expiresAt}
+	f.tokenByAdmin[username] = tokenHash
+	return nil
+}
+
+func (f *adminSessionRepoFake) FindValid(_ context.Context, tokenHash string, now time.Time) (*repository.AdminSessionRecord, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	rec, ok := f.byTokenHash[tokenHash]
+	if !ok || !rec.ExpiresAt.After(now) {
+		return nil, nil
+	}
+	return &repository.AdminSessionRecord{Username: rec.Username, ExpiresAt: rec.ExpiresAt}, nil
+}
+
+func (f *adminSessionRepoFake) Delete(_ context.Context, tokenHash string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if rec, ok := f.byTokenHash[tokenHash]; ok {
+		if f.tokenByAdmin[rec.Username] == tokenHash {
+			delete(f.tokenByAdmin, rec.Username)
+		}
+		delete(f.byTokenHash, tokenHash)
+	}
+	return nil
+}
+
+func (f *adminSessionRepoFake) DeleteExpired(_ context.Context, cutoff time.Time) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	var deleted int64
+	for hash, rec := range f.byTokenHash {
+		if rec.ExpiresAt.Before(cutoff) {
+			if f.tokenByAdmin[rec.Username] == hash {
+				delete(f.tokenByAdmin, rec.Username)
+			}
+			delete(f.byTokenHash, hash)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 func TestAdminServiceFixIssueDoesNotFailOnAuditErrors(t *testing.T) {
 	repoFake := &adminRepoFake{
 		moderateIssueResult: &repository.IssueStatusModerationResult{
@@ -104,7 +172,7 @@ func TestAdminServiceFixIssueDoesNotFailOnAuditErrors(t *testing.T) {
 		publishStatusErr: errors.New("issue events unavailable"),
 		createActionErr:  errors.New("moderation actions unavailable"),
 	}
-	svc := NewAdminService("admin", "secret", repoFake)
+	svc := NewAdminService("admin", "secret", repoFake, newAdminSessionRepoFake())
 	issueID := uuid.New()
 
 	err := svc.FixIssue(context.Background(), issueID, "admin", nil)
@@ -136,7 +204,7 @@ func TestAdminServiceFixIssueDoesNotFailOnAuditErrors(t *testing.T) {
 
 func TestAdminServiceLoginRevokesPreviousSession(t *testing.T) {
 	repoFake := &adminRepoFake{}
-	svc := NewAdminService("moderator", "super-secret-123", repoFake)
+	svc := NewAdminService("moderator", "super-secret-123", repoFake, newAdminSessionRepoFake())
 
 	firstToken, err := svc.Login("moderator", "super-secret-123", "127.0.0.1|moderator")
 	if err != nil {
@@ -163,7 +231,7 @@ func TestAdminServiceLoginRevokesPreviousSession(t *testing.T) {
 
 func TestAdminServiceLoginLocksAfterRepeatedFailures(t *testing.T) {
 	repoFake := &adminRepoFake{}
-	svc := NewAdminService("moderator", "super-secret-123", repoFake)
+	svc := NewAdminService("moderator", "super-secret-123", repoFake, newAdminSessionRepoFake())
 	fingerprint := "127.0.0.1|moderator"
 
 	for i := 0; i < adminLoginMaxFailures; i++ {
@@ -187,7 +255,7 @@ func TestAdminServiceRejectIssueReturnsNotFound(t *testing.T) {
 	repoFake := &adminRepoFake{
 		moderateIssueErr: repository.ErrModerationTargetNotFound,
 	}
-	svc := NewAdminService("admin", "secret", repoFake)
+	svc := NewAdminService("admin", "secret", repoFake, newAdminSessionRepoFake())
 
 	err := svc.RejectIssue(context.Background(), uuid.New(), "admin", nil)
 	if !errors.Is(err, ErrModerationTargetNotFound) {
@@ -208,7 +276,7 @@ func TestAdminServiceRejectIssueSkipsStatusEventWhenAlreadyRejected(t *testing.T
 			StatusChanged:  false,
 		},
 	}
-	svc := NewAdminService("admin", "secret", repoFake)
+	svc := NewAdminService("admin", "secret", repoFake, newAdminSessionRepoFake())
 	issueID := uuid.New()
 
 	err := svc.RejectIssue(context.Background(), issueID, "admin", nil)
@@ -227,7 +295,7 @@ func TestAdminServiceBanDeviceDoesNotFailOnAuditError(t *testing.T) {
 	repoFake := &adminRepoFake{
 		createActionErr: errors.New("moderation actions unavailable"),
 	}
-	svc := NewAdminService("admin", "secret", repoFake)
+	svc := NewAdminService("admin", "secret", repoFake, newAdminSessionRepoFake())
 
 	err := svc.BanDevice(context.Background(), uuid.New(), "admin", nil)
 	if err != nil {

@@ -27,7 +27,12 @@ type CleanupSummary struct {
 	PushDeliveriesDeliveredDeleted int64
 	PushDeliveriesFailedDeleted    int64
 	UploadOrphansDeleted           int64
+	AdminSessionsDeleted           int64
 }
+
+// adminSessionGrace is how long an expired admin session row is kept before
+// physical deletion, leaving a short window for audit/debugging.
+const adminSessionGrace = 24 * time.Hour
 
 type HealthSnapshot struct {
 	PushReadyCount              int64
@@ -107,6 +112,13 @@ func (s *Store) RunCleanup(ctx context.Context, policy RetentionPolicy) (*Cleanu
 		WHERE failed_at IS NOT NULL
 		  AND failed_at < $1
 	`, now.Add(-policy.PushDeliveryFailedRetention)); err != nil {
+		return nil, err
+	}
+
+	if summary.AdminSessionsDeleted, err = execRowsAffected(ctx, tx, `
+		DELETE FROM admin_sessions
+		WHERE expires_at < $1
+	`, now.Add(-adminSessionGrace)); err != nil {
 		return nil, err
 	}
 

@@ -82,7 +82,7 @@ func (r *Runner) runCycle(trigger string) {
 	}
 
 	log.Printf(
-		"[OPS] retention_completed trigger=%s notifications_deleted=%d push_subscriptions_disabled=%d push_subscriptions_deleted=%d push_deliveries_delivered_deleted=%d push_deliveries_failed_deleted=%d upload_orphans_deleted=%d",
+		"[OPS] retention_completed trigger=%s notifications_deleted=%d push_subscriptions_disabled=%d push_subscriptions_deleted=%d push_deliveries_delivered_deleted=%d push_deliveries_failed_deleted=%d upload_orphans_deleted=%d admin_sessions_deleted=%d",
 		trigger,
 		summary.NotificationsDeleted,
 		summary.PushSubscriptionsDisabled,
@@ -90,6 +90,7 @@ func (r *Runner) runCycle(trigger string) {
 		summary.PushDeliveriesDeliveredDeleted,
 		summary.PushDeliveriesFailedDeleted,
 		summary.UploadOrphansDeleted,
+		summary.AdminSessionsDeleted,
 	)
 }
 

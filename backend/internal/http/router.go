@@ -80,6 +80,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 	adminRepo := repository.NewAdminRepository(db, repository.AdminRepositoryConfig{
 		PushNotifier: pushNotifier,
 	})
+	adminSessionRepo := repository.NewAdminSessionRepository(db)
 	flagRepo := repository.NewFlagRepository(db)
 	locationRepo := repository.NewLocationRepository(db)
 
@@ -116,7 +117,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool) (*fiber.App, error) {
 		PendingLimit:  cfg.UploadPendingLimit,
 	})
 	reportSvc := service.NewReportService(deviceRepo, reportRepo, locationNormalizer, uploadSvc)
-	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo)
+	adminSvc := service.NewAdminService(cfg.AdminUsername, cfg.AdminPassword, adminRepo, adminSessionRepo)
 	flagSvc := service.NewFlagService(deviceRepo, flagRepo, adminRepo)
 	locationSvc := service.NewLocationService(locationRepo, reverseGeocoder)
 
