@@ -2,6 +2,36 @@
 
 Format: tanggal - keputusan - konteks - konsekuensi.
 
+## 2026-06-13 - Admin Session Dipindah ke Tabel `admin_sessions` Dedicated (DB-Backed)
+
+- Keputusan:
+  - admin session store dipindah dari in-memory ke tabel DB dedicated `admin_sessions`, bukan reuse `user_sessions`.
+  - token cookie mentah tetap 32 byte random hex; DB hanya menyimpan `sha256(token)` sebagai `token_hash` (PK).
+  - satu sesi aktif per admin dipertahankan: login baru menghapus sesi lama untuk username tersebut dalam satu transaksi.
+  - login throttle (`adminLoginGuard`) tetap in-memory; cleanup sesi expired dijalankan ops maintenance runner (`DELETE WHERE expires_at < NOW() - 24h`).
+- Konteks:
+  - `user_sessions` punya `user_id UUID NOT NULL REFERENCES users(id)`, sedangkan admin env-based tidak punya row di `users`; reuse akan memaksa seed user palsu yang mengotori model akun masa depan.
+  - in-memory session hilang saat restart backend dan tidak horizontal-scale ready.
+  - kontrak `ValidateSession(token) *AdminSession` dipertahankan utuh sehingga `middleware/admin_auth.go` tidak berubah.
+- Konsekuensi:
+  - sesi admin sekarang bertahan lintas restart; verifikasi: login -> restart backend -> cookie sama tetap valid -> logout -> cookie ditolak.
+  - governance schema di-update di tiga tempat (baseline + migration `202604130001_create_admin_sessions.sql` + verifier allowlist).
+  - bila nanti admin auth dikonsolidasi ke `users`/`user_sessions`, `admin_sessions` dideprekasi via migration baru.
+  - login throttle reset saat restart pada deployment single-instance dianggap risiko rendah karena masih ada per-IP rate limit (`rlAdminLogin` 10/15min); akan ditinjau ulang bila multi-instance.
+
+## 2026-06-13 - Issue List Query Index Ditunda (Belum Diperlukan)
+
+- Keputusan:
+  - tidak menambah index khusus untuk query list `/issues` saat ini.
+  - defer sampai tabel `issues` tumbuh ke skala ribuan baris.
+- Konteks:
+  - review menyeluruh sempat menduga query list `/issues` adalah "monster multi-CTE" dan performance hotspot.
+  - verifikasi kode aktual (`backend/internal/repository/issue_repository.go` L48-81) menunjukkan query sebenarnya sederhana: `SELECT ... FROM issues WHERE is_hidden=FALSE AND status NOT IN ('rejected','merged') ORDER BY last_seen_at DESC LIMIT 500`, dengan bbox filter memakai GIST index `idx_issues_public_location`.
+  - `EXPLAIN (ANALYZE, BUFFERS)` di DB production: Seq Scan, 5 rows, execution 0.045 ms (planner memilih seq scan karena tabel masih sangat kecil).
+- Konsekuensi:
+  - zero schema-governance churn (tidak menyentuh baseline + migration + verifier) tanpa benefit terukur.
+  - future-scale note: bila `issues` tumbuh besar dan list query melambat, pertimbangkan partial index `(last_seen_at DESC) WHERE is_hidden = FALSE AND status NOT IN ('rejected','merged')`; ukur ulang dengan `EXPLAIN ANALYZE` sebelum/sesudah, dan update allowlist `backend/scripts/verify_schema_governance.sh`.
+
 ## 2026-03-10 - Anonymous-First Identity via Device Token
 
 - Keputusan:

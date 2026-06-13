@@ -342,7 +342,16 @@ Dokumen ini disusun dari:
 - Relasi: FK ke `users`.
 - Kolom penting: `refresh_token_hash`, `expires_at`, `revoked_at`.
 - Business meaning: session persistence untuk login akun.
-- Rawan salah paham: admin runtime saat ini memakai in-memory session, bukan tabel ini.
+- Rawan salah paham: admin runtime saat ini TIDAK memakai tabel ini; admin auth memakai `admin_sessions` (lihat di bawah).
+
+### `admin_sessions`
+
+- Fungsi: persistensi sesi admin env-based agar bertahan lintas restart backend.
+- Relasi: tidak ada FK (sengaja); admin berbasis env (`ADMIN_USERNAME`/`ADMIN_PASSWORD`), bukan row di `users`.
+- Kolom penting: `token_hash` (PK, SHA-256 dari token cookie mentah), `username`, `expires_at`, `revoked_at`, `issued_at`, `user_agent`, `ip_address`.
+- Business meaning: menggantikan in-memory session store agar sesi admin tidak hilang saat restart; satu sesi aktif per admin (login baru menghapus sesi lama dalam satu transaksi).
+- Rawan salah paham: token mentah hanya ada di cookie browser; DB hanya menyimpan hash. Login throttle (`adminLoginGuard`) tetap in-memory, bukan di tabel ini. Cleanup sesi expired dijalankan oleh ops maintenance runner (`DELETE WHERE expires_at < NOW() - 24h`).
+- Known mismatch: bila nanti admin auth dikonsolidasi ke model `users`/`user_sessions`, tabel ini akan dideprekasi via migration baru.
 
 ### `issue_daily_stats`
 
@@ -419,6 +428,7 @@ Dokumen ini disusun dari:
   - `backend/migrations/202603200001_harden_report_idempotency.sql`
   - `backend/migrations/202603200002_create_push_delivery_jobs.sql`
   - `backend/migrations/202603200003_add_retention_indexes.sql`
+  - `backend/migrations/202604130001_create_admin_sessions.sql`
 - Index performa yang dipakai timeline:
   - `idx_issue_events_issue_id_created_at (issue_id, created_at DESC, id DESC)`
 

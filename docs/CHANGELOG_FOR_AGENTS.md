@@ -25,6 +25,29 @@ Area yang selalu wajib update docs bila berubah:
 - struktur repo
 - UI system/component rules
 
+## 2026-06-13 - Admin Session DB-Backed via `admin_sessions`
+
+- Scope:
+  - admin session store dipindah dari in-memory ke tabel DB dedicated `admin_sessions` agar sesi bertahan lintas restart backend.
+
+### Backend
+
+1. Tabel baru `admin_sessions` (`token_hash` PK = SHA-256 dari token cookie, `username`, `expires_at`, `revoked_at`, `issued_at`, `user_agent`, `ip_address`). Tanpa FK ke `users` (admin env-based).
+2. `dbSessionStore` di `internal/service/admin_auth.go` menggantikan in-memory `SessionStore`; kontrak `Login`/`ValidateSession`/`RevokeSession` + struct `AdminSession` tetap sama sehingga `middleware/admin_auth.go` tidak berubah.
+3. Repository baru `internal/repository/admin_session_repository.go` (`AdminSessionRepository`): `Create` (single-session per admin via DELETE+INSERT satu transaksi), `FindValid`, `Delete`, `DeleteExpired`.
+4. `NewAdminService` menerima `AdminSessionRepository`; wiring di `internal/http/router.go`.
+5. Cleanup sesi expired ditambahkan ke ops maintenance runner (`DELETE FROM admin_sessions WHERE expires_at < NOW() - 24h`), surfaced di log `[OPS] retention_completed ... admin_sessions_deleted=N`.
+6. Login throttle (`adminLoginGuard`) tetap in-memory by design.
+
+### Schema Governance
+
+1. Baseline `backend/schema/20260320_000000_baseline.sql` + migration additive `backend/migrations/202604130001_create_admin_sessions.sql` (idempotent).
+2. `backend/scripts/verify_schema_governance.sh`: `admin_sessions` ditambah ke required tables + dua index (`idx_admin_sessions_username`, `idx_admin_sessions_expires_at`) ke allowlist.
+
+### Verifikasi
+
+- `go build ./...` = 0, `go vet ./...` = 0, full test suite pass, `middleware/admin_auth.go` tidak berubah.
+
 ## 2026-04-08 - Hardening Follower Binding Claim Flow
 
 - Scope:
