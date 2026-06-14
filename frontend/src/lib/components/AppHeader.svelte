@@ -7,7 +7,6 @@
 		ChartIcon,
 		DocumentIcon,
 		MapIcon,
-		NotificationIcon,
 		TrashIcon,
 		MoonIcon,
 		SunIcon
@@ -167,32 +166,19 @@
 	});
 </script>
 
-<header class="sticky top-0 z-[100] border-b border-white/70 bg-white/80 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80">
-	<div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
+<header class="sticky top-0 z-[100] border-b border-hairline bg-paper">
+	<div class="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-5 py-4 sm:px-6 lg:px-8">
 		<div class="flex items-center justify-between gap-4">
-			<a
-				href="/"
-				class="flex min-w-0 items-center gap-3 rounded-[24px] border border-white/60 bg-white/75 px-3 py-2 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-700/60 dark:bg-slate-800/75 dark:shadow-[0_12px_28px_rgba(0,0,0,0.30)]"
-			>
-				<div class="flex size-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
-					<MapIcon class="size-6" />
-				</div>
-				<div class="min-w-0">
-					<p class="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400">
-						Civic-Tech
-					</p>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-						<strong class="text-lg font-[800] tracking-[-0.04em] text-slate-950 dark:text-slate-100">JEDUG</strong>
-						<span class="text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Pantau Jalan Rusak</span>
-					</div>
-				</div>
+			<a href="/" class="flex min-w-0 items-baseline gap-3">
+				<strong class="font-serif text-xl font-semibold tracking-[-0.02em] text-ink">JEDUG</strong>
+				<span class="hidden text-xs text-muted sm:inline">Pantau Jalan Rusak</span>
 			</a>
 
 			<div class="flex items-center gap-2">
 				<!-- Theme Toggle -->
 				<button
 					type="button"
-					class="btn-icon border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200"
+					class="btn-icon"
 					onclick={toggleTheme}
 					aria-label={currentTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
 					title={currentTheme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
@@ -204,7 +190,7 @@
 				<button
 					bind:this={notifButtonEl}
 					type="button"
-					class="btn-icon relative border-brand-100/70 bg-white/90 text-slate-700 dark:border-brand-900/50 dark:bg-slate-800/90 dark:text-slate-400"
+					class="btn-icon relative"
 					onclick={handlePanelToggle}
 					aria-haspopup="dialog"
 					aria-expanded={openNotif}
@@ -212,7 +198,7 @@
 				>
 					<BellIcon class="size-5" />
 					{#if unreadCount > 0}
-						<span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white shadow-[0_10px_22px_rgba(229,72,77,0.28)]">
+						<span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-semibold text-paper">
 							{unreadCount > 99 ? '99+' : unreadCount}
 						</span>
 					{/if}
@@ -221,28 +207,24 @@
 				{#if openNotif}
 					<div
 						bind:this={notifPanelEl}
-						class="absolute right-0 top-[calc(100%+0.85rem)] z-[120] flex w-[min(95vw,26rem)] flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+						class="absolute right-0 top-[calc(100%+0.75rem)] z-[120] flex w-[min(95vw,26rem)] flex-col overflow-hidden rounded-[12px] border border-hairline bg-surface"
 					>
-						<div class="border-b border-slate-100 px-4 py-4 dark:border-slate-700/60">
-							<div class="flex items-center gap-3">
-								<div class="flex size-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
-									<NotificationIcon class="size-5" />
-								</div>
-								<div class="min-w-0 flex-1">
-									<h2 class="text-sm font-bold text-slate-950 dark:text-slate-100">Pusat Notifikasi</h2>
-									<p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
-										Update issue, preferensi, dan nearby alerts terkumpul di satu panel.
-									</p>
-								</div>
-								<span class="badge-tint">{unreadCount} unread</span>
+						<div class="flex items-center gap-3 border-b border-hairline px-4 py-4">
+							<div class="min-w-0 flex-1">
+								<p class="kicker mb-1">Notifikasi</p>
+								<h2 class="font-serif text-base font-semibold text-ink">Pusat Notifikasi</h2>
+								<p class="mt-1 text-xs leading-5 text-muted">
+									Update issue, preferensi, dan nearby alerts dalam satu panel.
+								</p>
 							</div>
+							<span class="badge-muted">{unreadCount} unread</span>
 						</div>
 
 						<div class="max-h-[75dvh] overflow-y-auto px-3 py-3">
 							{#if notifPanelsLoading && !BrowserPushCardComponent}
-								<div class="state-panel border-0 bg-white/80 px-4 py-6">
-									<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
-									<p class="mt-3 text-sm text-slate-500">Menyiapkan panel notifikasi...</p>
+								<div class="state-panel px-4 py-6">
+									<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-hairline border-t-brand"></div>
+									<p class="mt-3 text-sm text-muted">Menyiapkan panel notifikasi...</p>
 								</div>
 							{:else}
 								{#if notifPanelsError}
@@ -262,28 +244,25 @@
 								{/if}
 							{/if}
 
-							<div class="mt-3 rounded-[24px] border border-slate-100 bg-slate-50/75 p-2">
+							<div class="mt-3 rounded-[8px] border border-hairline bg-sunken p-2">
 								<div class="flex items-center justify-between px-2 py-2">
-									<h3 class="text-sm font-bold text-slate-900">Update terbaru</h3>
-									<span class="text-xs font-semibold text-slate-400">
+									<h3 class="text-sm font-semibold text-ink">Update terbaru</h3>
+									<span class="text-xs font-medium text-subtle">
 										{notifState.items.length} item
 									</span>
 								</div>
 
 								{#if notifState.loading}
-									<div class="state-panel border-0 bg-white/80 px-4 py-6">
-										<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
-										<p class="mt-3 text-sm text-slate-500">Memuat notifikasi...</p>
+									<div class="state-panel px-4 py-6">
+										<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-hairline border-t-brand"></div>
+										<p class="mt-3 text-sm text-muted">Memuat notifikasi...</p>
 									</div>
 								{:else if notifState.error}
 									<div class="error-panel m-2">{notifState.error}</div>
 								{:else if notifState.items.length === 0}
-									<div class="state-panel border-0 bg-white/80 px-4 py-6">
-										<div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
-											<NotificationIcon class="size-6" />
-										</div>
-										<p class="mt-3 text-sm font-semibold text-slate-700">Belum ada notifikasi</p>
-										<p class="mt-1 text-xs leading-5 text-slate-500">
+									<div class="state-panel px-4 py-6">
+										<p class="text-sm font-semibold text-ink">Belum ada notifikasi</p>
+										<p class="mt-1 text-xs leading-5 text-muted">
 											Ikuti issue atau aktifkan pantauan area agar update penting masuk ke sini.
 										</p>
 									</div>
@@ -293,38 +272,29 @@
 											<li class="group flex items-stretch gap-2">
 												<button
 													type="button"
-													class={`min-w-0 flex-1 rounded-[22px] border px-4 py-3 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 ${!item.read_at ? 'border-brand-100 bg-brand-50/80' : 'border-slate-200 bg-white'}`}
+													class={`min-w-0 flex-1 rounded-[8px] border px-4 py-3 text-left transition-colors hover:border-ink ${!item.read_at ? 'border-brand/30 bg-brand-tint' : 'border-hairline bg-surface'}`}
 													onclick={() => handleNotificationClick(item.id, item.issue_id)}
 												>
-													<div class="flex items-start gap-3">
-														<div
-															class:border-brand-100={!item.read_at}
-															class:bg-brand-50={!item.read_at}
-															class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600"
-														>
-															<BellIcon class="size-[18px]" />
-														</div>
-														<div class="min-w-0 flex-1">
-															<div class="flex items-start justify-between gap-3">
-																<p class="text-sm font-bold leading-5 text-slate-900">
-																	{item.title}
-																</p>
-																{#if !item.read_at}
-																	<span class="mt-0.5 size-2 shrink-0 rounded-full bg-brand-500"></span>
-																{/if}
-															</div>
-															<p class="mt-1 text-xs leading-5 text-slate-600">
-																{item.message}
+													<div class="min-w-0 flex-1">
+														<div class="flex items-start justify-between gap-3">
+															<p class="text-sm font-semibold leading-5 text-ink">
+																{item.title}
 															</p>
-															<p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-																{formatNotifTime(item.created_at)}
-															</p>
+															{#if !item.read_at}
+																<span class="mt-1.5 size-2 shrink-0 rounded-full bg-brand"></span>
+															{/if}
 														</div>
+														<p class="mt-1 text-xs leading-5 text-muted">
+															{item.message}
+														</p>
+														<p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-subtle">
+															{formatNotifTime(item.created_at)}
+														</p>
 													</div>
 												</button>
 												<button
 													type="button"
-													class="btn-icon size-11 self-center rounded-2xl border-slate-200 bg-white text-slate-500"
+													class="btn-icon size-11 self-center text-subtle"
 													aria-label="Hapus notifikasi"
 													disabled={notifState.deletingIDs.includes(item.id)}
 													onclick={(event) => handleNotificationDelete(event, item.id)}
@@ -343,19 +313,16 @@
 			</div>
 		</div>
 
-		<nav
-			class="grid grid-cols-3 gap-2 rounded-[24px] border border-white/70 bg-white/75 p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700/70 dark:bg-slate-800/75 dark:shadow-[0_12px_28px_rgba(0,0,0,0.25)]"
-			aria-label="Navigasi utama"
-		>
+		<nav class="-mb-px flex items-center gap-6" aria-label="Navigasi utama">
 			{#each navItems as item}
 				{@const NavIcon = item.icon}
+				{@const active = isActiveNav(item.href, pathname)}
 				<a
 					href={item.href}
-					class:bg-brand-500={isActiveNav(item.href, pathname)}
-					class:text-white={isActiveNav(item.href, pathname)}
-					class:shadow-[0_14px_30px_rgba(229,72,77,0.2)]={isActiveNav(item.href, pathname)}
-					class="flex min-h-12 items-center justify-center gap-2 rounded-[18px] px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200"
-					aria-current={isActiveNav(item.href, pathname) ? 'page' : undefined}
+					class:text-ink={active}
+					class:border-ink={active}
+					class="flex items-center gap-2 border-b-2 border-transparent pb-2.5 text-sm font-semibold text-muted transition-colors hover:text-ink"
+					aria-current={active ? 'page' : undefined}
 				>
 					<NavIcon class="size-[18px]" />
 					<span>{item.label}</span>

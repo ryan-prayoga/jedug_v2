@@ -1,17 +1,11 @@
 <script lang="ts">
-	import {
-		ChartIcon,
-		DocumentIcon,
-		LocationIcon,
-		MapIcon,
-		ShieldCheckIcon
-	} from '$lib/icons';
+	import { ArrowRightIcon, ChartIcon, DocumentIcon, MapIcon } from '$lib/icons';
 
 	const quickLinks = [
 		{
 			href: '/lapor',
 			label: 'Laporkan Jalan Rusak',
-			copy: 'Form cepat, mobile-friendly, dan langsung terhubung ke titik issue.',
+			copy: 'Form cepat, mobile-friendly, langsung terhubung ke titik issue.',
 			icon: DocumentIcon,
 			primary: true
 		},
@@ -25,113 +19,119 @@
 		{
 			href: '/stats',
 			label: 'Statistik Jalan Rusak',
-			copy: 'Baca ringkasan issue, status, dan wilayah dengan beban UI yang ringan.',
+			copy: 'Baca ringkasan issue, status, dan wilayah dengan UI yang ringan.',
 			icon: ChartIcon,
 			primary: false
+		}
+	];
+
+	const flow = [
+		{
+			title: 'Ambil foto dan kirim laporan',
+			copy: 'Alur lapor dirancang cepat dan jelas di mobile.'
+		},
+		{
+			title: 'Pantau titik issue di peta',
+			copy: 'Marker, list, dan heatmap membantu membaca area rawan.'
+		},
+		{
+			title: 'Moderasi menjaga kualitas publik',
+			copy: 'Admin menilai issue tanpa mengubah flow inti warga.'
 		}
 	];
 
 	const valueCards = [
 		{
 			title: 'Pelaporan cepat dari HP',
-			copy: 'Warga bisa langsung ambil foto, tentukan tingkat keparahan, dan kirim tanpa alur yang rumit.',
-			icon: DocumentIcon
+			copy: 'Warga langsung ambil foto, tentukan tingkat keparahan, dan kirim tanpa alur rumit.'
 		},
 		{
 			title: 'Map-first dan mudah dipindai',
-			copy: 'Titik kerusakan terlihat rapi di peta publik, lengkap dengan panel detail dan status issue.',
-			icon: LocationIcon
+			copy: 'Titik kerusakan terlihat rapi di peta publik, lengkap panel detail dan status issue.'
 		},
 		{
 			title: 'Moderasi menjaga kualitas data',
-			copy: 'Area admin disiapkan untuk menilai, menyembunyikan, menolak, atau menandai issue selesai.',
-			icon: ShieldCheckIcon
+			copy: 'Area admin siap menilai, menyembunyikan, menolak, atau menandai issue selesai.'
 		}
 	];
+
+	function pad(n: number): string {
+		return String(n + 1).padStart(2, '0');
+	}
 </script>
 
 <div class="public-stack">
-	<section class="jedug-card overflow-hidden">
-		<div class="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)]">
-			<div class="space-y-5">
-				<span class="section-kicker">Civic-tech yang serius, tetap ramah dipakai</span>
-				<div class="space-y-4">
-					<h1 class="section-title text-balance">
-						JEDUG membantu laporan jalan rusak terlihat jelas, rapi, dan sulit diabaikan.
-					</h1>
-					<p class="section-copy max-w-[52ch]">
-						Platform publik ini mengubah keluhan lapangan menjadi bukti visual yang mudah
-						dipantau di peta, aman untuk pelapor anonim, dan tetap cukup rapi untuk kebutuhan
-						moderasi operasional.
-					</p>
-				</div>
-				<div class="flex flex-wrap gap-2">
-					<span class="badge-tint">Mobile-first</span>
-					<span class="badge-muted">Anonim-friendly</span>
-					<span class="badge-muted">Map-first</span>
-					<span class="badge-muted">Moderation-ready</span>
-				</div>
+	<!-- Hero -->
+	<section class="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)] lg:items-start">
+		<div class="flex flex-col gap-6">
+			<p class="kicker">Pelaporan jalan rusak partisipatif</p>
+			<h1 class="section-title text-balance max-w-[20ch]">
+				Laporan jalan rusak yang jelas, rapi, dan sulit diabaikan.
+			</h1>
+			<p class="section-copy max-w-[54ch]">
+				JEDUG mengubah keluhan lapangan menjadi bukti visual yang mudah dipantau di peta,
+				aman untuk pelapor anonim, dan cukup rapi untuk kebutuhan moderasi operasional.
+			</p>
+			<div class="flex flex-wrap gap-2 pt-1">
+				<span class="badge-tint">Mobile-first</span>
+				<span class="badge-muted">Anonim-friendly</span>
+				<span class="badge-muted">Map-first</span>
+				<span class="badge-muted">Moderation-ready</span>
 			</div>
+		</div>
 
-			<div class="jedug-panel grid gap-3 p-4">
-				<div class="space-y-1">
-					<p class="surface-label">Alur utama</p>
-					<p class="text-base font-bold text-slate-950">Lapor, pantau, tindak lanjuti.</p>
-				</div>
-				<div class="space-y-3">
-					<div class="rounded-[22px] border border-white/80 bg-white px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-						<p class="text-sm font-semibold text-slate-900">Ambil foto dan kirim laporan</p>
-						<p class="mt-1 text-xs leading-5 text-slate-500">Alur lapor dirancang untuk cepat dan jelas di mobile.</p>
-					</div>
-					<div class="rounded-[22px] border border-white/80 bg-white px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-						<p class="text-sm font-semibold text-slate-900">Pantau titik issue di peta</p>
-						<p class="mt-1 text-xs leading-5 text-slate-500">Marker, list, dan heatmap membantu membaca area rawan.</p>
-					</div>
-					<div class="rounded-[22px] border border-white/80 bg-white px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-						<p class="text-sm font-semibold text-slate-900">Moderasi menjaga kualitas publik</p>
-						<p class="mt-1 text-xs leading-5 text-slate-500">Admin bisa menilai issue tanpa mengubah flow inti warga.</p>
-					</div>
-				</div>
-			</div>
+		<!-- Alur utama — editorial numbered list -->
+		<div class="flex flex-col">
+			<p class="surface-label mb-4">Alur utama</p>
+			<ol class="flex flex-col">
+				{#each flow as step, i}
+					<li class="flex gap-4 border-t border-hairline py-4">
+						<span class="editorial-index pt-0.5">{pad(i)}</span>
+						<div class="min-w-0">
+							<p class="text-sm font-semibold text-ink">{step.title}</p>
+							<p class="mt-1 text-xs leading-5 text-muted">{step.copy}</p>
+						</div>
+					</li>
+				{/each}
+			</ol>
 		</div>
 	</section>
 
-	<section class="grid gap-3">
+	<!-- Quick links -->
+	<section class="flex flex-col gap-3">
 		{#each quickLinks as item}
+			{@const Icon = item.icon}
 			<a
 				href={item.href}
 				class={item.primary
-					? 'btn-primary min-h-[76px] justify-start rounded-[26px] px-5 text-left'
-					: 'jedug-card-soft flex min-h-[76px] items-center gap-4 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)]'}
+					? 'flex items-center justify-between gap-4 rounded-[12px] bg-ink px-5 py-5 text-paper transition-colors hover:bg-brand'
+					: 'flex items-center justify-between gap-4 rounded-[12px] border border-hairline bg-surface px-5 py-5 transition-colors hover:border-ink'}
 			>
-				<div
-					class={item.primary
-						? 'flex size-12 shrink-0 items-center justify-center rounded-[18px] bg-white/12 text-white'
-						: 'flex size-12 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600'}
-				>
-					<svelte:component this={item.icon} class="size-6" />
+				<div class="flex min-w-0 items-center gap-4">
+					<Icon class={item.primary ? 'size-5 shrink-0 text-paper' : 'size-5 shrink-0 text-muted'} />
+					<div class="min-w-0">
+						<p class={item.primary ? 'text-base font-semibold text-paper' : 'text-base font-semibold text-ink'}>
+							{item.label}
+						</p>
+						<p class={item.primary ? 'mt-1 text-sm text-paper/75' : 'mt-1 text-sm leading-6 text-muted'}>
+							{item.copy}
+						</p>
+					</div>
 				</div>
-				<div class="min-w-0">
-					<p class={item.primary ? 'text-base font-bold text-white' : 'text-base font-bold text-slate-950'}>
-						{item.label}
-					</p>
-					<p class={item.primary ? 'mt-1 text-sm text-white/82' : 'mt-1 text-sm leading-6 text-slate-500'}>
-						{item.copy}
-					</p>
-				</div>
+				<ArrowRightIcon class={item.primary ? 'size-5 shrink-0 text-paper' : 'size-5 shrink-0 text-subtle'} />
 			</a>
 		{/each}
 	</section>
 
-	<section class="grid gap-3">
-		{#each valueCards as item}
-			<article class="jedug-card-soft flex gap-4 px-5 py-5">
-				<div class="flex size-12 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
-					<svelte:component this={item.icon} class="size-6" />
-				</div>
-				<div>
-					<h2 class="text-base font-bold text-slate-950">{item.title}</h2>
-					<p class="mt-2 text-sm leading-6 text-slate-500">{item.copy}</p>
+	<!-- Value props — editorial numbered -->
+	<section class="flex flex-col">
+		<p class="surface-label mb-4">Kenapa JEDUG</p>
+		{#each valueCards as item, i}
+			<article class="flex gap-4 border-t border-hairline py-6">
+				<span class="editorial-index pt-1">{pad(i)}</span>
+				<div class="min-w-0">
+					<h2 class="font-serif text-lg font-semibold text-ink">{item.title}</h2>
+					<p class="mt-2 text-sm leading-6 text-muted">{item.copy}</p>
 				</div>
 			</article>
 		{/each}

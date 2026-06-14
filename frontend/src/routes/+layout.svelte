@@ -87,7 +87,7 @@
 		</main>
 
 		{#if initError}
-			<div class="fixed inset-x-4 bottom-4 z-[200] mx-auto flex max-w-xl items-start gap-3 rounded-[24px] border border-rose-200 bg-white/95 px-4 py-3 text-sm text-rose-700 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+			<div class="fixed inset-x-4 bottom-4 z-[200] mx-auto flex max-w-xl items-start gap-3 rounded-[12px] border border-brand/30 bg-surface px-4 py-3 text-sm text-brand">
 				<DangerIcon class="mt-0.5 size-5 shrink-0" />
 				<span>{initError}</span>
 			</div>
