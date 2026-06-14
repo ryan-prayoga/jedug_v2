@@ -109,14 +109,16 @@
 			['==', ['get', 'status'], 'fixed'],
 			['==', ['get', 'status'], 'archived']
 		],
-		'#94A3B8',
+		'#9A9A9A',
 		['>=', ['to-number', ['get', 'severity_current']], 5],
-		'#991B1B',
+		'#7F1F22',
+		['>=', ['to-number', ['get', 'severity_current']], 4],
+		'#A1282B',
 		['>=', ['to-number', ['get', 'severity_current']], 3],
-		'#DC2626',
+		'#C5363A',
 		['>=', ['to-number', ['get', 'severity_current']], 2],
-		'#F97316',
-		'#F6C453'
+		'#E0732B',
+		'#F0B847'
 	];
 
 	const markerRadiusExpression: any = [
@@ -142,13 +144,13 @@
 	const clusterCircleColorExpression: any = [
 		'step',
 		['get', 'point_count'],
-		'#FCA5A5',
+		'#E0A8A8',
 		20,
-		'#FB7185',
+		'#CF5E61',
 		60,
-		'#E5484D',
+		'#C5363A',
 		120,
-		'#BE123C'
+		'#7F1F22'
 	];
 
 	const clusterCircleRadiusExpression: any = [
@@ -412,7 +414,7 @@
 				},
 				paint: {
 					'text-color': '#FFFFFF',
-					'text-halo-color': '#7F1D1D',
+					'text-halo-color': '#7F1F22',
 					'text-halo-width': 1
 				}
 			});
@@ -450,7 +452,7 @@
 			source: ISSUE_SOURCE_ID,
 			filter: buildSelectedFilter(null),
 			paint: {
-				'circle-color': '#E5484D',
+				'circle-color': '#C5363A',
 				'circle-radius': ['*', markerRadiusExpression, 2],
 				'circle-opacity': 0.35,
 				'circle-blur': 0.7
@@ -877,23 +879,20 @@
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
-		background:
-			radial-gradient(circle at top left, rgba(229, 72, 77, 0.14), transparent 28%),
-			linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(238, 242, 247, 0.94));
+		background: var(--sunken);
 	}
 
 	.map-loading-card {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.75rem;
-		border: 1px solid rgba(226, 232, 240, 0.92);
+		border: 1px solid var(--hairline);
 		border-radius: 999px;
 		padding: 0.875rem 1rem;
-		background: rgba(255, 255, 255, 0.96);
-		box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
-		color: #475569;
+		background: var(--surface);
+		color: var(--muted);
 		font-size: 0.75rem;
-		font-weight: 700;
+		font-weight: 600;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 	}
@@ -902,7 +901,7 @@
 		width: 0.625rem;
 		height: 0.625rem;
 		border-radius: 999px;
-		background: #e5484d;
+		background: var(--brand);
 		animation: map-loading-pulse 1.2s ease-in-out infinite;
 	}
 

@@ -9,7 +9,7 @@
 		MapIcon
 	} from '$lib/icons';
 	import { relativeTime } from '$lib/utils/date';
-	import { getIssueRoadOrAreaLabel, getStatusLabel, getStatusTone } from '$lib/utils/issue-detail';
+	import { getIssueRoadOrAreaLabel, getStatusLabel } from '$lib/utils/issue-detail';
 
 	let {
 		issue,
@@ -33,11 +33,13 @@
 	const DRAG_CLOSE_VELOCITY = 0.7;
 
 	const severityLabel = ['', 'Ringan', 'Sedang', 'Berat', 'Parah', 'Kritis'];
-	const severityColor = ['', '#F6C453', '#F97316', '#DC2626', '#DC2626', '#991B1B'];
-	function getStatusStyle(status: string) {
-		const tone = getStatusTone(status);
-		return `background: ${tone.bg}; color: ${tone.text}`;
-	}
+	const statusData: Record<string, string> = {
+		fixed: 'fixed',
+		closed: 'fixed',
+		archived: 'archived',
+		merged: 'archived',
+		rejected: 'rejected'
+	};
 
 	function handleOverlayClick() {
 		if (ignoreNextOverlayClick) {
@@ -152,7 +154,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="sheet rounded-t-[30px] border border-white/80 bg-white/96 shadow-[0_-12px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl md:rounded-none md:border-l md:border-r-0 md:border-t-0"
+			class="sheet rounded-t-[12px] border border-hairline bg-surface md:rounded-none md:border-l md:border-r-0 md:border-t-0"
 			class:dragging={isDragging}
 			bind:this={sheetEl}
 			style="transform: translateY({dragOffsetY}px);"
@@ -163,23 +165,17 @@
 			onpointercancel={handlePointerCancel}
 		>
 			<div class="sheet-handle-area">
-				<div class="h-1 w-11 rounded-full bg-slate-300"></div>
+				<div class="h-1 w-11 rounded-full bg-hairline-strong"></div>
 			</div>
 
 			<div class="space-y-5 px-5 pb-6 pt-2">
 				<div class="flex items-center justify-between">
 					<div class="flex flex-wrap gap-2">
-						<span
-							class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold text-white"
-							style={`background: ${severityColor[issue.severity_current] || '#94A3B8'}`}
-						>
+						<span class="severity-pill" data-sev={issue.severity_current}>
 							{severityLabel[issue.severity_current] || `Level ${issue.severity_current}`}
 						</span>
-						<span
-							class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-							style={getStatusStyle(issue.status)}
-						>
-								{getStatusLabel(issue.status)}
+						<span class="status-pill" data-status={statusData[issue.status] ?? 'open'}>
+							{getStatusLabel(issue.status)}
 						</span>
 					</div>
 					<button class="btn-icon size-10" type="button" onclick={onclose} aria-label="Tutup detail issue">
@@ -187,16 +183,14 @@
 					</button>
 				</div>
 
-				<div class="rounded-[24px] border border-slate-200 bg-slate-50/85 p-4">
+				<div class="jedug-panel p-4">
 					<div class="flex items-start gap-3">
-						<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
-							<LocationIcon class="size-5" />
-						</div>
+						<LocationIcon class="mt-0.5 size-5 shrink-0 text-muted" />
 						<div class="min-w-0">
-							<p class="text-base font-bold leading-6 text-slate-950">
+							<p class="font-serif text-base font-semibold leading-snug text-ink">
 								{getIssueRoadOrAreaLabel(issue) || `${issue.latitude.toFixed(4)}, ${issue.longitude.toFixed(4)}`}
 							</p>
-							<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+							<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted nums">
 								<span>{issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}</span>
 								{#if issue.road_type}
 									<span>• {issue.road_type}</span>
@@ -207,34 +201,32 @@
 				</div>
 
 				<div class="grid grid-cols-2 gap-3">
-					<div class="rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
-						<div class="flex items-center gap-2 text-slate-500">
+					<div class="metric-tile">
+						<div class="flex items-center gap-2 text-subtle">
 							<DocumentIcon class="size-[18px]" />
-							<span class="text-[11px] font-bold uppercase tracking-[0.16em]">Laporan</span>
+							<span class="text-[11px] font-semibold uppercase tracking-[0.16em]">Laporan</span>
 						</div>
-						<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">{issue.submission_count}</p>
+						<p class="mt-2 font-serif text-xl font-semibold tabular-nums text-ink">{issue.submission_count}</p>
 					</div>
-					<div class="rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
-						<div class="flex items-center gap-2 text-slate-500">
+					<div class="metric-tile">
+						<div class="flex items-center gap-2 text-subtle">
 							<CameraIcon class="size-[18px]" />
-							<span class="text-[11px] font-bold uppercase tracking-[0.16em]">Foto</span>
+							<span class="text-[11px] font-semibold uppercase tracking-[0.16em]">Foto</span>
 						</div>
-						<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">{issue.photo_count}</p>
+						<p class="mt-2 font-serif text-xl font-semibold tabular-nums text-ink">{issue.photo_count}</p>
 					</div>
-					<div
-						class={`rounded-[20px] border px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)] ${issue.casualty_count > 0 ? 'border-rose-200 bg-rose-50/70' : 'border-slate-200 bg-white'}`}
-					>
-						<div class="flex items-center gap-2 text-slate-500">
+					<div class="metric-tile" class:border-brand={issue.casualty_count > 0}>
+						<div class="flex items-center gap-2 text-subtle">
 							<DangerIcon class="size-[18px]" />
-							<span class="text-[11px] font-bold uppercase tracking-[0.16em]">Korban</span>
+							<span class="text-[11px] font-semibold uppercase tracking-[0.16em]">Korban</span>
 						</div>
-						<p class:text-rose-700={issue.casualty_count > 0} class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">
+						<p class="mt-2 font-serif text-xl font-semibold tabular-nums" class:text-brand={issue.casualty_count > 0} class:text-ink={issue.casualty_count === 0}>
 							{issue.casualty_count}
 						</p>
 					</div>
-					<div class="rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
-						<div class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Terakhir</div>
-						<p class="mt-2 text-sm font-bold text-slate-900">{relativeTime(issue.last_seen_at)}</p>
+					<div class="metric-tile">
+						<div class="text-[11px] font-semibold uppercase tracking-[0.16em] text-subtle">Terakhir</div>
+						<p class="mt-2 text-sm font-semibold text-ink">{relativeTime(issue.last_seen_at)}</p>
 					</div>
 				</div>
 
@@ -261,7 +253,7 @@
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
-		background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(15, 23, 42, 0.18));
+		background: rgba(26, 26, 26, 0.14);
 	}
 
 	@media (min-width: 768px) {
