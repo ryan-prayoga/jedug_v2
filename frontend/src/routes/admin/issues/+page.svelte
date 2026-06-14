@@ -86,7 +86,7 @@
 					Moderasi issue
 				</span>
 				<div>
-					<h1 class="text-3xl font-[800] tracking-[-0.05em] text-ink">Daftar issue publik</h1>
+					<h1 class="font-serif text-3xl font-semibold tracking-[-0.02em] text-ink">Daftar issue publik</h1>
 					<p class="mt-2 max-w-[60ch] text-sm leading-6 text-muted">
 						Area ini dipoles untuk memindai status, severity, visibilitas, dan akses detail moderasi lebih cepat.
 					</p>

@@ -108,7 +108,7 @@
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-brand">JEDUG Admin</p>
-							<h2 class="text-3xl font-[800] tracking-[-0.05em] text-ink">Masuk untuk moderasi</h2>
+							<h2 class="font-serif text-3xl font-semibold tracking-[-0.02em] text-ink">Masuk untuk moderasi</h2>
 							<p class="text-sm leading-6 text-muted">
 								Gunakan kredensial admin yang valid. Sesi tetap diamankan oleh cookie server-side dengan TTL backend saat ini.
 							</p>

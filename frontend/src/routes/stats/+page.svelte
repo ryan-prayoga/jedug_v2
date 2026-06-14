@@ -673,7 +673,7 @@
 						<LocationIcon class="size-4" />
 						Filter wilayah
 					</span>
-					<h2 class="mt-4 text-2xl font-[800] tracking-[-0.04em] text-ink">Atur scope statistik aktif</h2>
+					<h2 class="mt-4 font-serif text-2xl font-semibold tracking-[-0.02em] text-ink">Atur scope statistik aktif</h2>
 					<p class="mt-3 text-sm leading-6 text-muted">
 						Ringkasan, status, umur issue, leaderboard, dan top issue mengikuti wilayah aktif yang sama agar pembacaan tetap konsisten.
 					</p>

@@ -717,7 +717,7 @@
 						<UsersGroupIcon class="size-4" />
 						Ikuti perkembangan
 					</span>
-					<h2 class="mt-4 text-2xl font-[800] tracking-[-0.04em] text-ink">
+					<h2 class="mt-4 font-serif text-2xl font-semibold tracking-[-0.02em] text-ink">
 						Simpan issue ini di browser anonim kamu.
 					</h2>
 					<p class="mt-3 text-sm leading-6 text-muted">
@@ -726,7 +726,7 @@
 				</div>
 				<div class="rounded-[4px] border border-brand/30 bg-brand-tint px-4 py-4 text-left lg:min-w-[240px]">
 					<span class="surface-label text-brand">Pengikut publik</span>
-					<strong class="mt-2 block text-3xl font-[800] tracking-[-0.04em] text-brand">
+					<strong class="mt-2 block font-serif text-3xl font-semibold tracking-[-0.02em] text-brand">
 						{followersCount}
 					</strong>
 					<p class="mt-2 text-xs leading-5 text-brand">{followerCountLabel}</p>

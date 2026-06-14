@@ -152,7 +152,7 @@
 					</div>
 
 					<div class="space-y-2">
-						<h1 class="text-3xl font-[800] tracking-[-0.05em] text-ink">
+						<h1 class="font-serif text-3xl font-semibold tracking-[-0.02em] text-ink">
 							{detail.road_name || `${detail.latitude.toFixed(6)}, ${detail.longitude.toFixed(6)}`}
 						</h1>
 						<p class="text-sm leading-6 text-muted">
