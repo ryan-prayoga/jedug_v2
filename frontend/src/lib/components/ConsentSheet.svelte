@@ -4,11 +4,10 @@
 
 <div class="consent-overlay">
 	<div class="consent-sheet">
-		<h2>Sebelum Lanjut</h2>
+		<p class="kicker mb-2">Sebelum lanjut</p>
+		<h2>Ketentuan singkat</h2>
 		<div class="consent-body">
-			<p>
-				Dengan menggunakan JEDUG, kamu setuju bahwa:
-			</p>
+			<p>Dengan menggunakan JEDUG, kamu setuju bahwa:</p>
 			<ul>
 				<li>Laporan yang kamu kirim bersifat publik dan bisa dilihat semua orang</li>
 				<li>Kami menyimpan data lokasi dan foto yang kamu kirim untuk keperluan pelaporan</li>
@@ -16,9 +15,7 @@
 				<li>Kamu tidak akan mengirim konten yang melanggar hukum</li>
 			</ul>
 		</div>
-		<button class="accept-btn" onclick={onaccept}>
-			Setuju & Lanjutkan
-		</button>
+		<button class="btn-primary w-full" onclick={onaccept}> Setuju & Lanjutkan </button>
 	</div>
 </div>
 
@@ -26,67 +23,64 @@
 	.consent-overlay {
 		position: fixed;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
+		background: rgba(26, 26, 26, 0.45);
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
 		z-index: 1000;
-		padding: 0;
 	}
 	.consent-sheet {
-		background: #fff;
-		border-radius: 20px 20px 0 0;
-		padding: 24px 20px;
+		background: var(--surface);
+		border-top: 1px solid var(--hairline);
+		border-radius: 12px 12px 0 0;
+		padding: 28px 24px calc(24px + env(safe-area-inset-bottom));
 		max-width: 480px;
 		width: 100%;
-		animation: slide-up 0.3s ease-out;
 	}
-	@keyframes slide-up {
-		from { transform: translateY(100%); }
-		to { transform: translateY(0); }
+	@media (prefers-reduced-motion: no-preference) {
+		.consent-sheet {
+			animation: slide-up 0.25s ease-out;
+		}
+		@keyframes slide-up {
+			from {
+				transform: translateY(100%);
+			}
+			to {
+				transform: translateY(0);
+			}
+		}
 	}
 	h2 {
-		margin: 0 0 12px;
-		font-size: 18px;
-		font-weight: 700;
-		color: #0F172A;
+		margin: 0 0 14px;
+		font-family: var(--font-serif);
+		font-size: 22px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		color: var(--ink);
 	}
 	.consent-body {
 		font-size: 14px;
-		color: #64748B;
-		line-height: 1.5;
-		margin-bottom: 20px;
+		color: var(--muted);
+		line-height: 1.6;
+		margin-bottom: 24px;
 	}
 	.consent-body p {
-		margin: 0 0 8px;
+		margin: 0 0 10px;
 	}
 	ul {
 		margin: 0;
-		padding-left: 20px;
+		padding-left: 18px;
+		list-style: none;
 	}
 	li {
-		margin-bottom: 4px;
+		position: relative;
+		margin-bottom: 8px;
+		padding-left: 4px;
 	}
-	.accept-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		padding: 14px;
-		font-size: 16px;
-		font-weight: 600;
-		color: #fff;
-		background: #E5484D;
-		border: none;
-		border-radius: 12px;
-		min-height: 48px;
-		cursor: pointer;
-		transition: opacity 0.15s, transform 0.1s;
-	}
-	.accept-btn:hover {
-		opacity: 0.88;
-	}
-	.accept-btn:active {
-		transform: scale(0.97);
+	li::before {
+		content: "—";
+		position: absolute;
+		left: -18px;
+		color: var(--subtle);
 	}
 </style>

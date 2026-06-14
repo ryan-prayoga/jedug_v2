@@ -425,7 +425,7 @@
 
 	<section class="jedug-card p-5">
 		<div class="flex items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 				<LocationIcon class="size-6" />
 			</div>
 			<div class="min-w-0">
@@ -531,7 +531,7 @@
 
 	<section class="jedug-card p-5">
 		<div class="mb-4 flex items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 				<CameraIcon class="size-6" />
 			</div>
 			<div>
@@ -546,7 +546,7 @@
 
 	<section class="jedug-card p-5">
 		<div class="mb-4 flex items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 				<DangerIcon class="size-6" />
 			</div>
 			<div>
@@ -582,7 +582,7 @@
 	<section class="grid gap-4 md:grid-cols-2">
 		<div class="jedug-card p-5">
 			<div class="mb-4 flex items-start gap-3">
-				<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+				<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 					<DangerIcon class="size-6" />
 				</div>
 				<div>
@@ -610,7 +610,7 @@
 
 		<div class="jedug-card p-5">
 			<div class="mb-4 flex items-start gap-3">
-				<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+				<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 					<DocumentIcon class="size-6" />
 				</div>
 				<div>

@@ -36,7 +36,7 @@
 <section class="jedug-card p-5" aria-label="Galeri issue">
 	<div class="flex items-start justify-between gap-4">
 		<div class="flex min-w-0 items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 				<GalleryIcon class="size-6" />
 			</div>
 			<div class="min-w-0">

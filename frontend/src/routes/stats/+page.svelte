@@ -134,7 +134,7 @@
 				percent: getStatusPercent(stats.status.fixed),
 				copy: 'Sudah ditandai selesai di sistem',
 				icon: CheckCircleIcon,
-				barClass: 'bg-sunken0'
+				barClass: 'bg-subtle'
 			},
 			{
 				label: 'Issue Archived',
@@ -142,7 +142,7 @@
 				percent: getStatusPercent(stats.status.archived),
 				copy: 'Diarsipkan dari alur aktif publik',
 				icon: DocumentIcon,
-				barClass: 'bg-sunken0'
+				barClass: 'bg-subtle'
 			}
 		];
 	});
@@ -576,7 +576,7 @@
 
 <div class="public-stack pb-10">
 	<section class="jedug-card overflow-hidden">
-		<div class="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(229,72,77,0.14),transparent_32%),linear-gradient(180deg,#fff9f8_0%,#ffffff_100%)] p-5 md:p-6">
+		<div class="grid gap-6 bg-surface p-5 md:p-6">
 			<div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
 				<div class="max-w-[58ch]">
 					<span class="section-kicker">
@@ -825,7 +825,7 @@
 
 				<section class="jedug-card p-5 md:p-6">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 							<RankingIcon class="size-6" />
 						</div>
 						<div>

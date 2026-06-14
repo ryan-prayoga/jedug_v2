@@ -122,7 +122,7 @@
 		<div class="error-panel">{error}</div>
 	{:else if issues.length === 0}
 		<div class="state-panel">
-			<div class="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
+			<div class="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-sunken text-muted">
 				<SearchIcon class="size-6" />
 			</div>
 			<p class="mt-4 text-sm font-semibold text-ink">Tidak ada issue ditemukan</p>

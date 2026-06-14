@@ -29,13 +29,13 @@
 			type="button"
 		>
 			<img src={preview} alt="Preview foto" class="max-h-[360px] w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
-			<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink via-ink to-transparent px-4 py-4">
+			<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent px-4 py-4">
 				<div class="flex items-center justify-between gap-3">
 					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.18em] text-white/65">Foto bukti</p>
+						<p class="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Foto bukti</p>
 						<p class="mt-1 text-sm font-semibold text-white">Tap untuk mengganti foto</p>
 					</div>
-					<span class="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-semibold text-white">
+					<span class="inline-flex items-center gap-2 rounded-[999px] border border-white/40 bg-black/30 px-3 py-2 text-xs font-semibold text-white">
 						<GalleryIcon class="size-[18px]" />
 						Ganti
 					</span>
@@ -44,15 +44,13 @@
 		</button>
 	{:else}
 		<button
-			class="group flex min-h-[220px] w-full flex-col items-center justify-center gap-4 rounded-[4px] border border-dashed border-hairline-strong bg-[linear-gradient(180deg,rgba(255,255,255,0.86)_0%,rgba(248,250,252,0.92)_100%)] px-6 py-8 text-center transition hover:border-brand-300 hover:bg-surface"
+			class="group flex min-h-[220px] w-full flex-col items-center justify-center gap-4 rounded-[8px] border border-dashed border-hairline-strong bg-sunken px-6 py-8 text-center transition-colors hover:border-brand"
 			onclick={openPicker}
 			type="button"
 		>
-			<div class="flex size-16 items-center justify-center rounded-[4px] bg-brand-tint text-brand transition group-hover:scale-105">
-				<CameraIcon class="size-8" />
-			</div>
+			<CameraIcon class="size-8 text-muted" />
 			<div class="space-y-2">
-				<p class="text-base font-bold text-ink">Ambil atau pilih foto jalan rusak</p>
+				<p class="text-base font-semibold text-ink">Ambil atau pilih foto jalan rusak</p>
 				<p class="mx-auto max-w-[28ch] text-sm leading-6 text-muted">
 					Foto yang jelas membantu moderasi dan membuat issue lebih meyakinkan di peta publik.
 				</p>

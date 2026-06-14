@@ -40,6 +40,14 @@
 		onHeroError?: () => void;
 	} = $props();
 
+	const statusData: Record<string, string> = {
+		fixed: 'fixed',
+		closed: 'fixed',
+		archived: 'archived',
+		merged: 'archived',
+		rejected: 'rejected'
+	};
+
 	const metaItems = $derived.by(() => [
 		{
 			label: 'Wilayah',
@@ -76,27 +84,27 @@
 					decoding="async"
 					onerror={onHeroError}
 				/>
-				<div class="absolute inset-0 bg-gradient-to-t from-ink via-ink to-transparent"></div>
+				<div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
 				<div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 px-5 py-5 text-left">
 					<div class="min-w-0">
-						<span class="section-kicker border-hairline bg-surface text-white/80">
+						<span class="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90">
 							<LocationIcon class="size-4" />
 							{locationContext}
 						</span>
-						<strong class="mt-3 block text-[1.65rem] font-[800] leading-tight tracking-[-0.04em] text-white md:text-[2rem]">
+						<strong class="mt-3 block font-serif text-[1.65rem] font-semibold leading-tight tracking-[-0.02em] text-white md:text-[2rem]">
 							{locationLabel}
 						</strong>
 					</div>
 				</div>
 			</button>
 		{:else}
-			<div class="grid min-h-[280px] place-content-center gap-4 bg-[radial-gradient(circle_at_top_right,rgba(229,72,77,0.18),transparent_35%),linear-gradient(135deg,#1e293b_0%,#0f172a_100%)] px-6 py-8 text-center text-white md:min-h-[360px]">
-				<span class="section-kicker mx-auto border-hairline bg-surface text-white/75">
+			<div class="grid min-h-[280px] place-content-center gap-4 bg-sunken px-6 py-8 text-center md:min-h-[360px]">
+				<span class="kicker mx-auto">
 					<InfoIcon class="size-4" />
 					Belum ada foto utama
 				</span>
-				<strong class="text-[1.8rem] font-[800] leading-tight tracking-[-0.04em]">{locationLabel}</strong>
-				<p class="mx-auto max-w-[34ch] text-sm leading-6 text-subtle">
+				<strong class="font-serif text-[1.8rem] font-semibold leading-tight tracking-[-0.02em] text-ink">{locationLabel}</strong>
+				<p class="mx-auto max-w-[34ch] text-sm leading-6 text-muted">
 					Laporan ini tetap tampil publik agar kondisi jalan bisa terus dipantau sambil menunggu bukti visual tambahan.
 				</p>
 			</div>
@@ -106,19 +114,19 @@
 	<div class="jedug-card flex flex-col justify-between p-5">
 		<div>
 			<div class="flex flex-wrap gap-2">
-				<span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold text-white" style={`background: ${severityColor}`}>
+				<span class="severity-pill" data-sev={issue.severity_current}>
 					{severityLabel}
 				</span>
-				<span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold" style={`background: ${statusTone.bg}; color: ${statusTone.text}`}>
+				<span class="status-pill" data-status={statusData[issue.status] ?? 'open'}>
 					{statusLabel}
 				</span>
-				<span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold" style={`background: ${verificationTone.bg}; color: ${verificationTone.text}`}>
+				<span class="badge-muted">
 					<CheckCircleIcon class="size-4" />
 					{verificationLabel}
 				</span>
 			</div>
 
-			<h1 class="mt-4 text-[1.85rem] font-[800] leading-tight tracking-[-0.05em] text-ink">
+			<h1 class="mt-4 font-serif text-[1.85rem] font-semibold leading-tight tracking-[-0.02em] text-ink">
 				{locationLabel}
 			</h1>
 			{#if secondaryLocationLine}

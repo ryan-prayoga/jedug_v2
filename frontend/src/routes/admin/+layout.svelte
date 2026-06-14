@@ -57,7 +57,7 @@
 			<div class="admin-frame flex flex-col gap-4 py-4">
 				<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 					<div class="flex items-center gap-3">
-						<div class="flex size-12 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+						<div class="flex size-12 items-center justify-center rounded-[4px] bg-sunken text-muted">
 							<ShieldCheckIcon class="size-6" />
 						</div>
 						<div>

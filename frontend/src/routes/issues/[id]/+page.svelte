@@ -761,7 +761,7 @@
 					<button
 						type="button"
 						class={isFollowing
-							? 'btn-secondary w-full border-brand/30 bg-brand-tint text-brand hover:bg-rose-100'
+							? 'btn-secondary w-full border-brand/30 bg-brand-tint text-brand hover:border-brand'
 							: 'btn-primary w-full'}
 						disabled={followLoading || followMutating || !followerID}
 						onclick={handleFollowToggle}
@@ -797,7 +797,7 @@
 			<div class="flex flex-col gap-5">
 				<section class="jedug-card p-5 md:p-6">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 							<DocumentIcon class="size-6" />
 						</div>
 						<div>
@@ -1023,7 +1023,7 @@
 
 				<section class="jedug-card p-5">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 							<LocationIcon class="size-6" />
 						</div>
 						<div>
@@ -1069,7 +1069,7 @@
 			<div class="relative w-full overflow-hidden rounded-[4px] border border-hairline bg-ink">
 				<button
 					type="button"
-					class="absolute right-4 top-4 z-10 inline-flex size-11 items-center justify-center rounded-[4px] border border-hairline bg-ink text-white transition hover:bg-slate-800"
+					class="absolute right-4 top-4 z-10 inline-flex size-11 items-center justify-center rounded-[8px] border border-white/30 bg-black/40 text-white transition-colors hover:bg-black/60"
 					onclick={closePreview}
 					aria-label="Tutup preview foto"
 				>

@@ -65,7 +65,7 @@
 <div class="admin-shell-bg">
 	<div class="admin-frame flex min-h-dvh items-center justify-center py-10">
 		<div class="grid w-full max-w-[1080px] overflow-hidden rounded-[4px] border border-hairline bg-surface lg:grid-cols-[minmax(0,0.95fr)_minmax(380px,0.85fr)]">
-			<section class="hidden bg-[radial-gradient(circle_at_top_left,rgba(229,72,77,0.16),transparent_34%),linear-gradient(180deg,#fff8f7_0%,#fff_100%)] p-8 lg:flex lg:flex-col lg:justify-between">
+			<section class="hidden border-r border-hairline bg-sunken p-8 lg:flex lg:flex-col lg:justify-between">
 				<div class="space-y-6">
 					<span class="section-kicker">Admin workspace</span>
 					<div class="space-y-3">
@@ -80,7 +80,7 @@
 
 				<div class="space-y-3">
 					<div class="jedug-card-soft flex gap-3 px-4 py-4">
-						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-sunken text-muted">
 							<ShieldCheckIcon class="size-5" />
 						</div>
 						<div>
@@ -89,7 +89,7 @@
 						</div>
 					</div>
 					<div class="jedug-card-soft flex gap-3 px-4 py-4">
-						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-sunken text-muted">
 							<UserIcon class="size-5" />
 						</div>
 						<div>
@@ -103,7 +103,7 @@
 			<section class="p-5 sm:p-8">
 				<div class="mx-auto flex w-full max-w-[420px] flex-col gap-6 py-4">
 					<div class="space-y-4">
-						<div class="flex size-14 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+						<div class="flex size-14 items-center justify-center rounded-[4px] bg-sunken text-muted">
 							<LoginIcon class="size-7" />
 						</div>
 						<div class="space-y-2">

@@ -92,7 +92,7 @@
 
 <section class="jedug-card p-5" aria-label="Aksi publik issue">
 	<div class="flex items-start gap-3">
-		<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
+		<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 			<ShareIcon class="size-6" />
 		</div>
 		<div class="min-w-0">

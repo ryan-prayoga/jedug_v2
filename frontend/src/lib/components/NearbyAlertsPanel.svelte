@@ -153,7 +153,7 @@
 		onclick={() => (open = !open)}
 	>
 		<div class="flex min-w-0 items-start gap-3">
-			<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
+			<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-sunken text-muted">
 				<LocationIcon class="size-5" />
 			</div>
 			<div class="min-w-0">
@@ -341,7 +341,7 @@
 				</div>
 			{:else if !nearbyState.loading && !nearbyState.error && !nearbyState.unavailableMessage}
 				<div class="state-panel border-0 bg-surface px-4 py-6">
-					<div class="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
+					<div class="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-sunken text-muted">
 						<LocationIcon class="size-6" />
 					</div>
 					<p class="mt-3 text-sm font-semibold text-ink">Belum ada area pantauan</p>
