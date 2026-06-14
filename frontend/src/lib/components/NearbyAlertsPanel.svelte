@@ -153,12 +153,12 @@
 		onclick={() => (open = !open)}
 	>
 		<div class="flex min-w-0 items-start gap-3">
-			<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+			<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
 				<LocationIcon class="size-5" />
 			</div>
 			<div class="min-w-0">
-				<div class="text-sm font-bold text-slate-950">Pantau area sekitar rumah</div>
-				<p class="mt-1 text-xs leading-5 text-slate-500">
+				<div class="text-sm font-bold text-ink">Pantau area sekitar rumah</div>
+				<p class="mt-1 text-xs leading-5 text-muted">
 					Beri tahu saya jika ada laporan baru di sekitar lokasi ini.
 				</p>
 			</div>
@@ -170,17 +170,17 @@
 	</button>
 
 	{#if open}
-		<div class="space-y-4 border-t border-slate-100 px-4 pb-4 pt-3">
-			<div class="rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
+		<div class="space-y-4 border-t border-hairline px-4 pb-4 pt-3">
+			<div class="rounded-[4px] border border-hairline bg-surface px-4 py-3 text-sm leading-6 text-muted">
 				Simpan beberapa lokasi seperti rumah, kantor, atau area yang ingin kamu pantau. Nearby Alerts tetap mengikuti preferensi notifikasi dan channel yang kamu aktifkan.
 			</div>
 
 			<div class="jedug-panel space-y-4 p-4">
 				<div class="flex items-center gap-2">
-					<AddCircleIcon class="size-5 text-brand-500" />
+					<AddCircleIcon class="size-5 text-brand" />
 					<div>
-						<p class="text-sm font-bold text-slate-900">Tambah lokasi pantauan</p>
-						<p class="text-xs leading-5 text-slate-500">Maksimum 10 lokasi agar notifikasi tetap ringan.</p>
+						<p class="text-sm font-bold text-ink">Tambah lokasi pantauan</p>
+						<p class="text-xs leading-5 text-muted">Maksimum 10 lokasi agar notifikasi tetap ringan.</p>
 					</div>
 				</div>
 
@@ -252,9 +252,9 @@
 			{/if}
 
 			{#if nearbyState.loading}
-				<div class="state-panel border-0 bg-white/70 px-4 py-6">
-					<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
-					<p class="mt-3 text-sm text-slate-500">Memuat lokasi pantauan...</p>
+				<div class="state-panel border-0 bg-surface px-4 py-6">
+					<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-hairline border-t-brand-500"></div>
+					<p class="mt-3 text-sm text-muted">Memuat lokasi pantauan...</p>
 				</div>
 			{:else if nearbyState.unavailableMessage}
 				<div class="notice-panel">{nearbyState.unavailableMessage}</div>
@@ -271,12 +271,12 @@
 						>
 							<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 								<div>
-									<p class="text-sm font-bold text-slate-950">{item.label || 'Area pantauan'}</p>
-									<p class="mt-1 text-xs leading-5 text-slate-500">
+									<p class="text-sm font-bold text-ink">{item.label || 'Area pantauan'}</p>
+									<p class="mt-1 text-xs leading-5 text-muted">
 										{formatCoordinates(item.latitude, item.longitude)}
 									</p>
 								</div>
-								<label class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+								<label class="flex items-center gap-2 text-xs font-semibold text-muted">
 									<span>{item.enabled ? 'Aktif' : 'Nonaktif'}</span>
 									<input
 										type="checkbox"
@@ -340,12 +340,12 @@
 					{/each}
 				</div>
 			{:else if !nearbyState.loading && !nearbyState.error && !nearbyState.unavailableMessage}
-				<div class="state-panel border-0 bg-white/70 px-4 py-6">
-					<div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+				<div class="state-panel border-0 bg-surface px-4 py-6">
+					<div class="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
 						<LocationIcon class="size-6" />
 					</div>
-					<p class="mt-3 text-sm font-semibold text-slate-700">Belum ada area pantauan</p>
-					<p class="mt-1 text-xs leading-5 text-slate-500">
+					<p class="mt-3 text-sm font-semibold text-ink">Belum ada area pantauan</p>
+					<p class="mt-1 text-xs leading-5 text-muted">
 						Tambahkan lokasi penting buatmu supaya laporan baru di sekitarnya bisa langsung masuk ke notifikasi.
 					</p>
 				</div>

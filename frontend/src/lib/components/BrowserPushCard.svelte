@@ -61,17 +61,17 @@
 	});
 
 	const toneClasses = $derived.by(() => {
-		if (statusTone === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-		if (statusTone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
-		if (statusTone === 'muted') return 'border-slate-200 bg-slate-100 text-slate-600';
-		return 'border-brand-200 bg-brand-50 text-brand-700';
+		if (statusTone === 'success') return 'border-hairline bg-sunken text-verify-community';
+		if (statusTone === 'warning') return 'border-hairline bg-sunken text-muted';
+		if (statusTone === 'muted') return 'border-hairline bg-sunken text-muted';
+		return 'border-brand/30 bg-brand-tint text-brand';
 	});
 
 	const iconToneClasses = $derived.by(() => {
-		if (statusTone === 'success') return 'bg-emerald-50 text-emerald-600';
-		if (statusTone === 'warning') return 'bg-amber-50 text-amber-700';
-		if (statusTone === 'muted') return 'bg-slate-100 text-slate-600';
-		return 'bg-brand-50 text-brand-600';
+		if (statusTone === 'success') return 'bg-sunken text-verify-community';
+		if (statusTone === 'warning') return 'bg-sunken text-muted';
+		if (statusTone === 'muted') return 'bg-sunken text-muted';
+		return 'bg-brand-tint text-brand';
 	});
 
 	const summary = $derived.by(() => {
@@ -167,28 +167,28 @@
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex items-start gap-3">
-			<div class={`flex size-11 shrink-0 items-center justify-center rounded-[18px] ${iconToneClasses}`}>
+			<div class={`flex size-11 shrink-0 items-center justify-center rounded-[4px] ${iconToneClasses}`}>
 				<StatusIcon class="size-5" />
 			</div>
 			<div class="min-w-0 flex-1 space-y-2">
 				<div class="flex flex-wrap items-center justify-between gap-2">
-					<h3 class="text-sm font-bold text-slate-950">{title}</h3>
+					<h3 class="text-sm font-bold text-ink">{title}</h3>
 					<span class={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${toneClasses}`}>
 						{statusLabel}
 					</span>
 				</div>
-				<p class="text-sm leading-6 text-slate-600">{summary}</p>
+				<p class="text-sm leading-6 text-muted">{summary}</p>
 			</div>
 		</div>
 
 		{#if requiresRepair}
-			<ol class="space-y-2 pl-5 text-xs leading-5 text-slate-600">
+			<ol class="space-y-2 pl-5 text-xs leading-5 text-muted">
 				<li>Tekan tombol reset di bawah.</li>
 				<li>Setujui ulang popup consent JEDUG setelah halaman reload.</li>
 				<li>Ikuti laporan lagi bila diperlukan, lalu aktifkan notifikasi browser.</li>
 			</ol>
 		{:else if pushState.status === 'ios_browser_tab'}
-			<ol class="space-y-2 pl-5 text-xs leading-5 text-slate-600">
+			<ol class="space-y-2 pl-5 text-xs leading-5 text-muted">
 				{#each installSteps as step}
 					<li>{step}</li>
 				{/each}
@@ -196,10 +196,10 @@
 		{/if}
 
 		{#if pushState.error}
-			<p class="error-panel border-0 bg-rose-50/80">{pushState.error}</p>
+			<p class="error-panel border-0 bg-brand-tint">{pushState.error}</p>
 		{/if}
 		{#if pushState.success}
-			<p class="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+			<p class="rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm text-verify-community">
 				{pushState.success}
 			</p>
 		{/if}

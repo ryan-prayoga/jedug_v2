@@ -92,12 +92,12 @@
 
 <section class="jedug-card p-5" aria-label="Aksi publik issue">
 	<div class="flex items-start gap-3">
-		<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+		<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 			<ShareIcon class="size-6" />
 		</div>
 		<div class="min-w-0">
-			<h2 class="text-lg font-bold text-slate-950">Bagikan Issue</h2>
-			<p class="mt-1 text-sm leading-6 text-slate-500">
+			<h2 class="text-lg font-bold text-ink">Bagikan Issue</h2>
+			<p class="mt-1 text-sm leading-6 text-muted">
 				Siap dibagikan ke WhatsApp, Telegram, Twitter/X, Facebook, atau link biasa.
 			</p>
 		</div>
@@ -128,14 +128,14 @@
 				href={item.href}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
+				class="inline-flex items-center justify-center rounded-full border border-hairline bg-sunken px-3 py-2 text-xs font-bold text-muted transition hover:border-hairline-strong hover:bg-surface hover:text-ink"
 			>
 				{item.label}
 			</a>
 		{/each}
 		<button
 			type="button"
-			class="inline-flex items-center justify-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-bold text-brand-700 transition hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+			class="inline-flex items-center justify-center gap-2 rounded-full border border-brand/30 bg-brand-tint px-3 py-2 text-xs font-bold text-brand transition hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
 			onclick={copyLink}
 			disabled={copyingLink}
 		>
@@ -145,7 +145,7 @@
 	</div>
 
 	{#if shareMessage}
-		<p class="mt-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+		<p class="mt-4 rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm font-semibold text-verify-community">
 			{shareMessage}
 		</p>
 	{/if}

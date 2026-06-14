@@ -64,7 +64,7 @@
 
 <div class="admin-shell-bg">
 	<div class="admin-frame flex min-h-dvh items-center justify-center py-10">
-		<div class="grid w-full max-w-[1080px] overflow-hidden rounded-[34px] border border-white/80 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] lg:grid-cols-[minmax(0,0.95fr)_minmax(380px,0.85fr)]">
+		<div class="grid w-full max-w-[1080px] overflow-hidden rounded-[4px] border border-hairline bg-surface lg:grid-cols-[minmax(0,0.95fr)_minmax(380px,0.85fr)]">
 			<section class="hidden bg-[radial-gradient(circle_at_top_left,rgba(229,72,77,0.16),transparent_34%),linear-gradient(180deg,#fff8f7_0%,#fff_100%)] p-8 lg:flex lg:flex-col lg:justify-between">
 				<div class="space-y-6">
 					<span class="section-kicker">Admin workspace</span>
@@ -80,21 +80,21 @@
 
 				<div class="space-y-3">
 					<div class="jedug-card-soft flex gap-3 px-4 py-4">
-						<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
 							<ShieldCheckIcon class="size-5" />
 						</div>
 						<div>
-							<p class="text-sm font-bold text-slate-900">Cookie HttpOnly tetap dipakai</p>
-							<p class="mt-1 text-xs leading-5 text-slate-500">Sesi admin tetap mengikuti kebijakan server, bukan disimpan di localStorage.</p>
+							<p class="text-sm font-bold text-ink">Cookie HttpOnly tetap dipakai</p>
+							<p class="mt-1 text-xs leading-5 text-muted">Sesi admin tetap mengikuti kebijakan server, bukan disimpan di localStorage.</p>
 						</div>
 					</div>
 					<div class="jedug-card-soft flex gap-3 px-4 py-4">
-						<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
 							<UserIcon class="size-5" />
 						</div>
 						<div>
-							<p class="text-sm font-bold text-slate-900">Ingat saya tetap aman</p>
-							<p class="mt-1 text-xs leading-5 text-slate-500">Yang disimpan hanya username untuk memudahkan login berikutnya, bukan password.</p>
+							<p class="text-sm font-bold text-ink">Ingat saya tetap aman</p>
+							<p class="mt-1 text-xs leading-5 text-muted">Yang disimpan hanya username untuk memudahkan login berikutnya, bukan password.</p>
 						</div>
 					</div>
 				</div>
@@ -103,13 +103,13 @@
 			<section class="p-5 sm:p-8">
 				<div class="mx-auto flex w-full max-w-[420px] flex-col gap-6 py-4">
 					<div class="space-y-4">
-						<div class="flex size-14 items-center justify-center rounded-[22px] bg-brand-50 text-brand-600">
+						<div class="flex size-14 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 							<LoginIcon class="size-7" />
 						</div>
 						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">JEDUG Admin</p>
-							<h2 class="text-3xl font-[800] tracking-[-0.05em] text-slate-950">Masuk untuk moderasi</h2>
-							<p class="text-sm leading-6 text-slate-500">
+							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-brand">JEDUG Admin</p>
+							<h2 class="text-3xl font-[800] tracking-[-0.05em] text-ink">Masuk untuk moderasi</h2>
+							<p class="text-sm leading-6 text-muted">
 								Gunakan kredensial admin yang valid. Sesi tetap diamankan oleh cookie server-side dengan TTL backend saat ini.
 							</p>
 						</div>
@@ -123,7 +123,7 @@
 						<label class="input-shell">
 							<span class="input-label">Username</span>
 							<div class="relative">
-								<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
+								<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-subtle">
 									<UserIcon class="size-5" />
 								</span>
 								<input
@@ -140,7 +140,7 @@
 						<label class="input-shell">
 							<span class="input-label">Password</span>
 							<div class="relative">
-								<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
+								<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-subtle">
 									<ShieldCheckIcon class="size-5" />
 								</span>
 								<input
@@ -153,7 +153,7 @@
 								/>
 								<button
 									type="button"
-									class="absolute inset-y-0 right-3 my-auto flex size-9 items-center justify-center rounded-2xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+									class="absolute inset-y-0 right-3 my-auto flex size-9 items-center justify-center rounded-[8px] text-muted transition hover:bg-sunken hover:text-ink"
 									aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
 									aria-pressed={showPassword}
 									onclick={() => (showPassword = !showPassword)}
@@ -167,11 +167,11 @@
 							</div>
 						</label>
 
-						<label class="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
+						<label class="flex items-start gap-3 rounded-[4px] border border-hairline bg-sunken px-4 py-3">
 							<input type="checkbox" class="mt-1 h-4 w-4 accent-[#e5484d]" bind:checked={rememberMe} />
 							<span>
-								<span class="block text-sm font-semibold text-slate-900">Ingat saya di browser ini</span>
-								<span class="mt-1 block text-xs leading-5 text-slate-500">
+								<span class="block text-sm font-semibold text-ink">Ingat saya di browser ini</span>
+								<span class="mt-1 block text-xs leading-5 text-muted">
 									Menyimpan username saja. Password tidak disimpan, dan durasi sesi tetap mengikuti kebijakan server.
 								</span>
 							</span>
@@ -179,7 +179,7 @@
 
 						<button type="submit" class="btn-primary w-full" disabled={loading}>
 							{#if loading}
-								<div class="size-4 animate-spin rounded-full border-2 border-white/35 border-t-white"></div>
+								<div class="size-4 animate-spin rounded-full border-2 border-hairline border-t-white"></div>
 								Memproses...
 							{:else}
 								<LoginIcon class="size-[18px]" />
@@ -188,7 +188,7 @@
 						</button>
 					</form>
 
-					<div class="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4 text-sm text-verify-community">
 						<div class="flex items-start gap-3">
 							<CheckCircleIcon class="mt-0.5 size-5 shrink-0" />
 							<p>

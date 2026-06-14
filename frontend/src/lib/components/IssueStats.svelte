@@ -50,12 +50,12 @@
 <section class="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Statistik ringkas issue">
 	{#each items as item}
 		{@const ItemIcon = item.icon}
-		<article class={`metric-card ${item.alert ? 'border-rose-200 bg-rose-50/70' : ''}`}>
-			<div class="flex items-center gap-2 text-slate-500">
+		<article class={`metric-card ${item.alert ? 'border-brand/30 bg-brand-tint' : ''}`}>
+			<div class="flex items-center gap-2 text-muted">
 				<ItemIcon class="size-[18px]" />
 				<span class="metric-label">{item.label}</span>
 			</div>
-			<strong class:text-rose-700={item.alert} class="metric-value">
+			<strong class:text-brand={item.alert} class="metric-value">
 				{numberFormatter.format(item.value)}
 			</strong>
 			<p class="metric-copy">{item.copy}</p>

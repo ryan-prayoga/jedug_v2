@@ -126,7 +126,7 @@
 				percent: getStatusPercent(stats.status.open),
 				copy: 'Masih perlu perhatian atau tindak lanjut',
 				icon: TargetIcon,
-				barClass: 'bg-brand-500'
+				barClass: 'bg-brand'
 			},
 			{
 				label: 'Issue Fixed',
@@ -134,7 +134,7 @@
 				percent: getStatusPercent(stats.status.fixed),
 				copy: 'Sudah ditandai selesai di sistem',
 				icon: CheckCircleIcon,
-				barClass: 'bg-emerald-500'
+				barClass: 'bg-sunken0'
 			},
 			{
 				label: 'Issue Archived',
@@ -142,7 +142,7 @@
 				percent: getStatusPercent(stats.status.archived),
 				copy: 'Diarsipkan dari alur aktif publik',
 				icon: DocumentIcon,
-				barClass: 'bg-slate-500'
+				barClass: 'bg-sunken0'
 			}
 		];
 	});
@@ -583,10 +583,10 @@
 						<ChartIcon class="size-4" />
 						Statistik publik
 					</span>
-					<h1 class="mt-4 text-balance text-[clamp(2rem,4vw,3.2rem)] font-[800] tracking-[-0.05em] text-slate-950">
+					<h1 class="mt-4 text-balance text-[clamp(2rem,4vw,3.2rem)] font-[800] tracking-[-0.05em] text-ink">
 						Dashboard jalan rusak yang lebih mudah dipindai.
 					</h1>
-					<p class="mt-3 text-sm leading-6 text-slate-600 sm:text-[15px]">
+					<p class="mt-3 text-sm leading-6 text-muted sm:text-[15px]">
 						Ringkasan agregasi issue publik untuk civic storytelling yang cepat dipahami, dengan filter wilayah yang tetap aman dan ringan untuk dipakai warga.
 					</p>
 				</div>
@@ -615,39 +615,39 @@
 			</div>
 
 			<div class="grid gap-3 sm:grid-cols-3">
-				<article class="rounded-[22px] border border-white/70 bg-white/88 px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
-					<div class="flex items-center gap-2 text-slate-500">
+				<article class="rounded-[4px] border border-hairline bg-surface px-4 py-4">
+					<div class="flex items-center gap-2 text-muted">
 						<LocationIcon class="size-[18px]" />
 						<span class="surface-label">Scope aktif</span>
 					</div>
-					<strong class="mt-2 block text-sm font-bold text-slate-950">{activeScopeLabel}</strong>
-					<p class="mt-1 text-xs leading-5 text-slate-500">
+					<strong class="mt-2 block text-sm font-bold text-ink">{activeScopeLabel}</strong>
+					<p class="mt-1 text-xs leading-5 text-muted">
 						Leaderboard, top issue, dan seluruh metrik mengikuti wilayah yang sama.
 					</p>
 				</article>
 
-				<article class="rounded-[22px] border border-white/70 bg-white/88 px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
-					<div class="flex items-center gap-2 text-slate-500">
+				<article class="rounded-[4px] border border-hairline bg-surface px-4 py-4">
+					<div class="flex items-center gap-2 text-muted">
 						<TargetIcon class="size-[18px]" />
 						<span class="surface-label">Kecocokan lokasi</span>
 					</div>
-					<strong class="mt-2 block text-sm font-bold text-slate-950">
+					<strong class="mt-2 block text-sm font-bold text-ink">
 						{applyingLocationDefault ? 'Mencocokkan lokasi...' : 'Bisa otomatis atau manual'}
 					</strong>
-					<p class="mt-1 text-xs leading-5 text-slate-500">
+					<p class="mt-1 text-xs leading-5 text-muted">
 						Statistik mencoba mengikuti lokasi kamu terlebih dulu, lalu tetap bisa diubah manual.
 					</p>
 				</article>
 
-				<article class="rounded-[22px] border border-white/70 bg-white/88 px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
-					<div class="flex items-center gap-2 text-slate-500">
+				<article class="rounded-[4px] border border-hairline bg-surface px-4 py-4">
+					<div class="flex items-center gap-2 text-muted">
 						<WidgetIcon class="size-[18px]" />
 						<span class="surface-label">Snapshot global</span>
 					</div>
-					<strong class="mt-2 block text-sm font-bold text-slate-950">
+					<strong class="mt-2 block text-sm font-bold text-ink">
 						{stats ? `${formatNumber(stats.global.total_issues)} issue publik` : 'Menunggu data'}
 					</strong>
-					<p class="mt-1 text-xs leading-5 text-slate-500">
+					<p class="mt-1 text-xs leading-5 text-muted">
 						Ringkasan global tetap tersedia untuk menjaga konteks nasional saat scope dipersempit.
 					</p>
 				</article>
@@ -673,8 +673,8 @@
 						<LocationIcon class="size-4" />
 						Filter wilayah
 					</span>
-					<h2 class="mt-4 text-2xl font-[800] tracking-[-0.04em] text-slate-950">Atur scope statistik aktif</h2>
-					<p class="mt-3 text-sm leading-6 text-slate-500">
+					<h2 class="mt-4 text-2xl font-[800] tracking-[-0.04em] text-ink">Atur scope statistik aktif</h2>
+					<p class="mt-3 text-sm leading-6 text-muted">
 						Ringkasan, status, umur issue, leaderboard, dan top issue mengikuti wilayah aktif yang sama agar pembacaan tetap konsisten.
 					</p>
 				</div>
@@ -739,10 +739,10 @@
 			</div>
 
 			<div class="mt-4 grid gap-3">
-				<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+				<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
 					<div class="flex items-start gap-3">
-						<LocationIcon class="mt-0.5 size-5 shrink-0 text-brand-600" />
-						<p class="text-sm leading-6 text-slate-600">{locationHint}</p>
+						<LocationIcon class="mt-0.5 size-5 shrink-0 text-brand" />
+						<p class="text-sm leading-6 text-muted">{locationHint}</p>
 					</div>
 				</div>
 
@@ -751,7 +751,7 @@
 				{:else if optionsErrorMessage}
 					<div class="notice-panel">{optionsErrorMessage}</div>
 				{:else if provinceOptions.length > 0}
-					<div class="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm text-verify-community">
 						Kamu tetap bisa pilih manual jika lokasi browser tidak cocok persis.
 					</div>
 				{/if}
@@ -760,7 +760,7 @@
 					<div class="error-panel">{inlineErrorMessage}</div>
 				{/if}
 				{#if isScopedEmpty}
-					<div class="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm text-muted">
 						Belum ada issue publik di scope ini. Kamu masih bisa ganti wilayah dari filter di atas.
 					</div>
 				{/if}
@@ -771,7 +771,7 @@
 			{#each summaryCards as item}
 				{@const ItemIcon = item.icon}
 				<article class="metric-card">
-					<div class="flex items-center gap-2 text-slate-500">
+					<div class="flex items-center gap-2 text-muted">
 						<ItemIcon class="size-[18px]" />
 						<span class="metric-label">{item.label}</span>
 					</div>
@@ -785,12 +785,12 @@
 			<div class="flex flex-col gap-5">
 				<section class="jedug-card p-5 md:p-6">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-slate-100 text-slate-700">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-ink">
 							<TargetIcon class="size-6" />
 						</div>
 						<div>
-							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Status breakdown</h2>
-							<p class="mt-2 text-sm leading-6 text-slate-500">
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-ink">Status breakdown</h2>
+							<p class="mt-2 text-sm leading-6 text-muted">
 								Porsi issue open, fixed, dan archived pada scope aktif saat ini.
 							</p>
 						</div>
@@ -799,23 +799,23 @@
 					<div class="mt-5 grid gap-3">
 						{#each statusCards as item}
 							{@const ItemIcon = item.icon}
-							<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+							<article class="rounded-[4px] border border-hairline bg-surface px-4 py-4">
 								<div class="flex items-start justify-between gap-3">
 									<div class="flex items-center gap-3">
-										<div class="flex size-10 items-center justify-center rounded-[18px] bg-slate-100 text-slate-700">
+										<div class="flex size-10 items-center justify-center rounded-[4px] bg-sunken text-ink">
 											<ItemIcon class="size-5" />
 										</div>
 										<div>
-											<p class="text-sm font-bold text-slate-900">{item.label}</p>
-											<p class="mt-1 text-xs leading-5 text-slate-500">{item.copy}</p>
+											<p class="text-sm font-bold text-ink">{item.label}</p>
+											<p class="mt-1 text-xs leading-5 text-muted">{item.copy}</p>
 										</div>
 									</div>
 									<div class="text-right">
-										<strong class="text-lg font-[800] text-slate-950">{formatNumber(item.value)}</strong>
-										<p class="mt-1 text-xs font-semibold text-slate-500">{item.percent}%</p>
+										<strong class="text-lg font-[800] text-ink">{formatNumber(item.value)}</strong>
+										<p class="mt-1 text-xs font-semibold text-muted">{item.percent}%</p>
 									</div>
 								</div>
-								<div class="mt-4 h-2.5 rounded-full bg-slate-100">
+								<div class="mt-4 h-2.5 rounded-full bg-sunken">
 									<div class={`h-full rounded-full ${item.barClass}`} style={`width:${item.percent}%`}></div>
 								</div>
 							</article>
@@ -825,37 +825,37 @@
 
 				<section class="jedug-card p-5 md:p-6">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-brand-50 text-brand-600">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 							<RankingIcon class="size-6" />
 						</div>
 						<div>
-							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Region leaderboard</h2>
-							<p class="mt-2 text-sm leading-6 text-slate-500">
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-ink">Region leaderboard</h2>
+							<p class="mt-2 text-sm leading-6 text-muted">
 								Wilayah administratif dengan laporan terbanyak di scope yang sedang dipilih.
 							</p>
 						</div>
 					</div>
 
 					{#if stats.regions.length === 0}
-						<div class="mt-5 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+						<div class="mt-5 rounded-[4px] border border-dashed border-hairline bg-sunken px-4 py-5">
 							<EmptyState message="Wilayah administratif belum tersedia untuk scope ini." />
 						</div>
 					{:else}
 						<div class="mt-5 grid gap-3">
 							{#each stats.regions as region, index (region.region_id)}
-								<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+								<article class="rounded-[4px] border border-hairline bg-surface px-4 py-4">
 									<div class="flex items-start gap-3">
-										<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-sm font-bold text-brand-700">
+										<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-sm font-bold text-brand">
 											{index + 1}
 										</div>
 										<div class="min-w-0 flex-1">
-											<h3 class="text-sm font-bold leading-6 text-slate-950">{region.region_name}</h3>
+											<h3 class="text-sm font-bold leading-6 text-ink">{region.region_name}</h3>
 											{#if getRegionContext(region) !== ''}
-												<p class="mt-1 text-xs leading-5 text-slate-500">
+												<p class="mt-1 text-xs leading-5 text-muted">
 													{getRegionLevelLabel(region.region_level)} · {getRegionContext(region)}
 												</p>
 											{/if}
-											<p class="mt-2 text-sm leading-6 text-slate-600">
+											<p class="mt-2 text-sm leading-6 text-muted">
 												{formatNumber(region.issue_count)} issue · {formatNumber(region.report_count)} laporan ·
 												{formatNumber(region.casualty_count)} korban
 											</p>
@@ -871,12 +871,12 @@
 			<div class="flex flex-col gap-5">
 				<section class="jedug-card p-5 md:p-6">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-sky-50 text-sky-600">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sky-50 text-sky-600">
 							<ClockIcon class="size-6" />
 						</div>
 						<div>
-							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Time stats</h2>
-							<p class="mt-2 text-sm leading-6 text-slate-500">
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-ink">Time stats</h2>
+							<p class="mt-2 text-sm leading-6 text-muted">
 								Umur issue dan titik backlog paling tua pada scope aktif.
 							</p>
 						</div>
@@ -886,17 +886,17 @@
 						{#each timeCards as item}
 							{@const ItemIcon = item.icon}
 							<article class="metric-card">
-								<div class="flex items-center gap-2 text-slate-500">
+								<div class="flex items-center gap-2 text-muted">
 									<ItemIcon class="size-[18px]" />
 									<span class="metric-label">{item.label}</span>
 								</div>
-								<strong class="mt-3 block text-xl font-[800] tracking-[-0.03em] text-slate-950">
+								<strong class="mt-3 block text-xl font-[800] tracking-[-0.03em] text-ink">
 									{item.value}
 								</strong>
-								<p class="mt-2 text-sm leading-6 text-slate-500">{item.copy}</p>
+								<p class="mt-2 text-sm leading-6 text-muted">{item.copy}</p>
 								{#if item.href}
 									<a
-										class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand-600 transition hover:text-brand-700"
+										class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand transition hover:text-brand"
 										href={item.href}
 									>
 										<RouteIcon class="size-[18px]" />
@@ -910,36 +910,36 @@
 
 				<section class="jedug-card p-5 md:p-6">
 					<div class="flex items-start gap-3">
-						<div class="flex size-11 shrink-0 items-center justify-center rounded-[20px] bg-amber-50 text-amber-700">
+						<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-sunken text-muted">
 							<ChartIcon class="size-6" />
 						</div>
 						<div>
-							<h2 class="text-xl font-[800] tracking-[-0.03em] text-slate-950">Top issue</h2>
-							<p class="mt-2 text-sm leading-6 text-slate-500">
+							<h2 class="text-xl font-[800] tracking-[-0.03em] text-ink">Top issue</h2>
+							<p class="mt-2 text-sm leading-6 text-muted">
 								Kartu issue unggulan otomatis mengikuti provinsi dan kabupaten/kota yang aktif.
 							</p>
 						</div>
 					</div>
 
 					{#if stats.top_issues.length === 0}
-						<div class="mt-5 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+						<div class="mt-5 rounded-[4px] border border-dashed border-hairline bg-sunken px-4 py-5">
 							<EmptyState message="Belum ada issue unggulan untuk ditampilkan." />
 						</div>
 					{:else}
 						<div class="mt-5 grid gap-3">
 							{#each stats.top_issues as item (item.category)}
-								<article class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+								<article class="rounded-[4px] border border-hairline bg-surface px-4 py-4">
 									<div class="flex items-start justify-between gap-3">
-										<h3 class="text-sm font-bold leading-6 text-slate-950">{item.label}</h3>
+										<h3 class="text-sm font-bold leading-6 text-ink">{item.label}</h3>
 										<span class="badge-tint">
 											{formatNumber(item.metric_value)} {item.metric_label}
 										</span>
 									</div>
-									<p class="mt-3 text-sm font-bold leading-6 text-slate-900">{getIssueName(item)}</p>
-									<p class="mt-1 text-sm leading-6 text-slate-500">{getIssueLocation(item)}</p>
-									<p class="mt-2 text-xs leading-5 text-slate-500">{getIssueContext(item)}</p>
+									<p class="mt-3 text-sm font-bold leading-6 text-ink">{getIssueName(item)}</p>
+									<p class="mt-1 text-sm leading-6 text-muted">{getIssueLocation(item)}</p>
+									<p class="mt-2 text-xs leading-5 text-muted">{getIssueContext(item)}</p>
 									<a
-										class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand-600 transition hover:text-brand-700"
+										class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-brand transition hover:text-brand"
 										href={`/issues/${item.issue_id}`}
 									>
 										<RouteIcon class="size-[18px]" />

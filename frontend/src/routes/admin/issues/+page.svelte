@@ -47,15 +47,15 @@
 	function statusTone(status: string): string {
 		switch (status) {
 			case 'open':
-				return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+				return 'border-hairline bg-sunken text-verify-community';
 			case 'fixed':
-				return 'border-blue-200 bg-blue-50 text-blue-700';
+				return 'border-hairline bg-sunken text-ink';
 			case 'rejected':
-				return 'border-rose-200 bg-rose-50 text-rose-700';
+				return 'border-brand/30 bg-brand-tint text-brand';
 			case 'archived':
-				return 'border-slate-200 bg-slate-100 text-slate-600';
+				return 'border-hairline bg-sunken text-muted';
 			default:
-				return 'border-slate-200 bg-slate-100 text-slate-600';
+				return 'border-hairline bg-sunken text-muted';
 		}
 	}
 
@@ -86,18 +86,18 @@
 					Moderasi issue
 				</span>
 				<div>
-					<h1 class="text-3xl font-[800] tracking-[-0.05em] text-slate-950">Daftar issue publik</h1>
-					<p class="mt-2 max-w-[60ch] text-sm leading-6 text-slate-500">
+					<h1 class="text-3xl font-[800] tracking-[-0.05em] text-ink">Daftar issue publik</h1>
+					<p class="mt-2 max-w-[60ch] text-sm leading-6 text-muted">
 						Area ini dipoles untuk memindai status, severity, visibilitas, dan akses detail moderasi lebih cepat.
 					</p>
 				</div>
 			</div>
 
-			<div class="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+			<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
 				<label class="input-shell min-w-[220px]">
 					<span class="input-label">Filter status</span>
 					<div class="relative">
-						<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
+						<span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-subtle">
 							<FilterIcon class="size-5" />
 						</span>
 						<select class="select-field w-full pl-12" bind:value={statusFilter} onchange={handleFilter}>
@@ -115,66 +115,66 @@
 
 	{#if loading}
 		<div class="state-panel">
-			<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
-			<p class="mt-4 text-sm font-semibold text-slate-700">Memuat daftar issue...</p>
+			<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-hairline border-t-brand-500"></div>
+			<p class="mt-4 text-sm font-semibold text-ink">Memuat daftar issue...</p>
 		</div>
 	{:else if error}
 		<div class="error-panel">{error}</div>
 	{:else if issues.length === 0}
 		<div class="state-panel">
-			<div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+			<div class="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-brand-tint text-brand">
 				<SearchIcon class="size-6" />
 			</div>
-			<p class="mt-4 text-sm font-semibold text-slate-700">Tidak ada issue ditemukan</p>
-			<p class="mt-1 text-xs leading-5 text-slate-500">Ubah filter atau kembali lagi saat ada issue baru.</p>
+			<p class="mt-4 text-sm font-semibold text-ink">Tidak ada issue ditemukan</p>
+			<p class="mt-1 text-xs leading-5 text-muted">Ubah filter atau kembali lagi saat ada issue baru.</p>
 		</div>
 	{:else}
 		<section class="admin-card overflow-hidden">
 			<div class="overflow-x-auto">
 				<table class="min-w-full text-left">
-					<thead class="bg-slate-50/90">
-						<tr class="border-b border-slate-200">
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Status</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Severity</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Lokasi</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Laporan</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Foto</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Visibility</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Terakhir</th>
-							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Aksi</th>
+					<thead class="bg-sunken">
+						<tr class="border-b border-hairline">
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Status</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Severity</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Lokasi</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Laporan</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Foto</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Visibility</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Terakhir</th>
+							<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">Aksi</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each issues as issue (issue.id)}
-							<tr class={`border-b border-slate-100 align-top ${issue.is_hidden ? 'bg-rose-50/55' : ''}`}>
+							<tr class={`border-b border-hairline align-top ${issue.is_hidden ? 'bg-brand-tint' : ''}`}>
 								<td class="px-4 py-4">
 									<span class={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(issue.status)}`}>
 										{issue.status}
 									</span>
 								</td>
-								<td class="px-4 py-4 text-sm font-semibold text-slate-700">
+								<td class="px-4 py-4 text-sm font-semibold text-ink">
 									{severityLabel(issue.severity_current)}
 								</td>
 								<td class="px-4 py-4">
 									<div class="max-w-[280px]">
-										<p class="truncate text-sm font-semibold text-slate-900">
+										<p class="truncate text-sm font-semibold text-ink">
 											{issue.road_name || `${issue.latitude.toFixed(5)}, ${issue.longitude.toFixed(5)}`}
 										</p>
-										<p class="mt-1 text-xs text-slate-500">
+										<p class="mt-1 text-xs text-muted">
 											ID {issue.id.slice(0, 8)}...
 										</p>
 									</div>
 								</td>
-								<td class="px-4 py-4 text-sm text-slate-700">{issue.submission_count}</td>
-								<td class="px-4 py-4 text-sm text-slate-700">{issue.photo_count}</td>
+								<td class="px-4 py-4 text-sm text-ink">{issue.submission_count}</td>
+								<td class="px-4 py-4 text-sm text-ink">{issue.photo_count}</td>
 								<td class="px-4 py-4">
 									{#if issue.is_hidden}
-										<span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Hidden</span>
+										<span class="inline-flex rounded-full border border-brand/30 bg-brand-tint px-3 py-1 text-xs font-semibold text-brand">Hidden</span>
 									{:else}
-										<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">Public</span>
+										<span class="inline-flex rounded-full border border-hairline bg-sunken px-3 py-1 text-xs font-semibold text-muted">Public</span>
 									{/if}
 								</td>
-								<td class="px-4 py-4 text-sm text-slate-500">{relativeTime(issue.last_seen_at)}</td>
+								<td class="px-4 py-4 text-sm text-muted">{relativeTime(issue.last_seen_at)}</td>
 								<td class="px-4 py-4">
 									<a href="/admin/issues/{issue.id}" class="btn-secondary min-h-10 px-4 py-2">
 										Buka detail
@@ -187,8 +187,8 @@
 			</div>
 		</section>
 
-		<div class="flex flex-col items-center justify-between gap-3 rounded-[24px] border border-white/80 bg-white/80 px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)] sm:flex-row">
-			<p class="text-sm text-slate-500">Halaman {Math.floor(offset / limit) + 1}</p>
+		<div class="flex flex-col items-center justify-between gap-3 rounded-[4px] border border-hairline bg-surface px-4 py-4 sm:flex-row">
+			<p class="text-sm text-muted">Halaman {Math.floor(offset / limit) + 1}</p>
 			<div class="flex gap-2">
 				<button class="btn-secondary min-h-10 px-4 py-2" onclick={prevPage} disabled={offset === 0}>
 					<ArrowLeftIcon class="size-[18px]" />

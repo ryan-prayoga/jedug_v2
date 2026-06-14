@@ -102,23 +102,23 @@
 	function statusTone(status: string): string {
 		switch (status) {
 			case 'open':
-				return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+				return 'border-hairline bg-sunken text-verify-community';
 			case 'fixed':
-				return 'border-blue-200 bg-blue-50 text-blue-700';
+				return 'border-hairline bg-sunken text-ink';
 			case 'rejected':
-				return 'border-rose-200 bg-rose-50 text-rose-700';
+				return 'border-brand/30 bg-brand-tint text-brand';
 			case 'archived':
-				return 'border-slate-200 bg-slate-100 text-slate-600';
+				return 'border-hairline bg-sunken text-muted';
 			default:
-				return 'border-slate-200 bg-slate-100 text-slate-600';
+				return 'border-hairline bg-sunken text-muted';
 		}
 	}
 </script>
 
 {#if loading}
 	<div class="state-panel">
-		<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
-		<p class="mt-4 text-sm font-semibold text-slate-700">Memuat issue...</p>
+		<div class="mx-auto size-11 animate-spin rounded-full border-[3px] border-hairline border-t-brand-500"></div>
+		<p class="mt-4 text-sm font-semibold text-ink">Memuat issue...</p>
 	</div>
 {:else if error}
 	<div class="error-panel">{error}</div>
@@ -129,7 +129,7 @@
 				<ArrowLeftIcon class="size-[18px]" />
 				Kembali ke daftar
 			</a>
-			<span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+			<span class="text-xs font-semibold uppercase tracking-[0.16em] text-subtle">
 				Issue ID {detail.id}
 			</span>
 		</div>
@@ -142,27 +142,27 @@
 							{detail.status}
 						</span>
 						{#if detail.is_hidden}
-							<span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+							<span class="inline-flex rounded-full border border-brand/30 bg-brand-tint px-3 py-1 text-xs font-semibold text-brand">
 								Hidden
 							</span>
 						{/if}
-						<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+						<span class="inline-flex rounded-full border border-hairline bg-sunken px-3 py-1 text-xs font-semibold text-muted">
 							Severity {severityLabel(detail.severity_current)}
 						</span>
 					</div>
 
 					<div class="space-y-2">
-						<h1 class="text-3xl font-[800] tracking-[-0.05em] text-slate-950">
+						<h1 class="text-3xl font-[800] tracking-[-0.05em] text-ink">
 							{detail.road_name || `${detail.latitude.toFixed(6)}, ${detail.longitude.toFixed(6)}`}
 						</h1>
-						<p class="text-sm leading-6 text-slate-500">
+						<p class="text-sm leading-6 text-muted">
 							Issue ini menggabungkan laporan publik, media, dan jejak moderasi pada satu titik yang sama.
 						</p>
 					</div>
 
 					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 						<div class="metric-card">
-							<div class="flex items-center gap-2 text-slate-500">
+							<div class="flex items-center gap-2 text-muted">
 								<DocumentIcon class="size-[18px]" />
 								<span class="metric-label">Laporan</span>
 							</div>
@@ -170,7 +170,7 @@
 							<p class="metric-copy">Total submission masuk</p>
 						</div>
 						<div class="metric-card">
-							<div class="flex items-center gap-2 text-slate-500">
+							<div class="flex items-center gap-2 text-muted">
 								<MapIcon class="size-[18px]" />
 								<span class="metric-label">Foto</span>
 							</div>
@@ -178,7 +178,7 @@
 							<p class="metric-copy">Media bukti tersedia</p>
 						</div>
 						<div class="metric-card">
-							<div class="flex items-center gap-2 text-slate-500">
+							<div class="flex items-center gap-2 text-muted">
 								<DangerIcon class="size-[18px]" />
 								<span class="metric-label">Korban</span>
 							</div>
@@ -186,8 +186,8 @@
 							<p class="metric-copy">Jumlah korban tercatat</p>
 						</div>
 						<div class="metric-card">
-							<div class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Terakhir</div>
-							<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-slate-950">
+							<div class="text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Terakhir</div>
+							<p class="mt-2 text-lg font-[800] tracking-[-0.03em] text-ink">
 								{relativeTime(detail.last_seen_at)}
 							</p>
 							<p class="metric-copy">{formatDate(detail.last_seen_at)}</p>
@@ -197,12 +197,12 @@
 
 				<div class="jedug-panel space-y-4 p-4">
 					<div class="flex items-center gap-3">
-						<div class="flex size-10 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+						<div class="flex size-10 items-center justify-center rounded-[8px] bg-surface text-brand">
 							<ShieldCheckIcon class="size-5" />
 						</div>
 						<div>
-							<p class="text-sm font-bold text-slate-900">Aksi moderasi</p>
-							<p class="text-xs leading-5 text-slate-500">Pisahkan alasan operasional dan tindakan utama.</p>
+							<p class="text-sm font-bold text-ink">Aksi moderasi</p>
+							<p class="text-xs leading-5 text-muted">Pisahkan alasan operasional dan tindakan utama.</p>
 						</div>
 					</div>
 
@@ -239,7 +239,7 @@
 								<ShieldCheckIcon class="size-[18px]" />
 								{actionLoading === 'fix' ? 'Memproses...' : 'Tandai selesai'}
 							</button>
-							<button class="btn-secondary w-full justify-start border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" onclick={() => doAction('reject', adminRejectIssue)} disabled={!!actionLoading}>
+							<button class="btn-secondary w-full justify-start border-brand/30 bg-brand-tint text-brand hover:bg-rose-100" onclick={() => doAction('reject', adminRejectIssue)} disabled={!!actionLoading}>
 								<TrashIcon class="size-[18px]" />
 								{actionLoading === 'reject' ? 'Memproses...' : 'Tolak issue'}
 							</button>
@@ -252,37 +252,37 @@
 		<div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
 			<div class="space-y-5">
 				<section class="admin-card p-5">
-					<h2 class="text-lg font-bold text-slate-950">Metadata issue</h2>
+					<h2 class="text-lg font-bold text-ink">Metadata issue</h2>
 					<div class="mt-4 grid gap-3 sm:grid-cols-2">
-						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Severity</p>
-							<p class="mt-2 text-sm font-semibold text-slate-900">
+						<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Severity</p>
+							<p class="mt-2 text-sm font-semibold text-ink">
 								{severityLabel(detail.severity_current)} (max: {severityLabel(detail.severity_max)})
 							</p>
 						</div>
-						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Lokasi</p>
-							<p class="mt-2 text-sm font-semibold text-slate-900">
+						<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Lokasi</p>
+							<p class="mt-2 text-sm font-semibold text-ink">
 								{detail.road_name || `${detail.latitude.toFixed(6)}, ${detail.longitude.toFixed(6)}`}
 							</p>
 						</div>
-						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Pertama terlihat</p>
-							<p class="mt-2 text-sm font-semibold text-slate-900">{formatDate(detail.first_seen_at)}</p>
+						<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Pertama terlihat</p>
+							<p class="mt-2 text-sm font-semibold text-ink">{formatDate(detail.first_seen_at)}</p>
 						</div>
-						<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Terakhir terlihat</p>
-							<p class="mt-2 text-sm font-semibold text-slate-900">{relativeTime(detail.last_seen_at)}</p>
+						<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
+							<p class="text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Terakhir terlihat</p>
+							<p class="mt-2 text-sm font-semibold text-ink">{relativeTime(detail.last_seen_at)}</p>
 						</div>
 					</div>
 				</section>
 
 				{#if detail.media.length > 0}
 					<section class="admin-card p-5">
-						<h2 class="text-lg font-bold text-slate-950">Foto bukti</h2>
+						<h2 class="text-lg font-bold text-ink">Foto bukti</h2>
 						<div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 							{#each detail.media as media}
-								<a href={media.public_url} target="_blank" rel="noopener noreferrer" class="overflow-hidden rounded-[22px] border border-slate-200 bg-slate-100 shadow-[0_10px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300">
+								<a href={media.public_url} target="_blank" rel="noopener noreferrer" class="overflow-hidden rounded-[4px] border border-hairline bg-sunken transition hover:border-hairline-strong">
 									<img src={media.public_url} alt="Evidence" class="h-48 w-full object-cover" loading="lazy" />
 								</a>
 							{/each}
@@ -293,37 +293,37 @@
 				{#if detail.submissions.length > 0}
 					<section class="admin-card overflow-hidden">
 						<div class="px-5 py-5">
-							<h2 class="text-lg font-bold text-slate-950">Submission terkait</h2>
+							<h2 class="text-lg font-bold text-ink">Submission terkait</h2>
 						</div>
 						<div class="overflow-x-auto">
 							<table class="min-w-full text-left">
-								<thead class="bg-slate-50/90">
-									<tr class="border-b border-slate-200">
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Device</th>
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Status</th>
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Severity</th>
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Korban</th>
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Catatan</th>
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Waktu</th>
-										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Aksi</th>
+								<thead class="bg-sunken">
+									<tr class="border-b border-hairline">
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Device</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Status</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Severity</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Korban</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Catatan</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Waktu</th>
+										<th class="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">Aksi</th>
 									</tr>
 								</thead>
 								<tbody>
 									{#each detail.submissions as sub}
-										<tr class={`border-b border-slate-100 align-top ${sub.device_is_banned ? 'bg-rose-50/60' : ''}`}>
+										<tr class={`border-b border-hairline align-top ${sub.device_is_banned ? 'bg-brand-tint' : ''}`}>
 											<td class="px-4 py-4">
 												<div class="flex flex-wrap items-center gap-2">
-													<code class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{sub.device_id.slice(0, 8)}</code>
+													<code class="rounded-full bg-sunken px-2 py-1 text-xs text-muted">{sub.device_id.slice(0, 8)}</code>
 													{#if sub.device_is_banned}
-														<span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Banned</span>
+														<span class="inline-flex rounded-full border border-brand/30 bg-brand-tint px-3 py-1 text-xs font-semibold text-brand">Banned</span>
 													{/if}
 												</div>
 											</td>
-											<td class="px-4 py-4 text-sm text-slate-700">{sub.status}</td>
-											<td class="px-4 py-4 text-sm text-slate-700">{severityLabel(sub.severity)}</td>
-											<td class="px-4 py-4 text-sm text-slate-700">{sub.has_casualty ? 'Ya' : 'Tidak'}</td>
-											<td class="px-4 py-4 text-sm text-slate-500">{sub.note ?? '—'}</td>
-											<td class="px-4 py-4 text-sm text-slate-500">{relativeTime(sub.reported_at)}</td>
+											<td class="px-4 py-4 text-sm text-ink">{sub.status}</td>
+											<td class="px-4 py-4 text-sm text-ink">{severityLabel(sub.severity)}</td>
+											<td class="px-4 py-4 text-sm text-ink">{sub.has_casualty ? 'Ya' : 'Tidak'}</td>
+											<td class="px-4 py-4 text-sm text-muted">{sub.note ?? '—'}</td>
+											<td class="px-4 py-4 text-sm text-muted">{relativeTime(sub.reported_at)}</td>
 											<td class="px-4 py-4">
 												{#if !sub.device_is_banned}
 													<button class="btn-danger min-h-10 px-4 py-2" onclick={() => handleBanDevice(sub.device_id)} disabled={!!actionLoading}>
@@ -342,16 +342,16 @@
 
 			{#if detail.moderation_log.length > 0}
 				<section class="admin-card p-5">
-					<h2 class="text-lg font-bold text-slate-950">Log moderasi</h2>
+					<h2 class="text-lg font-bold text-ink">Log moderasi</h2>
 					<div class="mt-4 space-y-3">
 						{#each detail.moderation_log as log}
-							<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-								<p class="text-sm font-semibold text-slate-900">{actionTypeLabel(log.action_type)}</p>
-								<p class="mt-1 text-xs leading-5 text-slate-500">oleh {log.admin_username ?? 'system'}</p>
+							<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
+								<p class="text-sm font-semibold text-ink">{actionTypeLabel(log.action_type)}</p>
+								<p class="mt-1 text-xs leading-5 text-muted">oleh {log.admin_username ?? 'system'}</p>
 								{#if log.note}
-									<p class="mt-2 text-sm leading-6 text-slate-600">{log.note}</p>
+									<p class="mt-2 text-sm leading-6 text-muted">{log.note}</p>
 								{/if}
-								<p class="mt-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+								<p class="mt-3 text-[11px] font-bold uppercase tracking-[0.16em] text-subtle">
 									{formatDate(log.created_at)}
 								</p>
 							</div>

@@ -406,18 +406,18 @@
 			<div class="grid gap-3 sm:grid-cols-3">
 				<div class="jedug-panel p-4">
 					<p class="surface-label">1. Lokasi</p>
-					<p class="mt-2 text-sm font-semibold text-slate-900">Pastikan titik laporan benar</p>
-					<p class="mt-1 text-xs leading-5 text-slate-500">Koordinat tetap jadi acuan utama, label wilayah hanya konfirmasi UX.</p>
+					<p class="mt-2 text-sm font-semibold text-ink">Pastikan titik laporan benar</p>
+					<p class="mt-1 text-xs leading-5 text-muted">Koordinat tetap jadi acuan utama, label wilayah hanya konfirmasi UX.</p>
 				</div>
 				<div class="jedug-panel p-4">
 					<p class="surface-label">2. Foto</p>
-					<p class="mt-2 text-sm font-semibold text-slate-900">Gunakan foto yang mudah dibaca</p>
-					<p class="mt-1 text-xs leading-5 text-slate-500">Foto yang fokus membantu moderasi dan membuat issue lebih kredibel.</p>
+					<p class="mt-2 text-sm font-semibold text-ink">Gunakan foto yang mudah dibaca</p>
+					<p class="mt-1 text-xs leading-5 text-muted">Foto yang fokus membantu moderasi dan membuat issue lebih kredibel.</p>
 				</div>
 				<div class="jedug-panel p-4">
 					<p class="surface-label">3. Severity</p>
-					<p class="mt-2 text-sm font-semibold text-slate-900">Pilih level yang jujur</p>
-					<p class="mt-1 text-xs leading-5 text-slate-500">Gunakan deskripsi yang paling mendekati kondisi nyata di lapangan.</p>
+					<p class="mt-2 text-sm font-semibold text-ink">Pilih level yang jujur</p>
+					<p class="mt-1 text-xs leading-5 text-muted">Gunakan deskripsi yang paling mendekati kondisi nyata di lapangan.</p>
 				</div>
 			</div>
 		</div>
@@ -425,12 +425,12 @@
 
 	<section class="jedug-card p-5">
 		<div class="flex items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 				<LocationIcon class="size-6" />
 			</div>
 			<div class="min-w-0">
-				<h2 class="text-lg font-bold text-slate-950">Lokasi laporan</h2>
-				<p class="mt-1 text-sm leading-6 text-slate-500">
+				<h2 class="text-lg font-bold text-ink">Lokasi laporan</h2>
+				<p class="mt-1 text-sm leading-6 text-muted">
 					Koordinat yang akurat membantu issue masuk ke titik yang benar di peta.
 				</p>
 			</div>
@@ -438,39 +438,39 @@
 
 		<div class="mt-5 space-y-3">
 			{#if geo}
-				<div class="rounded-[24px] border border-emerald-200 bg-emerald-50/80 px-4 py-4">
+				<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<div>
-							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Koordinat aktif</p>
-							<p class="mt-2 text-base font-bold text-slate-950">
+							<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-verify-community">Koordinat aktif</p>
+							<p class="mt-2 text-base font-bold text-ink">
 								{geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}
 							</p>
 						</div>
-						<span class="badge-muted border-emerald-200 bg-white text-emerald-700">
+						<span class="badge-muted border-hairline bg-surface text-verify-community">
 							{geo.accuracy > 0 ? `± ${Math.round(geo.accuracy)}m` : 'Koordinat manual'}
 						</span>
 					</div>
 				</div>
 
 				{#if locationLabelLoading}
-					<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm text-muted">
 						Mencari nama wilayah...
 					</div>
 				{:else if locationLabel?.label}
-					<div class="rounded-[22px] border border-blue-200 bg-blue-50/70 px-4 py-4">
-						<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">Konfirmasi wilayah</p>
-						<p class="mt-2 text-sm font-bold text-slate-950">{locationPrimaryLabel(locationLabel)}</p>
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4">
+						<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-ink">Konfirmasi wilayah</p>
+						<p class="mt-2 text-sm font-bold text-ink">{locationPrimaryLabel(locationLabel)}</p>
 						{#if locationSecondaryLabel(locationLabel)}
-							<p class="mt-1 text-xs leading-5 text-blue-700">{locationSecondaryLabel(locationLabel)}</p>
+							<p class="mt-1 text-xs leading-5 text-ink">{locationSecondaryLabel(locationLabel)}</p>
 						{/if}
 					</div>
-					<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm text-muted">
 						Nama jalan akan dilengkapi otomatis saat laporan dikirim.
 					</div>
 				{:else if locationLabelError}
 					<div class="notice-panel">{locationLabelError}</div>
 				{:else}
-					<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+					<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-3 text-sm text-muted">
 						Nama wilayah belum tersedia, koordinat tetap jadi acuan laporan.
 					</div>
 				{/if}
@@ -480,17 +480,17 @@
 					Perbarui lokasi
 				</button>
 			{:else if locationLoading}
-				<div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+				<div class="rounded-[4px] border border-hairline bg-sunken px-4 py-4 text-sm text-muted">
 					Mengambil lokasi...
 				</div>
 			{:else}
 				<div class="error-panel">{geoError ?? 'Lokasi belum tersedia.'}</div>
 				<div class="jedug-panel space-y-3 p-4">
 					<div class="flex items-start gap-3">
-						<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-surface text-brand">
 							<InfoIcon class="size-5" />
 						</div>
-						<p class="text-sm leading-6 text-slate-600">
+						<p class="text-sm leading-6 text-muted">
 							Jika lokasi otomatis gagal di laptop, isi koordinat manual dari Google Maps.
 						</p>
 					</div>
@@ -531,12 +531,12 @@
 
 	<section class="jedug-card p-5">
 		<div class="mb-4 flex items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 				<CameraIcon class="size-6" />
 			</div>
 			<div>
-				<h2 class="text-lg font-bold text-slate-950">Foto bukti</h2>
-				<p class="mt-1 text-sm leading-6 text-slate-500">
+				<h2 class="text-lg font-bold text-ink">Foto bukti</h2>
+				<p class="mt-1 text-sm leading-6 text-muted">
 					Unggah minimal satu foto yang memperlihatkan kondisi kerusakan dengan jelas.
 				</p>
 			</div>
@@ -546,12 +546,12 @@
 
 	<section class="jedug-card p-5">
 		<div class="mb-4 flex items-start gap-3">
-			<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+			<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 				<DangerIcon class="size-6" />
 			</div>
 			<div>
-				<h2 class="text-lg font-bold text-slate-950">Tingkat keparahan</h2>
-				<p class="mt-1 text-sm leading-6 text-slate-500">
+				<h2 class="text-lg font-bold text-ink">Tingkat keparahan</h2>
+				<p class="mt-1 text-sm leading-6 text-muted">
 					Pilih level yang paling menggambarkan dampak kerusakan di lapangan.
 				</p>
 			</div>
@@ -560,19 +560,19 @@
 		<div class="space-y-2">
 			{#each severityOptions as opt}
 				<label
-					class={`flex cursor-pointer items-center gap-4 rounded-[24px] border px-4 py-4 transition hover:border-slate-300 ${severity === opt.value ? 'border-brand-200 bg-brand-50/70' : 'border-slate-200 bg-white'}`}
+					class={`flex cursor-pointer items-center gap-4 rounded-[4px] border px-4 py-4 transition hover:border-hairline-strong ${severity === opt.value ? 'border-brand/30 bg-brand-tint' : 'border-hairline bg-surface'}`}
 				>
 					<input class="hidden" type="radio" name="severity" value={opt.value} bind:group={severity} />
 					<span
-						class:bg-brand-500={severity === opt.value}
+						class:bg-brand={severity === opt.value}
 						class:text-white={severity === opt.value}
-						class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-700"
+						class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-sunken text-sm font-bold text-ink"
 					>
 						{opt.value}
 					</span>
 					<span class="min-w-0">
-						<strong class="block text-sm font-bold text-slate-900">{opt.label}</strong>
-						<small class="mt-1 block text-xs leading-5 text-slate-500">{opt.desc}</small>
+						<strong class="block text-sm font-bold text-ink">{opt.label}</strong>
+						<small class="mt-1 block text-xs leading-5 text-muted">{opt.desc}</small>
 					</span>
 				</label>
 			{/each}
@@ -582,20 +582,20 @@
 	<section class="grid gap-4 md:grid-cols-2">
 		<div class="jedug-card p-5">
 			<div class="mb-4 flex items-start gap-3">
-				<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+				<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 					<DangerIcon class="size-6" />
 				</div>
 				<div>
-					<h2 class="text-lg font-bold text-slate-950">Informasi korban</h2>
-					<p class="mt-1 text-sm leading-6 text-slate-500">
+					<h2 class="text-lg font-bold text-ink">Informasi korban</h2>
+					<p class="mt-1 text-sm leading-6 text-muted">
 						Isi hanya jika memang ada laporan korban dari kejadian terkait titik ini.
 					</p>
 				</div>
 			</div>
 
-			<label class="flex items-center gap-3 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
+			<label class="flex items-center gap-3 rounded-[4px] border border-hairline bg-sunken px-4 py-3">
 				<input type="checkbox" class="h-4 w-4 accent-[#e5484d]" bind:checked={hasCasualty} />
-				<span class="text-sm font-semibold text-slate-800">Ya, ada korban</span>
+				<span class="text-sm font-semibold text-ink">Ya, ada korban</span>
 			</label>
 
 			{#if hasCasualty}
@@ -610,12 +610,12 @@
 
 		<div class="jedug-card p-5">
 			<div class="mb-4 flex items-start gap-3">
-				<div class="flex size-11 shrink-0 items-center justify-center rounded-[18px] bg-brand-50 text-brand-600">
+				<div class="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-brand-tint text-brand">
 					<DocumentIcon class="size-6" />
 				</div>
 				<div>
-					<h2 class="text-lg font-bold text-slate-950">Catatan tambahan</h2>
-					<p class="mt-1 text-sm leading-6 text-slate-500">
+					<h2 class="text-lg font-bold text-ink">Catatan tambahan</h2>
+					<p class="mt-1 text-sm leading-6 text-muted">
 						Tambahkan konteks singkat yang membantu orang lain memahami situasinya.
 					</p>
 				</div>
@@ -628,12 +628,12 @@
 				maxlength="500"
 				class="textarea-field"
 			></textarea>
-			<div class="mt-2 text-right text-xs font-semibold text-slate-400">{note.length}/500</div>
+			<div class="mt-2 text-right text-xs font-semibold text-subtle">{note.length}/500</div>
 		</div>
 	</section>
 
 	{#if submitting && currentStep !== 'idle'}
-		<div class="rounded-[22px] border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700">
+		<div class="rounded-[4px] border border-brand/30 bg-brand-tint px-4 py-3 text-sm font-semibold text-brand">
 			{stepLabels[currentStep]}
 		</div>
 	{/if}
@@ -655,7 +655,7 @@
 				Kirim Laporan
 			{/if}
 		</button>
-		<p class="mt-3 text-center text-xs leading-5 text-slate-500">
+		<p class="mt-3 text-center text-xs leading-5 text-muted">
 			Laporan dikirim anonim dari browser ini. Pastikan foto dan koordinat sudah benar sebelum menekan tombol kirim.
 		</p>
 	</div>

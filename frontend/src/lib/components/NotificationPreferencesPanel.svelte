@@ -140,12 +140,12 @@
 		onclick={() => (open = !open)}
 	>
 		<div class="flex min-w-0 items-start gap-3">
-			<div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+			<div class="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-sunken text-ink">
 				<SettingsIcon class="size-5" />
 			</div>
 			<div class="min-w-0">
-				<div class="text-sm font-bold text-slate-950">Preferensi Notifikasi</div>
-				<p class="mt-1 text-xs leading-5 text-slate-500">
+				<div class="text-sm font-bold text-ink">Preferensi Notifikasi</div>
+				<p class="mt-1 text-xs leading-5 text-muted">
 					Atur update mana yang masih ingin kamu terima.
 				</p>
 			</div>
@@ -157,11 +157,11 @@
 	</button>
 
 	{#if open}
-		<div class="space-y-4 border-t border-slate-100 px-4 pb-4 pt-3">
+		<div class="space-y-4 border-t border-hairline px-4 pb-4 pt-3">
 			{#if prefsState.loading}
-				<div class="state-panel border-0 bg-white/70 px-4 py-6">
-					<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-brand-500"></div>
-					<p class="mt-3 text-sm text-slate-500">Memuat preferensi...</p>
+				<div class="state-panel border-0 bg-surface px-4 py-6">
+					<div class="mx-auto size-9 animate-spin rounded-full border-[3px] border-hairline border-t-brand-500"></div>
+					<p class="mt-3 text-sm text-muted">Memuat preferensi...</p>
 				</div>
 			{:else if prefsState.unavailableMessage}
 				<div class="notice-panel">{prefsState.unavailableMessage}</div>
@@ -171,8 +171,8 @@
 				{#each preferenceSections as section}
 					<div class="space-y-3">
 						<div class="flex items-center gap-2 px-1">
-							<BellIcon class="size-4 text-brand-500" />
-							<div class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+							<BellIcon class="size-4 text-brand" />
+							<div class="text-[11px] font-bold uppercase tracking-[0.18em] text-subtle">
 								{section.title}
 							</div>
 						</div>
@@ -180,11 +180,11 @@
 						<div class="space-y-2">
 							{#each section.items as item}
 								<label
-									class={`flex items-start justify-between gap-4 rounded-[22px] border px-4 py-3 shadow-[0_10px_22px_rgba(15,23,42,0.04)] ${item.checked ? 'border-brand-100 bg-brand-50/50' : 'border-slate-200 bg-white'}`}
+									class={`flex items-start justify-between gap-4 rounded-[4px] border px-4 py-3  ${item.checked ? 'border-brand/30 bg-brand-tint' : 'border-hairline bg-surface'}`}
 								>
 									<div class="space-y-1">
-										<div class="text-sm font-semibold text-slate-900">{item.label}</div>
-										<p class="text-xs leading-5 text-slate-500">{item.description}</p>
+										<div class="text-sm font-semibold text-ink">{item.label}</div>
+										<p class="text-xs leading-5 text-muted">{item.description}</p>
 									</div>
 									<input
 										type="checkbox"
