@@ -8,3 +8,7 @@
 .playwright*
 .qwen
 output/
+
+# Design reference image generation output (binary, regenerable via scripts/genimg.sh)
+frontend/static/design-refs/*.png
+frontend/static/design-refs/.manifest.log

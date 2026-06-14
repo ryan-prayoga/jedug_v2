@@ -8,10 +8,13 @@
 		DocumentIcon,
 		MapIcon,
 		NotificationIcon,
-		TrashIcon
+		TrashIcon,
+		MoonIcon,
+		SunIcon
 	} from '$lib/icons';
 	import { requestIssueDetailRefresh } from '$lib/utils/issue-detail-refresh';
 	import { notificationsState, unreadNotificationCount } from '$lib/stores/notifications';
+	import { theme, setTheme, getInitialTheme, type ThemeMode } from '$lib/stores/theme';
 
 	const pathname = $derived($page.url.pathname);
 	const unreadCount = $derived($unreadNotificationCount);
@@ -33,6 +36,21 @@
 		$state<typeof import('$lib/components/NotificationPreferencesPanel.svelte').default | null>(null);
 	let notifPanelsLoading = $state(false);
 	let notifPanelsError = $state<string | null>(null);
+
+	// Theme state
+	let currentTheme = $state<ThemeMode>('system');
+	
+	onMount(() => {
+		currentTheme = getInitialTheme();
+	});
+
+	const ThemeIcon = $derived(currentTheme === 'dark' || (currentTheme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? SunIcon : MoonIcon);
+
+	function toggleTheme() {
+		const newTheme: ThemeMode = currentTheme === 'dark' ? 'light' : 'dark';
+		currentTheme = newTheme;
+		setTheme(newTheme);
+	}
 
 	function isLaporActive(path: string): boolean {
 		return path === '/lapor' || path.startsWith('/lapor/');
@@ -149,32 +167,44 @@
 	});
 </script>
 
-<header class="sticky top-0 z-[100] border-b border-white/70 bg-white/80 backdrop-blur-xl">
+<header class="sticky top-0 z-[100] border-b border-white/70 bg-white/80 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80">
 	<div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
 		<div class="flex items-center justify-between gap-4">
 			<a
 				href="/"
-				class="flex min-w-0 items-center gap-3 rounded-[24px] border border-white/60 bg-white/75 px-3 py-2 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur"
+				class="flex min-w-0 items-center gap-3 rounded-[24px] border border-white/60 bg-white/75 px-3 py-2 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-700/60 dark:bg-slate-800/75 dark:shadow-[0_12px_28px_rgba(0,0,0,0.30)]"
 			>
-				<div class="flex size-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+				<div class="flex size-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
 					<MapIcon class="size-6" />
 				</div>
 				<div class="min-w-0">
-					<p class="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">
+					<p class="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400">
 						Civic-Tech
 					</p>
 					<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-						<strong class="text-lg font-[800] tracking-[-0.04em] text-slate-950">JEDUG</strong>
-						<span class="text-xs text-slate-500 sm:text-sm">Pantau Jalan Rusak</span>
+						<strong class="text-lg font-[800] tracking-[-0.04em] text-slate-950 dark:text-slate-100">JEDUG</strong>
+						<span class="text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Pantau Jalan Rusak</span>
 					</div>
 				</div>
 			</a>
 
-			<div class="relative shrink-0">
+			<div class="flex items-center gap-2">
+				<!-- Theme Toggle -->
+				<button
+					type="button"
+					class="btn-icon border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200"
+					onclick={toggleTheme}
+					aria-label={currentTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+					title={currentTheme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+				>
+					<ThemeIcon class="size-5" />
+				</button>
+
+				<div class="relative shrink-0">
 				<button
 					bind:this={notifButtonEl}
 					type="button"
-					class="btn-icon relative border-brand-100/70 bg-white/90 text-slate-700"
+					class="btn-icon relative border-brand-100/70 bg-white/90 text-slate-700 dark:border-brand-900/50 dark:bg-slate-800/90 dark:text-slate-400"
 					onclick={handlePanelToggle}
 					aria-haspopup="dialog"
 					aria-expanded={openNotif}
@@ -191,16 +221,16 @@
 				{#if openNotif}
 					<div
 						bind:this={notifPanelEl}
-						class="absolute right-0 top-[calc(100%+0.85rem)] z-[120] flex w-[min(95vw,26rem)] flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+						class="absolute right-0 top-[calc(100%+0.85rem)] z-[120] flex w-[min(95vw,26rem)] flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
 					>
-						<div class="border-b border-slate-100 px-4 py-4">
+						<div class="border-b border-slate-100 px-4 py-4 dark:border-slate-700/60">
 							<div class="flex items-center gap-3">
-								<div class="flex size-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+								<div class="flex size-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
 									<NotificationIcon class="size-5" />
 								</div>
 								<div class="min-w-0 flex-1">
-									<h2 class="text-sm font-bold text-slate-950">Pusat Notifikasi</h2>
-									<p class="text-xs leading-5 text-slate-500">
+									<h2 class="text-sm font-bold text-slate-950 dark:text-slate-100">Pusat Notifikasi</h2>
+									<p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
 										Update issue, preferensi, dan nearby alerts terkumpul di satu panel.
 									</p>
 								</div>
@@ -310,10 +340,11 @@
 					</div>
 				{/if}
 			</div>
+			</div>
 		</div>
 
 		<nav
-			class="grid grid-cols-3 gap-2 rounded-[24px] border border-white/70 bg-white/75 p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.05)] backdrop-blur"
+			class="grid grid-cols-3 gap-2 rounded-[24px] border border-white/70 bg-white/75 p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700/70 dark:bg-slate-800/75 dark:shadow-[0_12px_28px_rgba(0,0,0,0.25)]"
 			aria-label="Navigasi utama"
 		>
 			{#each navItems as item}
@@ -323,7 +354,7 @@
 					class:bg-brand-500={isActiveNav(item.href, pathname)}
 					class:text-white={isActiveNav(item.href, pathname)}
 					class:shadow-[0_14px_30px_rgba(229,72,77,0.2)]={isActiveNav(item.href, pathname)}
-					class="flex min-h-12 items-center justify-center gap-2 rounded-[18px] px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+					class="flex min-h-12 items-center justify-center gap-2 rounded-[18px] px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200"
 					aria-current={isActiveNav(item.href, pathname) ? 'page' : undefined}
 				>
 					<NavIcon class="size-[18px]" />

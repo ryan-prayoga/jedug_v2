@@ -26,6 +26,7 @@ export { default as LocationIcon } from '@iconify-svelte/solar/map-point-line-du
 export { default as LoginIcon } from '@iconify-svelte/solar/login-2-line-duotone';
 export { default as LogoutIcon } from '@iconify-svelte/solar/logout-2-line-duotone';
 export { default as MapIcon } from '@iconify-svelte/solar/map-arrow-square-line-duotone';
+export { default as MoonIcon } from '@iconify-svelte/solar/moon-line-duotone';
 export { default as RankingIcon } from '@iconify-svelte/solar/ranking-line-duotone';
 export { default as NotificationIcon } from '@iconify-svelte/solar/notification-unread-lines-line-duotone';
 export { default as RefreshIcon } from '@iconify-svelte/solar/refresh-circle-line-duotone';
@@ -35,6 +36,7 @@ export { default as SettingsIcon } from '@iconify-svelte/solar/settings-minimali
 export { default as ShareIcon } from '@iconify-svelte/solar/share-line-duotone';
 export { default as ShieldCheckIcon } from '@iconify-svelte/solar/shield-check-line-duotone';
 export { default as StreetsIcon } from '@iconify-svelte/solar/streets-map-point-line-duotone';
+export { default as SunIcon } from '@iconify-svelte/solar/sun-line-duotone';
 export { default as TargetIcon } from '@iconify-svelte/solar/target-line-duotone';
 export { default as TrashIcon } from '@iconify-svelte/solar/trash-bin-minimalistic-line-duotone';
 export { default as UserIcon } from '@iconify-svelte/solar/user-line-duotone';

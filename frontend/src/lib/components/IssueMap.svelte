@@ -3,6 +3,7 @@
 	import type { Issue } from '$lib/api/types';
 	import type { BBox } from '$lib/utils/bbox';
 	import { getIssueHeatWeight, type MapVisualMode } from '$lib/utils/issue-heatmap';
+	import { getResolvedTheme } from '$lib/stores/theme';
 	import type {
 		GeoJSONSource,
 		GeolocateControl,
@@ -92,6 +93,14 @@
 		type: 'FeatureCollection',
 		features: []
 	};
+
+	function getBasemapStyle(): string {
+		const theme = getResolvedTheme();
+		if (theme === 'dark') {
+			return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+		}
+		return 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+	}
 
 	const markerColorExpression: any = [
 		'case',
@@ -747,6 +756,22 @@
 	onMount(() => {
 		let disposed = false;
 
+		// Auto-switch map style when theme changes
+		$effect(() => {
+			getResolvedTheme(); // Track theme changes
+			if (map && !map.isMoving()) {
+				const currentStyle = map.getStyle();
+				const isDark = getResolvedTheme() === 'dark';
+				const expectedStyle = isDark 
+					? 'dark-matter-gl-style' 
+					: 'positron-gl-style';
+				
+				if (!currentStyle.includes(expectedStyle)) {
+					map.setStyle(getBasemapStyle());
+				}
+			}
+		});
+
 		void (async () => {
 			try {
 				const maplibre = await loadMapLibreModule();
@@ -754,7 +779,7 @@
 
 				map = new maplibre.Map({
 					container: mapContainer,
-					style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+					style: getBasemapStyle(),
 					center: DEFAULT_CENTER,
 					zoom: DEFAULT_ZOOM,
 					attributionControl: false

@@ -9,6 +9,7 @@
 	import { recordConsent } from '$lib/api/device';
 	import { ensureDeviceBootstrap } from '$lib/utils/device-init';
 	import { notificationsState } from '$lib/stores/notifications';
+	import { getInitialTheme, useThemeSync } from '$lib/stores/theme';
 
 	let { children } = $props();
 
@@ -22,11 +23,21 @@
 		$page.url.pathname.startsWith('/issues/') && $page.url.pathname !== '/issues'
 	);
 
+	// Apply theme on init
+	if (typeof window !== 'undefined') {
+		const initialTheme = getInitialTheme();
+		// Will be applied by the store
+		import('$lib/stores/theme').then(({ setTheme }) => setTheme(initialTheme));
+	}
+
 	onMount(async () => {
 		if (isAdmin) {
 			ready = true;
 			return;
 		}
+
+		// Setup theme sync with system preference
+		const cleanup = useThemeSync();
 
 		try {
 			await ensureDeviceBootstrap({ retry: 1 });
@@ -37,9 +48,13 @@
 			}
 
 			ready = true;
+
+			return cleanup;
 		} catch (e) {
 			initError = 'Inisialisasi perangkat belum selesai. Mohon tunggu sebentar lalu muat ulang halaman.';
 			ready = true;
+			
+			return cleanup;
 		}
 	});
 

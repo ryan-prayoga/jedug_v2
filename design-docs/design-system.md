@@ -20,6 +20,11 @@ Dokumen ini bukan tempat utama untuk behavior detail tiap komponen atau flow hal
 - **Character**: Civic, serious, clean, informative, mobile-first, map-first
 - **Frontend Styling Runtime**: Tailwind CSS v4 + theme tokens di `frontend/src/app.css`
 - **Icon System**: Iconify Solar `line-duotone` sebagai family default lintas publik + admin
+- **Dark Mode**: Didukung penuh via `data-theme` attribute + `.dark` class, dengan toggle di header
+  - Theme modes: `light`, `dark`, `system` (default)
+  - Preference disimpan di localStorage (`jedug-theme`)
+  - Auto-sync dengan system preference via `prefers-color-scheme` media query
+  - Map basemap auto-switch: Positron (light) ↔ Dark Matter (dark)
 
 ## Color Palette
 
@@ -75,6 +80,26 @@ Dokumen ini bukan tempat utama untuk behavior detail tiap komponen atau flow hal
 | Border         | `#E2E8F0` | Dividers, card borders       |
 | Text Primary   | `#0F172A` | Headings, body text          |
 | Text Secondary | `#64748B` | Captions, labels, muted text |
+
+### Dark Mode Surface Colors
+
+| Token          | Hex       | Usage                        |
+| -------------- | --------- | ---------------------------- |
+| Canvas Dark    | `#0B1119` | Dark page background         |
+| Surface Dark   | `#0F1620` | Dark header/hero bg          |
+| Card Dark      | `#1E293B` | Dark card bg (slate-800)     |
+| Border Dark    | `#334155` | Dark dividers (slate-700)    |
+| Text Dark      | `#E5E7EB` | Dark text primary (gray-200) |
+| Text Muted     | `#9CA3AF` | Dark muted text (gray-400)   |
+
+### Dark Mode Adjustments
+
+- Severity colors tetap sama, tapi background markers dapat opacity adjustment
+- Status badges: Open (biru terang `#60A5FA`), Fixed/Archived (abu terang `#9CA3AF`)
+- Verification badges: Hijau disesuaikan untuk kontras di dark bg
+- Shadows lebih dalam: `rgba(0, 0, 0, 0.30-0.45)` untuk elevated elements
+- Brand red CTA tetap `#E5484D` tapi dengan shadow lebih subtle
+- Map basemap: Positron (light) → Dark Matter (dark) via CartoDB
 
 ## Typography
 
