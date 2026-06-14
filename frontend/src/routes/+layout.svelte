@@ -22,6 +22,9 @@
 	const isIssueDetailPage = $derived(
 		$page.url.pathname.startsWith('/issues/') && $page.url.pathname !== '/issues'
 	);
+	const isWidePage = $derived(
+		isIssueDetailPage || $page.url.pathname === '/lapor' || $page.url.pathname === '/stats'
+	);
 
 	// Apply theme on init
 	if (typeof window !== 'undefined') {
@@ -82,7 +85,7 @@
 {:else}
 	<div class="app-shell">
 		<AppHeader />
-		<main class="app-main" class:app-main-full={isMapPage} class:app-main-wide={isIssueDetailPage}>
+		<main class="app-main" class:app-main-full={isMapPage} class:app-main-wide={isWidePage}>
 			{@render children()}
 		</main>
 

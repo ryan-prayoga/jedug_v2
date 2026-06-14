@@ -386,42 +386,46 @@
 	/>
 </svelte:head>
 
-<div class="public-stack">
-	<section class="jedug-card overflow-hidden">
-		<div class="grid gap-5 px-5 py-6 sm:px-6">
-			<div class="space-y-4">
-				<span class="section-kicker">
-					<DocumentIcon class="size-4" />
-					Form pelaporan cepat
-				</span>
-				<div class="space-y-2">
-					<h1 class="section-title text-balance">
-						Laporkan jalan rusak dengan bukti yang rapi dan mudah diproses.
-					</h1>
-					<p class="section-copy">
-						Fokusnya tetap sederhana: pastikan lokasi akurat, unggah foto yang jelas, lalu pilih tingkat keparahan yang paling sesuai.
-					</p>
-				</div>
-			</div>
-			<div class="grid gap-3 sm:grid-cols-3">
-				<div class="jedug-panel p-4">
-					<p class="surface-label">1. Lokasi</p>
-					<p class="mt-2 text-sm font-semibold text-ink">Pastikan titik laporan benar</p>
+<div class="lg:grid lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start lg:gap-10">
+	<aside class="mb-8 flex flex-col gap-6 lg:sticky lg:top-24 lg:mb-0">
+		<div class="space-y-4">
+			<span class="kicker">
+				<DocumentIcon class="size-4" />
+				Form pelaporan cepat
+			</span>
+			<h1 class="section-title text-balance">
+				Laporkan jalan rusak dengan bukti yang rapi dan mudah diproses.
+			</h1>
+			<p class="section-copy">
+				Fokusnya tetap sederhana: pastikan lokasi akurat, unggah foto yang jelas, lalu pilih tingkat keparahan yang paling sesuai.
+			</p>
+		</div>
+		<ol class="flex flex-col">
+			<li class="flex gap-4 border-t border-hairline py-4">
+				<span class="editorial-index pt-0.5">01</span>
+				<div>
+					<p class="text-sm font-semibold text-ink">Pastikan titik laporan benar</p>
 					<p class="mt-1 text-xs leading-5 text-muted">Koordinat tetap jadi acuan utama, label wilayah hanya konfirmasi UX.</p>
 				</div>
-				<div class="jedug-panel p-4">
-					<p class="surface-label">2. Foto</p>
-					<p class="mt-2 text-sm font-semibold text-ink">Gunakan foto yang mudah dibaca</p>
+			</li>
+			<li class="flex gap-4 border-t border-hairline py-4">
+				<span class="editorial-index pt-0.5">02</span>
+				<div>
+					<p class="text-sm font-semibold text-ink">Gunakan foto yang mudah dibaca</p>
 					<p class="mt-1 text-xs leading-5 text-muted">Foto yang fokus membantu moderasi dan membuat issue lebih kredibel.</p>
 				</div>
-				<div class="jedug-panel p-4">
-					<p class="surface-label">3. Severity</p>
-					<p class="mt-2 text-sm font-semibold text-ink">Pilih level yang jujur</p>
+			</li>
+			<li class="flex gap-4 border-t border-hairline py-4">
+				<span class="editorial-index pt-0.5">03</span>
+				<div>
+					<p class="text-sm font-semibold text-ink">Pilih level yang jujur</p>
 					<p class="mt-1 text-xs leading-5 text-muted">Gunakan deskripsi yang paling mendekati kondisi nyata di lapangan.</p>
 				</div>
-			</div>
-		</div>
-	</section>
+			</li>
+		</ol>
+	</aside>
+
+	<div class="public-stack">
 
 	<section class="jedug-card p-5">
 		<div class="flex items-start gap-3">
@@ -658,5 +662,6 @@
 		<p class="mt-3 text-center text-xs leading-5 text-muted">
 			Laporan dikirim anonim dari browser ini. Pastikan foto dan koordinat sudah benar sebelum menekan tombol kirim.
 		</p>
+	</div>
 	</div>
 </div>

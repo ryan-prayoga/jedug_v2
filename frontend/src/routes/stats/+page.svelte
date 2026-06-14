@@ -583,7 +583,7 @@
 						<ChartIcon class="size-4" />
 						Statistik publik
 					</span>
-					<h1 class="mt-4 text-balance text-[clamp(2rem,4vw,3.2rem)] font-[800] tracking-[-0.05em] text-ink">
+					<h1 class="mt-4 text-balance font-serif text-[clamp(2rem,4vw,3.2rem)] font-semibold tracking-[-0.02em] text-ink">
 						Dashboard jalan rusak yang lebih mudah dipindai.
 					</h1>
 					<p class="mt-3 text-sm leading-6 text-muted sm:text-[15px]">
